@@ -1,0 +1,430 @@
+module MD
+  use group
+  use sys
+  use LJ
+  use MPCD
+  implicit none
+
+  integer, parameter :: max_neigh=8192
+
+  type(sys_t) :: at_sys
+
+  type(group_t), allocatable :: group_list(:)
+  
+  double precision, allocatable :: at_r(:,:), at_v(:,:)
+  double precision, allocatable, target :: at_f1(:,:), at_f2(:,:)
+  double precision, pointer :: at_f(:,:), at_f_old(:,:), at_f_temp(:,:)
+  double precision, allocatable :: at_r_neigh(:,:)
+  integer, allocatable :: at_neigh_list(:,:)
+  integer, allocatable :: at_species(:)
+
+  double precision :: DT
+
+  integer, allocatable :: reac_table(:,:)
+  integer, allocatable :: reac_product(:,:)
+  double precision, allocatable :: reac_rates(:,:)
+  double precision :: excess
+
+contains
+
+
+  subroutine config_MD
+    implicit none
+
+    integer :: i,j
+    
+    allocate(at_r(3,at_sys%N_max))
+    allocate(at_v(3,at_sys%N_max))
+    allocate(at_f1(3,at_sys%N_max))
+    allocate(at_f2(3,at_sys%N_max))
+    allocate(at_r_neigh(3,at_sys%N_max))
+    allocate(at_species(at_sys%N_max))
+
+    allocate(at_neigh_list(0:max_neigh, at_sys%N_max))
+
+    j=1
+    do i=1,at_sys%N_species
+       at_species(j:j-1+at_sys%N(i)) = i
+       j = j+at_sys%N(i)
+    end do
+
+  end subroutine config_MD
+
+  subroutine init_atoms_random
+    
+    double precision :: x(3), dsqr
+    integer :: i,j, iter
+    logical :: too_close
+    
+    i=1
+    iter=1
+    do while (.true.)
+       iter=iter+1
+       call random_number(x)
+       at_r(:,i) = x*L
+       too_close = .false.
+       do j=1,i-1
+          call rel_pos(at_r(:,i),at_r(:,j), L, x)
+          dsqr = sum( x**2 )
+          if (dsqr .lt. at_so%sig(at_species(j),so_species(i))**2) then
+             too_close = .true.
+             exit
+          end if
+       end do
+       if (.not.too_close) then
+          i=i+1
+       end if
+       if (i>at_sys%N(0)) exit
+       if (iter>100*at_sys%N(0)) then
+          write(*,*) 'tried to place atoms more than', 100*at_sys%N(0), 'times'
+          write(*,*) 'failed to place all atoms'
+          stop
+       end if
+    end do
+    at_v = 0.d0
+
+  end subroutine init_atoms_random
+
+  subroutine fill_with_solvent
+
+    integer :: i, j, iter, dim
+    double precision :: x(3), dsqr
+    logical :: too_close
+
+    i=1
+    iter=1
+    do while (.true.)
+       iter = iter+1
+       call random_number(x)
+       so_r(:,i) = x*L
+       too_close = .false.
+       do j=1,at_sys%N(0)
+          call rel_pos(so_r(:,i), at_r(:,j), L, x)
+          dsqr = sum( x**2 )
+          if (dsqr .lt. at_so%cut( at_species(j) , so_species(i) )**2 ) then
+             too_close = .true.
+             exit
+          end if
+       end do
+       if (.not. too_close) then
+          call random_number(x)
+          x = x-0.5d0
+          so_v(:,i) = x*.5d0
+          i=i+1
+       end if
+       if (i>so_sys%N(0)) exit
+       if (iter>100*so_sys%N(0)) then
+          write(*,*) 'tried to place solvent particles more than', 100*so_sys%N(0), 'times'
+          write(*,*) 'failed to place all solvent particle'
+          stop
+       end if
+    end do
+    
+  end subroutine fill_with_solvent
+
+  subroutine init_atoms(CF)
+    use ParseText
+    implicit none
+    type(PTo), intent(in) :: CF
+
+    character(len=24) :: at_init_mode
+
+    at_init_mode = PTread_s(CF,'atinit')
+
+    if (at_init_mode.eq.'center') then
+       if (at_sys%N(0).eq.1) then
+          at_r(:,1) = L/2.d0
+          at_v(:,1) = 0.d0
+       else
+          write(*,*) 'too many atoms for center init mode, stopping'
+          stop
+       end if
+    else
+       write(*,*) 'unknown atinit mode ', at_init_mode, ' stopping'
+       stop
+    end if
+
+  end subroutine init_atoms
+
+  subroutine make_neigh_list
+
+    integer :: at_i, i, dim
+    integer :: ci, cj, ck, mi, mj, mk
+    integer :: Si, Sj, Sk
+    integer :: extent
+    double precision :: dist_sqr, neigh_sqr, x(3)
+    
+    at_neigh_list = 0
+
+    do at_i=1,at_sys%N(0)
+       
+       extent = ceiling( maxval(at_so%neigh(at_species(at_i),:) ) * oo_a )
+
+       Si = floor( at_r(1,at_i) * oo_a ) + 1
+       Sj = floor( at_r(2,at_i) * oo_a ) + 1
+       Sk = floor( at_r(3,at_i) * oo_a ) + 1
+       do ck= Sk - extent, Sk + extent
+          do cj = Sj - extent, Sj + extent
+             do ci = Si - extent, Si + extent
+                mi = modulo(ci-1,N_cells(1)) + 1 ; mj = modulo(cj-1,N_cells(2)) + 1 ; mk = modulo(ck-1,N_cells(3)) + 1 ; 
+                do i=1,par_list(0,mi,mj,mk)
+                   call rel_pos(so_r(:,par_list(i,mi,mj,mk)) , at_r(:,at_i) , L, x)
+                   dist_sqr = sum( x**2 )
+                   neigh_sqr = at_so%neigh( at_species(at_i), so_species(par_list(i,mi,mj,mk)))**2
+                   if ( dist_sqr .le. neigh_sqr ) then
+                      at_neigh_list(0,at_i) = at_neigh_list(0,at_i) + 1
+                      if (at_neigh_list(0,at_i) > max_neigh) then
+                         write(*,*) 'too many neighbours for atom',at_i
+                         stop
+                      end if
+                      at_neigh_list(at_neigh_list(0,at_i),at_i) = par_list(i,mi,mj,mk)
+                   end if
+                end do
+             end do
+          end do
+       end do
+    end do
+
+    so_r_neigh = so_r
+    at_r_neigh = at_r
+
+  end subroutine make_neigh_list
+
+  subroutine compute_f
+
+    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h
+    double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
+    double precision :: dist_min, d, at_dist_min
+
+    so_f_temp => so_f
+    so_f => so_f_old
+    so_f_old => so_f_temp
+
+    at_f_temp => at_f
+    at_f => at_f_old
+    at_f_old => at_f_temp
+    
+    so_f = 0.d0
+    at_f = 0.d0
+
+    dist_min = ( L(1) + L(2) + L(3) ) **2
+
+    do at_i=1,at_sys%N(0)
+       at_si = at_species(at_i)
+
+       do j=1, at_neigh_list(0,at_i)
+          part = at_neigh_list(j, at_i)
+          call rel_pos(so_r(:,part), at_r(:,at_i), L, x)
+          dist_sqr = sum( x**2 )
+          if (dist_sqr < dist_min) dist_min=dist_sqr
+          if ( dist_sqr .le. at_so%cut(at_si, so_species(part))**2 ) then
+             f_var = 24.d0 * at_so%eps( at_si,so_species(part) ) * ( ( 2.d0*at_so%sig(at_si,so_species(part))**6/dist_sqr**3 - 1.d0 ) * at_so%sig(at_si,so_species(part))**6/dist_sqr**4 ) * x
+             so_f(:,part) = so_f(:,part) + f_var
+             at_f(:,at_i) = at_f(:,at_i) - f_var
+          end if
+       end do
+    end do
+
+    at_dist_min = ( L(1) + L(2) + L(3) ) **2
+
+
+    do at_i = 1, at_sys%N(0)
+       do at_j = 1, at_i - 1
+          call rel_pos(at_r(:,at_i), at_r(:,at_j), L, x)
+          LJsig = at_at%sig( at_species(at_i), at_species(at_j) )
+          LJcut_sqr = at_at%cut( at_species(at_i), at_species(at_j) )**2
+          dist_sqr = sum( x**2 )
+          if (dist_sqr .lt. at_dist_min) at_dist_min = dist_sqr
+          if ( dist_sqr .le. LJcut_sqr ) then
+             f_var = 24.d0 * at_at%eps( at_species(at_i),at_species(at_j) ) * ( ( 2.d0*LJsig**6/dist_sqr**3 - 1.d0 ) * LJsig**6/dist_sqr**4 ) * x
+             at_f(:, at_i) = at_f(:,at_i) + f_var
+             at_f(:, at_j) = at_f(:,at_j) - f_var
+          end if
+       end do
+    end do
+
+  end subroutine compute_f
+
+  subroutine MD_step1
+
+    integer :: at_i, part, i
+
+    do i=1,so_sys%N(0)
+       so_r(:,i) = so_r(:,i) + so_v(:,i) * DT + so_f(:,i) * DT**2 * 0.5d0 * so_sys % oo_mass(so_species(i))
+    end do
+    do at_i=1,at_sys%N(0)
+       at_r(:,at_i) = at_r(:,at_i) + at_v(:,at_i) * DT + at_f(:,at_i) * DT**2 * 0.5d0 * at_sys % oo_mass( at_species(at_i) )
+    end do
+    
+  end subroutine MD_step1
+
+  subroutine MD_step2
+
+    integer :: at_i, j, i
+
+    do i=1,so_sys%N(0)
+       so_v(:,i) = so_v(:,i) + 0.5d0 * DT * (so_f(:,i) + so_f_old(:,i)) * so_sys % oo_mass( so_species(i) )
+    end do
+
+    do at_i=1, at_sys%N(0)
+       at_v(:,at_i) = at_v(:,at_i) + 0.5d0 * DT * (at_f(:,at_i) + at_f_old(:,at_i) ) * at_sys % oo_mass( at_species(at_i) )
+    end do
+
+  end subroutine MD_step2
+
+  subroutine compute_tot_mom_energy(file_unit)
+    integer, intent(in) :: file_unit
+
+    integer :: at_i, at_j, j, dim, part, at_si
+    double precision :: LJcut_sqr, LJsig, x(3), y(3), dist_sqr
+    double precision :: at_sol_en, at_at_en, sol_kin, at_kin, mom(3), at_mom(3)
+
+    at_sol_en = 0.d0 ; at_at_en = 0.d0 ; sol_kin = 0.d0 ; at_kin = 0.d0 ; mom = 0.d0 ; at_mom = 0.d0
+
+    do at_i=1,at_sys%N(0)
+       do j=1, at_neigh_list(0,at_i)
+          part = at_neigh_list(j, at_i)
+          LJsig = at_so%sig( at_species( at_i ) , so_species(part) )
+          LJcut_sqr = at_so%cut( at_species(at_i), so_species(part) )**2
+          call rel_pos(so_r(:,part), at_r(:,at_i), L, x)
+          dist_sqr = sum( x**2 )
+          if ( dist_sqr .le. LJcut_sqr ) then
+             at_sol_en = at_sol_en + 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+          end if
+       end do
+    end do
+
+    do part=1,so_sys%N(0)
+       sol_kin = sol_kin + 0.5d0 * so_sys%mass( so_species(part) ) * sum( so_v(:,part)**2 )
+       mom = mom + so_sys%mass(so_species(part)) * so_v(:,part)
+    end do
+
+    do at_i = 1, at_sys%N(0)
+       do at_j = 1, at_i - 1
+          call rel_pos( at_r(:,at_i), at_r(:,at_j), L, x)
+          LJsig = at_at%sig( at_species(at_i),  at_species(at_j) )
+          LJcut_sqr = at_at%cut( at_species(at_i),  at_species(at_j) )**2
+          dist_sqr = sum( x**2 )
+          if ( dist_sqr .le. LJcut_sqr ) then
+             at_at_en = at_at_en + 4.d0 * at_at%eps( at_species(at_i), at_species(at_j) ) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+          end if
+       end do
+    end do
+    
+    do at_i = 1,at_sys%N(0)
+       at_si = at_species(at_i)
+       at_kin = at_kin + 0.5d0 * at_sys%mass( at_si ) * sum( at_v(:,at_i)**2 )
+       at_mom = at_mom + at_sys%mass( at_si ) * at_v(:,at_i)
+    end do
+
+    if (file_unit > 0) write(file_unit,'(7e30.20)') at_sol_en, at_at_en, sol_kin, at_kin, excess, at_sol_en+at_at_en+sol_kin+at_kin, at_sol_en+at_at_en+sol_kin+at_kin+excess
+    
+  end subroutine compute_tot_mom_energy
+
+  subroutine reac_MD_loop
+    integer :: at_i, part, at_si, so_si, j
+    double precision :: alpha, delta_U
+    logical :: called
+
+    called = .false.
+    
+    do at_i=1,at_sys%N(0)
+       at_si = at_species(at_i)
+       do j=1, at_neigh_list(0,at_i)
+          part = at_neigh_list(j, at_i)
+          so_si = so_species(part)
+          if (reac_table(at_si,so_si).gt.0) then
+             call random_number(alpha)
+             if ( .true. ) then
+!             if (reac_rates(at_si,so_si)*DT .gt. alpha) then
+                call reac_MD_do(at_i,part,delta_U)
+                if (abs(delta_U) > 1d-10) exit
+                !excess = excess + delta_U
+             end if
+          end if
+       end do
+    end do
+
+  end subroutine reac_MD_loop
+
+  subroutine rel_pos(r1, r2, Lvar, rvar)
+    double precision, intent(in) :: r1(3), r2(3), Lvar(3)
+    double precision, intent(out) :: rvar(3)
+
+    integer :: dim
+
+    rvar = r1-r2
+    do dim=1,3
+       if ( rvar(dim) < -0.5d0*Lvar(dim) ) then
+          rvar(dim) = rvar(dim) + Lvar(dim)
+       else if ( rvar(dim) > 0.5d0*Lvar(dim) ) then
+          rvar(dim) = rvar(dim) - Lvar(dim)
+       end if
+    end do
+
+  end subroutine rel_pos
+
+  subroutine config_reac_MD(CF)
+    use sys
+    use ParseText
+    implicit none
+    type(PTo), intent(in) :: CF
+    character(len=14) :: temp_name
+    integer :: i
+
+    allocate(reac_table(at_sys%N_species,so_sys%N_species))
+    allocate(reac_product(at_sys%N_species,so_sys%N_species))
+    allocate(reac_rates(at_sys%N_species,so_sys%N_species))
+
+    reac_table = 0
+    reac_product = 0
+    reac_rates = 0.d0
+
+    do i=1,at_sys%N_species
+       write(temp_name,'(a10,i02.2)') 'reac_table', i
+       reac_table(i,:) = PTread_ivec(CF,trim(temp_name),so_sys%N_species)
+       write(temp_name,'(a12,i02.2)') 'reac_product', i
+       reac_product(i,:) = PTread_ivec(CF,trim(temp_name),so_sys%N_species)
+       write(temp_name,'(a10,i02.2)') 'reac_rates', i
+       reac_rates(i,:) = PTread_dvec(CF,trim(temp_name),so_sys%N_species)
+    end do
+    
+  end subroutine config_reac_MD
+
+  subroutine reac_MD_do(at_i, part, delta_U)
+    implicit none
+    integer, intent(in) :: at_i, part
+    double precision, intent(out) :: delta_U
+
+    double precision :: LJsig, dist_sqr, x(3)
+
+    call rel_pos(at_r(:,at_i),so_r(:,part),L,x)
+    dist_sqr = sum(x**2)
+
+    if (dist_sqr .le. at_so%cut(at_species(at_i),so_species(part))**2) then
+
+       delta_U = 0.d0
+       
+       LJsig = at_so%sig(at_species(at_i),so_species(part))
+       if (dist_sqr .le. at_so%cut(at_species(at_i),so_species(part))**2) then
+          delta_U = delta_U + 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+       end if
+       delta_U = delta_U + u_int(so_species(part))
+       so_sys%N(so_species(part)) = so_sys%N(so_species(part)) - 1
+       
+       so_species(part) = reac_product(at_species(at_i),so_species(part))
+       
+       LJsig = at_so%sig(at_species(at_i),so_species(part))
+       if (dist_sqr .le. at_so%cut(at_species(at_i),so_species(part))**2) then
+          delta_U = delta_U - 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+       end if
+       delta_U = delta_U + u_int(so_species(part))
+       so_sys%N(so_species(part)) = so_sys%N(so_species(part)) + 1
+       
+       excess = excess + delta_U
+
+    end if
+
+  end subroutine reac_MD_do
+
+end module MD
