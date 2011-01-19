@@ -3,7 +3,6 @@ module sys
   type sys_t
      character(len=12) :: name
      integer :: N_max
-     integer :: N_groups
      integer :: N_species
      integer, allocatable :: N(:)
      double precision, allocatable :: mass(:)
@@ -30,9 +29,6 @@ contains
     write(format1,'(a2,i02.2,a2,i02.2,a1)') '(a',len(name),',a',len('N_max'),')'
     write(temp_name,format1) name,'N_max'
     sys_var % N_max = PTread_i(CF,trim(temp_name))
-    write(format1,'(a2,i02.2,a2,i02.2,a1)') '(a',len(name),',a',len('N_groups'),')'
-    write(temp_name,format1) name,'N_groups'
-    sys_var % N_groups = PTread_i(CF,trim(temp_name))
     write(format1,'(a2,i02.2,a2,i02.2,a1)') '(a',len(name),',a',len('N_species'),')'
     write(temp_name,format1) name,'N_species'
     sys_var % N_species = PTread_i(CF,trim(temp_name))

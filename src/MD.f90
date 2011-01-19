@@ -9,6 +9,7 @@ module MD
 
   type(sys_t) :: at_sys
 
+  integer :: N_groups
   type(group_t), allocatable :: group_list(:)
   
   double precision, allocatable :: at_r(:,:), at_v(:,:)
@@ -50,6 +51,27 @@ contains
 
   end subroutine config_MD
 
+  subroutine config_atom_group(g_var)
+    implicit none
+    type(group_t), intent(in) :: g_var
+    
+    integer :: i
+
+    do i=g_var%istart, g_var%istart + g_var%N - 1
+       at_species(i) = g_var % species1
+    end do
+    
+  end subroutine config_atom_group
+
+  subroutine config_dimer_group(g_var)
+    implicit none
+    type(group_t), intent(in) :: g_var
+
+    at_species(g_var%istart) = g_var % species1
+    at_species(g_var%istart+1) = g_var % species2
+    
+  end subroutine config_dimer_group
+
   subroutine init_atoms_random
     
     double precision :: x(3), dsqr
@@ -66,7 +88,7 @@ contains
        do j=1,i-1
           call rel_pos(at_r(:,i),at_r(:,j), L, x)
           dsqr = sum( x**2 )
-          if (dsqr .lt. at_so%sig(at_species(j),so_species(i))**2) then
+          if (dsqr .lt. at_so%cut(at_species(j),so_species(i))**2) then
              too_close = .true.
              exit
           end if
@@ -139,6 +161,8 @@ contains
           write(*,*) 'too many atoms for center init mode, stopping'
           stop
        end if
+    else if (at_init_mode.eq.'random') then
+       call init_atoms_random
     else
        write(*,*) 'unknown atinit mode ', at_init_mode, ' stopping'
        stop
@@ -192,7 +216,7 @@ contains
 
   subroutine compute_f
 
-    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h
+    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1
     double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
     double precision :: dist_min, d, at_dist_min
 
@@ -208,6 +232,7 @@ contains
     at_f = 0.d0
 
     dist_min = ( L(1) + L(2) + L(3) ) **2
+
 
     do at_i=1,at_sys%N(0)
        at_si = at_species(at_i)
@@ -227,19 +252,32 @@ contains
 
     at_dist_min = ( L(1) + L(2) + L(3) ) **2
 
+    do at_g = 1, N_groups
+       
+       do at_h = at_g, N_groups
+          
+          if ( (at_g.eq.at_h) .and. (group_list(at_g) % g_type .ne. ATOM_G) ) cycle
 
-    do at_i = 1, at_sys%N(0)
-       do at_j = 1, at_i - 1
-          call rel_pos(at_r(:,at_i), at_r(:,at_j), L, x)
-          LJsig = at_at%sig( at_species(at_i), at_species(at_j) )
-          LJcut_sqr = at_at%cut( at_species(at_i), at_species(at_j) )**2
-          dist_sqr = sum( x**2 )
-          if (dist_sqr .lt. at_dist_min) at_dist_min = dist_sqr
-          if ( dist_sqr .le. LJcut_sqr ) then
-             f_var = 24.d0 * at_at%eps( at_species(at_i),at_species(at_j) ) * ( ( 2.d0*LJsig**6/dist_sqr**3 - 1.d0 ) * LJsig**6/dist_sqr**4 ) * x
-             at_f(:, at_i) = at_f(:,at_i) + f_var
-             at_f(:, at_j) = at_f(:,at_j) - f_var
-          end if
+          do at_i = group_list(at_g) % istart, group_list(at_g) % istart + group_list(at_g) % N - 1
+             if (at_g .eq. at_h) then
+                at_j_1 = at_i+1
+             else
+                at_j_1 = group_list(at_h) % istart
+             end if
+             do at_j = at_j_1, group_list(at_h) % istart + group_list(at_h) % N - 1
+
+                call rel_pos(at_r(:,at_i), at_r(:,at_j), L, x)
+                LJsig = at_at%sig( at_species(at_i), at_species(at_j) )
+                LJcut_sqr = at_at%cut( at_species(at_i), at_species(at_j) )**2
+                dist_sqr = sum( x**2 )
+                if (dist_sqr .lt. at_dist_min) at_dist_min = dist_sqr
+                if ( dist_sqr .le. LJcut_sqr ) then
+                   f_var = 24.d0 * at_at%eps( at_species(at_i),at_species(at_j) ) * ( ( 2.d0*LJsig**6/dist_sqr**3 - 1.d0 ) * LJsig**6/dist_sqr**4 ) * x
+                   at_f(:, at_i) = at_f(:,at_i) + f_var
+                   at_f(:, at_j) = at_f(:,at_j) - f_var
+                end if
+             end do
+          end do
        end do
     end do
 
@@ -276,6 +314,7 @@ contains
     integer, intent(in) :: file_unit
 
     integer :: at_i, at_j, j, dim, part, at_si
+    integer :: at_g, at_h, at_j_1
     double precision :: LJcut_sqr, LJsig, x(3), y(3), dist_sqr
     double precision :: at_sol_en, at_at_en, sol_kin, at_kin, mom(3), at_mom(3)
 
@@ -299,18 +338,33 @@ contains
        mom = mom + so_sys%mass(so_species(part)) * so_v(:,part)
     end do
 
-    do at_i = 1, at_sys%N(0)
-       do at_j = 1, at_i - 1
-          call rel_pos( at_r(:,at_i), at_r(:,at_j), L, x)
-          LJsig = at_at%sig( at_species(at_i),  at_species(at_j) )
-          LJcut_sqr = at_at%cut( at_species(at_i),  at_species(at_j) )**2
-          dist_sqr = sum( x**2 )
-          if ( dist_sqr .le. LJcut_sqr ) then
-             at_at_en = at_at_en + 4.d0 * at_at%eps( at_species(at_i), at_species(at_j) ) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
-          end if
-       end do
-    end do
+    do at_g = 1, N_groups
+
+       do at_h = at_g, N_groups
+
+          if ( (at_g.eq.at_h) .and. (group_list(at_g) % g_type .ne. ATOM_G) ) cycle
     
+          do at_i = group_list(at_g) % istart, group_list(at_g) % istart + group_list(at_g) % N - 1
+             if (at_g .eq. at_h) then
+                at_j_1 = at_i+1
+             else
+                at_j_1 = group_list(at_h) % istart
+             end if
+             do at_j = at_j_1, group_list(at_h) % istart + group_list(at_h) % N - 1
+                call rel_pos( at_r(:,at_i), at_r(:,at_j), L, x)
+                LJsig = at_at%sig( at_species(at_i),  at_species(at_j) )
+                LJcut_sqr = at_at%cut( at_species(at_i),  at_species(at_j) )**2
+                dist_sqr = sum( x**2 )
+                if ( dist_sqr .le. LJcut_sqr ) then
+                   at_at_en = at_at_en + 4.d0 * at_at%eps( at_species(at_i), at_species(at_j) ) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+                end if
+             end do
+          end do
+    
+       end do
+       
+    end do
+
     do at_i = 1,at_sys%N(0)
        at_si = at_species(at_i)
        at_kin = at_kin + 0.5d0 * at_sys%mass( at_si ) * sum( at_v(:,at_i)**2 )

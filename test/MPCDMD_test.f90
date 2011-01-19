@@ -9,9 +9,10 @@ program test
   
   type(PTo) :: CF
 
-  integer :: i_time, i_in, i, reneigh
+  integer :: i_time, i_in, i, istart, reneigh
   integer :: N_MD_loop, N_loop, en_unit, at_unit
   double precision :: max_d
+  character(len=10) :: at_format
 
   call init_random_seed()
 
@@ -20,10 +21,35 @@ program test
   call config_sys(so_sys,'so',CF)
   call config_sys(at_sys,'at',CF)
 
-  call config_MPCD(CF)
-  call config_MD
+  N_groups = PTread_i(CF, 'N_groups')
+
+  if (N_groups <= 0) stop 'Ngroups is not a positive integer'
+  allocate(group_list(N_groups))
+  istart = 1
+  do i=1,N_groups
+     call config_group(group_list(i),i,istart,CF)
+     istart = istart + group_list(i)%N
+  end do
+
+
+  if (at_sys%N_max<sum(group_list(:)%N)) stop 'at_sys%N_max < # atoms from group_list'
 
   call config_LJdata(CF, at_sys%N_species, so_sys%N_species)
+
+
+  call config_MPCD(CF)
+
+  call config_MD
+
+  do i=1,N_groups
+     if (group_list(i)%g_type == ATOM_G) then
+        call config_atom_group(group_list(i))
+     else if (group_list(i)%g_type == DIMER_G) then
+        call config_dimer_group(group_list(i))
+     else
+        stop 'unknown group type'
+     end if
+  end do
 
   call init_atoms(CF)
 
@@ -66,7 +92,8 @@ program test
   open(en_unit,file='energy')
   at_unit=12
   open(at_unit,file='at_x')
-
+  write(at_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
+  write(*,*) at_format
   call compute_tot_mom_energy(en_unit)
 
   reneigh = 0
@@ -89,7 +116,7 @@ program test
         call MD_step2
      end do
      
-     write(at_unit,*) at_r(:,1)
+     write(at_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
 
      call correct_so
      call place_in_cells
