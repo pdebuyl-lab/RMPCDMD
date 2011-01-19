@@ -88,7 +88,7 @@ contains
        do j=1,i-1
           call rel_pos(at_r(:,i),at_r(:,j), L, x)
           dsqr = sum( x**2 )
-          if (dsqr .lt. at_so%cut(at_species(j),so_species(i))**2) then
+          if (dsqr .lt. at_so%cut(at_species(j),at_species(i))**2) then
              too_close = .true.
              exit
           end if
