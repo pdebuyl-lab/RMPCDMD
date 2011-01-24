@@ -115,6 +115,8 @@ program test
         call compute_f
         call MD_step2
      end do
+
+     call correct_at
      
      write(at_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
 
@@ -141,6 +143,18 @@ contains
        end do
     end do
   end subroutine correct_so
+
+  subroutine correct_at
+    integer :: i, dim
+
+    do i=1,at_sys%N(0)
+       do dim=1,3
+          if (at_r(dim,i) < 0.d0) at_r(dim,i) = at_r(dim,i) + L(dim)
+          if (at_r(dim,i) >= L(dim)) at_r(dim,i) = at_r(dim,i) - L(dim)
+       end do
+    end do
+  end subroutine correct_at
+
 
 end program test
 
