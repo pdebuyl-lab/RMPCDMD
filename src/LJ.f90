@@ -116,8 +116,35 @@ contains
 
     LJ_force_smooth_or = 24.d0*eps* sig6_o_r6/rsq * (2.d0*sig6_o_r6 - 1.d0) * x4/(1.d0+x4)
 
-    LJ_force_smooth_or = LJ_force_smooth_or - 16.d0 * sig6_o_r6 * ( sig6_o_r6 - 1.d0 )/sqrt(rsq) * x**3 / (1.d0 + x4)**2
+    LJ_force_smooth_or = LJ_force_smooth_or - 16.d0 * sig6_o_r6 * ( sig6_o_r6 - 1.d0 )/sqrt(rsq) * x**3 / ( (1.d0 + x4)**2 * sigma * h)
 
   end function LJ_force_smooth_or
+
+  function LJ_V(eps, sigma, rsq)
+    implicit none
+    double precision :: LJ_V
+    double precision, intent(in) :: eps, sigma, rsq
+
+    double precision :: sig6_o_r6
+
+    sig6_o_r6 = sigma**6/rsq**3
+    
+    LJ_V = sig6_o_r6 * ( sig6_o_r6 - 1.d0 ) + 0.25d0
+
+  end function LJ_V
+
+  function LJ_V_smooth(eps, sigma, rsq, rcut, h)
+    implicit none
+    double precision :: LJ_V_smooth
+    double precision, intent(in) :: eps, sigma, rsq, rcut, h
+
+    double precision :: sig6_o_r6, x, x4
+
+    x = (rcut - sqrt(rsq))/(sigma*h)
+    x4 = x**4
+
+    LJ_V_smooth = sig6_o_r6 * ( sig6_o_r6 - 1.d0 ) * x4/(1.d0+x4)
+    
+  end function LJ_V_smooth
 
 end module LJ
