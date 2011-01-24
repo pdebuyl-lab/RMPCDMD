@@ -243,7 +243,8 @@ contains
           dist_sqr = sum( x**2 )
           if (dist_sqr < dist_min) dist_min=dist_sqr
           if ( dist_sqr .le. at_so%cut(at_si, so_species(part))**2 ) then
-             f_var = 24.d0 * at_so%eps( at_si,so_species(part) ) * ( ( 2.d0*at_so%sig(at_si,so_species(part))**6/dist_sqr**3 - 1.d0 ) * at_so%sig(at_si,so_species(part))**6/dist_sqr**4 ) * x
+             !f_var = 24.d0 * at_so%eps( at_si,so_species(part) ) * ( ( 2.d0*at_so%sig(at_si,so_species(part))**6/dist_sqr**3 - 1.d0 ) * at_so%sig(at_si,so_species(part))**6/dist_sqr**4 ) * x
+             f_var = LJ_force_or(at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), dist_sqr) * x
              so_f(:,part) = so_f(:,part) + f_var
              at_f(:,at_i) = at_f(:,at_i) - f_var
           end if
@@ -272,7 +273,8 @@ contains
                 dist_sqr = sum( x**2 )
                 if (dist_sqr .lt. at_dist_min) at_dist_min = dist_sqr
                 if ( dist_sqr .le. LJcut_sqr ) then
-                   f_var = 24.d0 * at_at%eps( at_species(at_i),at_species(at_j) ) * ( ( 2.d0*LJsig**6/dist_sqr**3 - 1.d0 ) * LJsig**6/dist_sqr**4 ) * x
+                   !f_var = 24.d0 * at_at%eps( at_species(at_i),at_species(at_j) ) * ( ( 2.d0*LJsig**6/dist_sqr**3 - 1.d0 ) * LJsig**6/dist_sqr**4 ) * x
+                   f_var = LJ_force_or(at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, dist_sqr) * x
                    at_f(:, at_i) = at_f(:,at_i) + f_var
                    at_f(:, at_j) = at_f(:,at_j) - f_var
                 end if
