@@ -15,5 +15,6 @@ cd $tmpdir
 
 ./$exename
 
-$BASE/scripts/plot_energy.py
+$BASE/scripts/disp_en_MPCDMD.py
 
+echo "program run in the directory $tmpdir"
