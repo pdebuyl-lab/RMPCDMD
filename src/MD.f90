@@ -5,7 +5,7 @@ module MD
   use MPCD
   implicit none
 
-  integer, parameter :: max_neigh=8192
+  integer, parameter :: max_neigh=16384
 
   type(sys_t) :: at_sys
 
@@ -25,6 +25,8 @@ module MD
   integer, allocatable :: reac_product(:,:)
   double precision, allocatable :: reac_rates(:,:)
   double precision :: excess
+
+  double precision :: h
 
 contains
 
@@ -218,7 +220,7 @@ contains
 
     integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1
     double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
-    double precision :: dist_min, d, at_dist_min, h
+    double precision :: dist_min, d, at_dist_min
 
     so_f_temp => so_f
     so_f => so_f_old
@@ -233,8 +235,6 @@ contains
 
     dist_min = ( L(1) + L(2) + L(3) ) **2
 
-    h = 0.01d0
-
     do at_i=1,at_sys%N(0)
        at_si = at_species(at_i)
 
@@ -244,11 +244,10 @@ contains
           dist_sqr = sum( x**2 )
           if (dist_sqr < dist_min) dist_min=dist_sqr
           if ( dist_sqr .le. at_so%cut(at_si, so_species(part))**2 ) then
-             !f_var = 24.d0 * at_so%eps( at_si,so_species(part) ) * ( ( 2.d0*at_so%sig(at_si,so_species(part))**6/dist_sqr**3 - 1.d0 ) * at_so%sig(at_si,so_species(part))**6/dist_sqr**4 ) * x
              if (at_so%smooth(at_si,so_species(part))) then
-                f_var = LJ_force_or(at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), dist_sqr) * x
-             else
                 f_var = LJ_force_smooth_or(at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), dist_sqr, at_so%cut(at_si,so_species(part)), h) * x
+             else
+                f_var = LJ_force_or(at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), dist_sqr) * x
              end if
              so_f(:,part) = so_f(:,part) + f_var
              at_f(:,at_i) = at_f(:,at_i) - f_var
@@ -278,7 +277,6 @@ contains
                 dist_sqr = sum( x**2 )
                 if (dist_sqr .lt. at_dist_min) at_dist_min = dist_sqr
                 if ( dist_sqr .le. LJcut_sqr ) then
-                   !f_var = 24.d0 * at_at%eps( at_species(at_i),at_species(at_j) ) * ( ( 2.d0*LJsig**6/dist_sqr**3 - 1.d0 ) * LJsig**6/dist_sqr**4 ) * x
                    if (at_at%smooth(at_species(at_i), at_species(at_j))) then
                       f_var = LJ_force_smooth_or(at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, dist_sqr, at_at%cut(at_species(at_i),at_species(at_j)), h) * x
                    else
@@ -328,9 +326,6 @@ contains
     integer :: at_g, at_h, at_j_1
     double precision :: LJcut_sqr, LJsig, x(3), y(3), dist_sqr
     double precision :: at_sol_en, at_at_en, sol_kin, at_kin, mom(3), at_mom(3)
-    double precision :: h
-
-    h = 0.01d0
 
     at_sol_en = 0.d0 ; at_at_en = 0.d0 ; sol_kin = 0.d0 ; at_kin = 0.d0 ; mom = 0.d0 ; at_mom = 0.d0
 
@@ -343,7 +338,6 @@ contains
           dist_sqr = sum( x**2 )
           if ( dist_sqr .le. LJcut_sqr ) then
              if (at_so%smooth(at_species(at_i),so_species(part))) then
-                !at_sol_en = at_sol_en + 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
                 at_sol_en = at_sol_en + LJ_V_smooth( at_so%eps( at_species(at_i), so_species(part)) , LJsig, dist_sqr , at_so%cut( at_species(at_i), so_species(part) ), h)
              else
                 at_sol_en = at_sol_en + LJ_V( at_so%eps( at_species(at_i), so_species(part)) , LJsig, dist_sqr )
@@ -376,10 +370,9 @@ contains
                 dist_sqr = sum( x**2 )
                 if ( dist_sqr .le. LJcut_sqr ) then
                    if (at_at%smooth(at_species(at_i),at_species(at_j))) then
-                      at_at_en = at_at_en + LJ_V(at_at%eps( at_species(at_i), at_species(at_j) ) , LJsig, dist_sqr )
-                   else
                       at_at_en = at_at_en + LJ_V_smooth(at_at%eps( at_species(at_i), at_species(at_j) ) , LJsig, dist_sqr , at_at%cut( at_species(at_i),  at_species(at_j) ) , h)
-                   !at_at_en = at_at_en + 4.d0 * at_at%eps( at_species(at_i), at_species(at_j) ) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+                   else
+                      at_at_en = at_at_en + LJ_V(at_at%eps( at_species(at_i), at_species(at_j) ) , LJsig, dist_sqr )
                    end if
                 end if
              end do

@@ -86,6 +86,14 @@ contains
 
   !!function LJ_force_or
   ! returns the LJ force over r
+  !  ! The corresponding potential is
+  ! \begin{equation}
+  ! V_{LJ}(r) = 4 \epsilon \left( \frac{\sigma^{12}}{r^{12}} - \frac{\sigma^{6}}{r^{6}} + \frac{1}{4} \right)
+  ! \end{equation}
+  ! The magnitude of the force is
+  ! \begin{equation}
+  ! F = 4 \epsilon \left( 12 \frac{\sigma^{12}}{r^{13}} - 6 \frac{\sigma^{6}}{r^{7}}  \right)
+  ! \end{equation}
   function LJ_force_or(eps, sigma, rsq)
     implicit none
     double precision :: LJ_force_or
@@ -99,9 +107,10 @@ contains
 
   end function LJ_force_or
 
-  !!function LJ_force_smooth_or
+  !!function LJ_force_smooth_or 
   ! returns the magnitude over r of the smoothed LJ force.
   ! The smoothed potential is V_LJ * x**4/(1.+x**4) where x = (r-rcut)/(sigma*h) P. H. Colberg & F. Hofling, Comp. Phys. Comm. 2011 (in press at the time of writing this comment).
+  ! 
   function LJ_force_smooth_or(eps, sigma, rsq, rcut, h)
     implicit none
     double precision :: LJ_force_smooth_or
@@ -116,7 +125,7 @@ contains
 
     LJ_force_smooth_or = 24.d0*eps* sig6_o_r6/rsq * (2.d0*sig6_o_r6 - 1.d0) * x4/(1.d0+x4)
 
-    LJ_force_smooth_or = LJ_force_smooth_or - 16.d0 * sig6_o_r6 * ( sig6_o_r6 - 1.d0 )/sqrt(rsq) * x**3 / ( (1.d0 + x4)**2 * sigma * h)
+    LJ_force_smooth_or = LJ_force_smooth_or + 16.d0 * eps * sig6_o_r6 * ( sig6_o_r6 - 1.d0 )/sqrt(rsq) * x**3 / ( (1.d0 + x4)**2 * sigma * h)
 
   end function LJ_force_smooth_or
 
@@ -129,7 +138,7 @@ contains
 
     sig6_o_r6 = sigma**6/rsq**3
     
-    LJ_V = sig6_o_r6 * ( sig6_o_r6 - 1.d0 ) + 0.25d0
+    LJ_V = 4.d0 * eps * ( (sig6_o_r6 * ( sig6_o_r6 - 1.d0 )) + 0.25d0)
 
   end function LJ_V
 
@@ -143,7 +152,9 @@ contains
     x = (rcut - sqrt(rsq))/(sigma*h)
     x4 = x**4
 
-    LJ_V_smooth = sig6_o_r6 * ( sig6_o_r6 - 1.d0 ) * x4/(1.d0+x4)
+    sig6_o_r6 = sigma**6/rsq**3
+
+    LJ_V_smooth = eps * 4.d0 * sig6_o_r6 * ( sig6_o_r6 - 1.d0 ) * x4/(1.d0+x4)
     
   end function LJ_V_smooth
 

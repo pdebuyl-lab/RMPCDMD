@@ -70,6 +70,9 @@ program test
   write(*,*) so_species(1:10)
   write(*,*) at_species
 
+  write(*,*) at_so%smooth
+  write(*,*) at_at%smooth
+
   call fill_with_solvent
   call place_in_cells
   call make_neigh_list
@@ -77,6 +80,7 @@ program test
   N_loop = PTread_i(CF, 'N_loop')
   N_MD_loop = PTread_i(CF, 'N_MD_loop')
   DT = PTread_d(CF, 'DT')
+  h = PTread_d(CF, 'h')
 
   call PTkill(CF)
 

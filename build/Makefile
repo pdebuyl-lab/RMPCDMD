@@ -1,14 +1,15 @@
 VPATH=../src:../test:../ParseText
 
+F90FLAGS=
 F90=gfortran
 ifeq ($(F90),gfortran)
-F90FLAGS=-ffree-line-length-none
+F90FLAGS+= -ffree-line-length-none
 else ifeq ($(F90),ifort)
-F90FLAGS= -O3 -axT
+F90FLAGS+= -O3 -axT
 endif
 DEBUG=F
 ifeq ($(DEBUG),T)
-F90FLAGS += -g
+F90FLAGS+= -g
 endif
 
 %.o : %.f90
