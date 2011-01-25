@@ -5,7 +5,7 @@ module MD
   use MPCD
   implicit none
 
-  integer, parameter :: max_neigh=16384
+  integer, parameter :: max_neigh=32768
 
   type(sys_t) :: at_sys
 
@@ -125,7 +125,7 @@ contains
        do j=1,at_sys%N(0)
           call rel_pos(so_r(:,i), at_r(:,j), L, x)
           dsqr = sum( x**2 )
-          if (dsqr .lt. at_so%cut( at_species(j) , so_species(i) )**2 ) then
+          if (dsqr .lt. 2.d0**(1.d0/3.d0)*at_so%sig( at_species(j) , so_species(i) )**2 ) then
              too_close = .true.
              exit
           end if
