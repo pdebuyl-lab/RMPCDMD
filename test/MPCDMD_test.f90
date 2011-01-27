@@ -111,11 +111,9 @@ program test
 
         N_MD_since_re = N_MD_since_re + 1
         if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (N_MD_since_re.ge.N_MD_max)) then
-           !if (N_MD_since_re.ge.N_MD_max) then
            tau = N_MD_since_re*DT
            call MPCD_stream
            N_MD_since_re = 0
-           !end if
            reneigh = reneigh + 1
            call correct_so
            call place_in_cells
@@ -124,16 +122,6 @@ program test
 
         call compute_f(swap_in=.true.)
         call MD_step2
-
-!         if (N_MD_since_re.ge.N_MD_max) then
-!            reneigh = reneigh + 1
-!            tau = N_MD_since_re*DT
-!            call MPCD_stream
-!            call correct_so
-!            call place_in_cells
-!            call make_neigh_list
-!            call compute_f(swap_in=.false.)
-!         end if
 
      end do
 
