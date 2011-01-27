@@ -10,8 +10,9 @@ program test
   type(PTo) :: CF
 
   integer :: i_time, i_in, i, istart, reneigh, N_MD_since_re
-  integer :: N_MD_loop, N_loop, en_unit, at_unit
-  character(len=10) :: at_format
+  integer :: N_MD_loop, N_loop, en_unit, at_x_unit, at_v_unit
+  character(len=10) :: at_x_format, at_v_format
+  integer :: collect_atom
 
   call init_random_seed()
 
@@ -80,6 +81,7 @@ program test
   N_MD_loop = PTread_i(CF, 'N_MD_loop')
   DT = PTread_d(CF, 'DT')
   h = PTread_d(CF, 'h')
+  collect_atom = PTread_i(CF,'collect_atom')
 
   call PTkill(CF)
 
@@ -93,10 +95,13 @@ program test
 
   en_unit = 11
   open(en_unit,file='energy')
-  at_unit=12
-  open(at_unit,file='at_x')
-  write(at_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
-  write(*,*) at_format
+  at_x_unit=12
+  open(at_x_unit,file='at_x')
+  at_v_unit=13
+  open(at_v_unit,file='at_v')
+  write(at_x_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
+  write(at_v_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
+  write(*,*) at_x_format
   call compute_tot_mom_energy(en_unit)
 
   reneigh = 0
@@ -123,11 +128,20 @@ program test
         call compute_f(swap_in=.true.)
         call MD_step2
 
+        if (collect_atom > 0) then
+           write(at_x_unit,at_x_format) ( at_r(:,i) , i=1,at_sys%N(0) )
+           write(at_v_unit,at_v_format) ( at_v(:,i) , i=1,at_sys%N(0) )
+        end if
+
      end do
 
      call correct_at
+
+     if (collect_atom == 0) then
+        write(at_x_unit,at_x_format) ( at_r(:,i) , i=1,at_sys%N(0) )
+        write(at_v_unit,at_v_format) ( at_v(:,i) , i=1,at_sys%N(0) )
+     end if
      
-     write(at_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
 
      if (N_MD_since_re.gt.0) then
         reneigh = reneigh + 1

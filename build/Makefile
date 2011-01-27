@@ -1,6 +1,7 @@
 VPATH=../src:../test:../ParseText
 
-F90FLAGS=
+F90OPT=
+F90FLAGS=$(F90OPT)
 F90=gfortran
 ifeq ($(F90),gfortran)
 F90FLAGS+= -ffree-line-length-none
