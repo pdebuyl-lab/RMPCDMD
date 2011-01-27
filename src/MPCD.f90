@@ -24,6 +24,7 @@ module MPCD
   logical(kind=1), allocatable :: is_local(:), exists(:)
   logical(kind=1), allocatable :: is_MD(:)
   integer, allocatable :: N_MD(:)
+  integer :: N_MD_max
 
   type(sys_t) :: so_sys
 
@@ -198,7 +199,7 @@ contains
     integer :: i
 
     do i=1,so_sys%N(0)
-       so_r(:,i) = so_r(:,i) + so_v(:,i) * tau
+       if (.not. is_MD(i)) so_r(:,i) = so_r(:,i) + so_v(:,i) * tau
     end do
     
   end subroutine MPCD_stream

@@ -9,9 +9,8 @@ program test
   
   type(PTo) :: CF
 
-  integer :: i_time, i_in, i, istart, reneigh
+  integer :: i_time, i_in, i, istart, reneigh, N_MD_since_re
   integer :: N_MD_loop, N_loop, en_unit, at_unit
-  double precision :: max_d
   character(len=10) :: at_format
 
   call init_random_seed()
@@ -101,6 +100,7 @@ program test
   call compute_tot_mom_energy(en_unit)
 
   reneigh = 0
+  N_MD_since_re = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
 
@@ -109,20 +109,45 @@ program test
      do i_in = 1,N_MD_loop
         call MD_step1
 
-        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
+        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2) ) then
            reneigh = reneigh + 1
            call correct_so
            call place_in_cells
            call make_neigh_list
         end if
 
-        call compute_f
+        call compute_f(swap_in=.true.)
         call MD_step2
+
+        N_MD_since_re = N_MD_since_re + 1
+        if (N_MD_since_re.ge.N_MD_max) then
+           reneigh = reneigh + 1
+           tau = N_MD_since_re*DT
+           call MPCD_stream
+           N_MD_since_re = 0
+           call correct_so
+           call place_in_cells
+           call make_neigh_list
+           call compute_f(swap_in=.false.)
+        end if
+
      end do
 
      call correct_at
      
      write(at_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
+
+     if (N_MD_since_re.gt.0) then
+        reneigh = reneigh + 1
+        tau = N_MD_since_re*DT
+        call MPCD_stream
+        N_MD_since_re = 0
+        call correct_so
+        call place_in_cells
+        call make_neigh_list
+        call compute_f(swap_in=.false.)
+     end if
+
 
      call correct_so
      call place_in_cells
