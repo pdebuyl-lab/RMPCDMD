@@ -74,7 +74,7 @@ program test
   write(*,*) at_so%smooth
   write(*,*) at_at%smooth
 
-  call fill_with_solvent
+  call fill_with_solvent(PTread_d(CF,'so_T'))
   call place_in_cells
   call make_neigh_list
 
@@ -107,6 +107,8 @@ program test
   reneigh = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
+
+  !at_v(:,1) = (/ 0.02d0, 0.01d0, 0.015d0 /)
 
   do i_time = 1,N_loop
      

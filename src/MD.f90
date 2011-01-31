@@ -109,11 +109,13 @@ contains
 
   end subroutine init_atoms_random
 
-  subroutine fill_with_solvent
-
+  subroutine fill_with_solvent(temperature)
+    double precision, intent(in) :: temperature
     integer :: i, j, iter, dim
-    double precision :: x(3), dsqr
+    double precision :: x(3), dsqr, t_factor
     logical :: too_close
+
+    t_factor = 3.d0*sqrt(temperature)
 
     i=1
     iter=1
@@ -133,7 +135,7 @@ contains
        if (.not. too_close) then
           call random_number(x)
           x = x-0.5d0
-          so_v(:,i) = x*.5d0
+          so_v(:,i) = x*2.d0 * t_factor
           i=i+1
        end if
        if (i>so_sys%N(0)) exit
