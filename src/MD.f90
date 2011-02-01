@@ -115,7 +115,7 @@ contains
     double precision :: x(3), dsqr, t_factor
     logical :: too_close
 
-    t_factor = 3.d0*sqrt(temperature)
+    t_factor = sqrt(3.d0*temperature)
 
     i=1
     iter=1
@@ -135,7 +135,7 @@ contains
        if (.not. too_close) then
           call random_number(x)
           x = x-0.5d0
-          so_v(:,i) = x*2.d0 * t_factor
+          so_v(:,i) = x*2.d0 * t_factor/sqrt(so_sys%mass(so_species(i)))
           i=i+1
        end if
        if (i>so_sys%N(0)) exit
