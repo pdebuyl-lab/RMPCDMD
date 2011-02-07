@@ -1,4 +1,5 @@
 module MD
+  use mtprng
   use group
   use sys
   use LJ
@@ -84,7 +85,8 @@ contains
     iter=1
     do while (.true.)
        iter=iter+1
-       call random_number(x)
+       !call random_number(x)
+       x(1) = mtprng_rand_real1(ran_state) ; x(2) = mtprng_rand_real1(ran_state) ; x(3) = mtprng_rand_real1(ran_state) ;
        at_r(:,i) = x*L
        too_close = .false.
        do j=1,i-1
@@ -121,7 +123,8 @@ contains
     iter=1
     do while (.true.)
        iter = iter+1
-       call random_number(x)
+       !call random_number(x)
+       x(1) = mtprng_rand_real1(ran_state) ; x(2) = mtprng_rand_real1(ran_state) ;  x(3) = mtprng_rand_real1(ran_state) ;
        so_r(:,i) = x*L
        too_close = .false.
        do j=1,at_sys%N(0)
@@ -133,7 +136,8 @@ contains
           end if
        end do
        if (.not. too_close) then
-          call random_number(x)
+          !call random_number(x)
+          x(1) = mtprng_rand_real1(ran_state) ; x(2) = mtprng_rand_real1(ran_state) ;  x(3) = mtprng_rand_real1(ran_state) ;
           x = x-0.5d0
           so_v(:,i) = x*2.d0 * t_factor/sqrt(so_sys%mass(so_species(i)))
           i=i+1
@@ -407,7 +411,8 @@ contains
           part = at_neigh_list(j, at_i)
           so_si = so_species(part)
           if (reac_table(at_si,so_si).gt.0) then
-             call random_number(alpha)
+             !call random_number(alpha)
+             alpha = mtprng_rand_real1(ran_state)
              if ( .true. ) then
 !             if (reac_rates(at_si,so_si)*DT .gt. alpha) then
                 call reac_MD_do(at_i,part,delta_U)

@@ -14,8 +14,12 @@ program test
   double precision :: max_d
   character(len=10) :: at_format
   integer :: collect_atom
+  integer :: seed
 
   call init_random_seed()
+  !call mtprng_init_id(32,521, 1, 123, ran_state)
+  seed = nint(100*secnds(0.))
+  call mtprng_init(seed, ran_state)
 
   call PTparse(CF,'sample_MPCDMD',9)
 
