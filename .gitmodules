@@ -6,4 +6,4 @@
 	url = pierre@cenoli41.ulb.ac.be:dcmt.git
 [submodule "mtprng"]
 	path = mtprng
-	url = /Users/pierre/git/mtprng
+	url = pierre@cenoli41.ulb.ac.be:mtprng.git
