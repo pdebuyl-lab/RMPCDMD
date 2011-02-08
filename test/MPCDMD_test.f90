@@ -16,12 +16,14 @@ program test
   integer :: collect_atom
   integer :: seed
 
-  call init_random_seed()
-  !call mtprng_init_id(32,521, 1, 123, ran_state)
-  seed = nint(100*secnds(0.))
-  call mtprng_init(seed, ran_state)
 
   call PTparse(CF,'sample_MPCDMD',9)
+
+  seed = PTread_i(CF,'seed')
+  if (seed < 0) then
+     seed = nint(100*secnds(0.))
+  end if
+  call mtprng_init(seed, ran_state)
 
   call config_sys(so_sys,'so',CF)
   call config_sys(at_sys,'at',CF)

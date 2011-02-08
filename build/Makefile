@@ -25,5 +25,8 @@ libdcmt.a :
 MPCDMD_test : stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o
 	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o -o MPCDMD_test $(F90LIBS)
 
+MPCD_test : stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o MPCD_test.o
+	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o MPCD_test.o -o MPCD_test $(F90LIBS)
+
 clean:
 	rm *.o *.mod

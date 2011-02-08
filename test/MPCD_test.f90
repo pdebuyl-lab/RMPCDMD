@@ -8,25 +8,33 @@ program test
 
   integer :: i_time, i_in
   double precision :: MPCD_kin, MPCD_kin_0, MPCD_mom(3), MPCD_mom_0(3)
+  integer :: seed
+
 
   call PTparse(CF,'sample_MPCD',9)
+
+  seed = PTread_i(CF,'seed')
+  if (seed < 0) then
+     seed = nint(100*secnds(0.))
+  end if
+  call mtprng_init(seed, ran_state)
 
   call config_sys(so_sys,'so',CF)
 
   call config_MPCD(CF)
 
-  call homogeneous_solvent
+  call homogeneous_solvent(PTread_d(CF,'so_T'))
   
   call PTkill(CF)
 
   tau=1.d0
 
   call compute_en_mom(MPCD_kin_0,MPCD_mom_0)
-!  write(*,'(4e25.18)') MPCD_kin_0,MPCD_mom_0
+  write(*,'(4e28.18)') MPCD_kin_0, MPCD_mom_0
 
   open(11,file='kin_mom')
 
-  do i_time = 1,100
+  do i_time = 1,10000
      
      do i_in = 1,10
         call place_in_cells
