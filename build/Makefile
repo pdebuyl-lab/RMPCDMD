@@ -1,4 +1,4 @@
-VPATH=../src:../test:../ParseText
+VPATH=../src:../test:../ParseText:../mtprng
 
 F90OPT=
 F90FLAGS=$(F90OPT)
@@ -14,12 +14,13 @@ F90FLAGS+= -g
 endif
 
 %.o : %.f90
-	$(F90) $(F90FLAGS) -c $<
+	$(F90) $(F90FLAGS) -c $< 
 
-test_group.o : ParseText.o group.o
+MPCDMD_test : stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o
+	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o -o MPCDMD_test
 
-MPCDMD_test : ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o
-	$(F90) $(F90FLAGS) ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o -o MPCDMD_test
+MPCD_test : stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o MPCD_test.o
+	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o MPCD_test.o -o MPCD_test 
 
 clean:
 	rm *.o *.mod

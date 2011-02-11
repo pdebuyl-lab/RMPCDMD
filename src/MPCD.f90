@@ -1,5 +1,6 @@
 module MPCD
   use sys
+  use mtprng
   implicit none
 
   double precision, parameter :: PI = 3.1415926535897932384626433832795029d0     ! Pi computed via N[Pi,35] in Mathematica
@@ -27,6 +28,7 @@ module MPCD
   integer :: N_MD_max
 
   type(sys_t) :: so_sys
+  type(mtprng_state), save :: ran_state
 
 contains
   
@@ -73,17 +75,19 @@ contains
 
   end subroutine config_MPCD
 
-  subroutine homogeneous_solvent
-
+  subroutine homogeneous_solvent(temperature)
+    double precision, intent(in) :: temperature
     integer :: i, Nloop
-    double precision :: x(3)
+    double precision :: x(3), t_factor
+
+    t_factor = sqrt(3.d0*temperature)
 
     do i=1,so_sys%N(0)
-       call random_number(x)
+       x(1) = mtprng_rand_real1(ran_state) ; x(2) = mtprng_rand_real1(ran_state) ; x(3) = mtprng_rand_real1(ran_state) ; 
        so_r(:,i) = x*L
-       call random_number(x)
+       x(1) = mtprng_rand_real1(ran_state) ; x(2) = mtprng_rand_real1(ran_state) ; x(3) = mtprng_rand_real1(ran_state) ; 
        x = x-0.5d0
-       so_v(:,i) = x*.5d0
+       so_v(:,i) = x*2.d0 * t_factor/sqrt(so_sys%mass(so_species(i)))
     end do
 
     Nloop = 1
@@ -152,7 +156,8 @@ contains
           do ci=1,N_cells(1)
              s_lt_one = .false.
              do while (.not. s_lt_one)
-                call random_number(n(1:2))
+                n(1) = mtprng_rand_real1(ran_state)
+                n(2) = mtprng_rand_real1(ran_state)
                 s = n(1)**2 + n(2)**2
                 if ( s<1.d0 ) s_lt_one = .true.
              end do
@@ -203,20 +208,5 @@ contains
     end do
     
   end subroutine MPCD_stream
-
-  SUBROUTINE init_random_seed()
-    INTEGER :: i, n, clock
-    INTEGER, DIMENSION(:), ALLOCATABLE :: seed
-    
-    CALL RANDOM_SEED(size = n)
-    ALLOCATE(seed(n))
-    
-    CALL SYSTEM_CLOCK(COUNT=clock)
-    
-    seed = clock + 37 * (/ (i - 1, i = 1, n) /)
-    CALL RANDOM_SEED(PUT = seed)
-    
-    DEALLOCATE(seed)
-  END SUBROUTINE init_random_seed
 
 end module MPCD

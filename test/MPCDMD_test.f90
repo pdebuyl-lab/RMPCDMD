@@ -11,12 +11,17 @@ program test
 
   integer :: i_time, i_in, i, istart, reneigh, N_MD_since_re
   integer :: N_MD_loop, N_loop, en_unit, at_x_unit, at_v_unit
-  character(len=10) :: at_x_format, at_v_format
   integer :: collect_atom
-
-  call init_random_seed()
+  character(len=10) :: at_format
+  integer :: seed
 
   call PTparse(CF,'sample_MPCDMD',9)
+
+  seed = PTread_i(CF,'seed')
+  if (seed < 0) then
+     seed = nint(100*secnds(0.))
+  end if
+  call mtprng_init(seed, ran_state)
 
   call config_sys(so_sys,'so',CF)
   call config_sys(at_sys,'at',CF)
@@ -73,7 +78,7 @@ program test
   write(*,*) at_so%smooth
   write(*,*) at_at%smooth
 
-  call fill_with_solvent
+  call fill_with_solvent(PTread_d(CF,'so_T'))
   call place_in_cells
   call make_neigh_list
 
@@ -99,15 +104,16 @@ program test
   open(at_x_unit,file='at_x')
   at_v_unit=13
   open(at_v_unit,file='at_v')
-  write(at_x_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
-  write(at_v_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
-  write(*,*) at_x_format
+  write(at_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
+  write(*,*) at_format
   call compute_tot_mom_energy(en_unit)
 
   reneigh = 0
   N_MD_since_re = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
+
+  !at_v(:,1) = (/ 0.02d0, 0.01d0, 0.015d0 /)
 
   do i_time = 1,N_loop
      
@@ -129,19 +135,13 @@ program test
         call MD_step2
 
         if (collect_atom > 0) then
-           write(at_x_unit,at_x_format) ( at_r(:,i) , i=1,at_sys%N(0) )
-           write(at_v_unit,at_v_format) ( at_v(:,i) , i=1,at_sys%N(0) )
+           write(at_x_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
+           write(at_v_unit,at_format) ( at_v(:,i) , i=1,at_sys%N(0) )
         end if
 
      end do
 
      call correct_at
-
-     if (collect_atom == 0) then
-        write(at_x_unit,at_x_format) ( at_r(:,i) , i=1,at_sys%N(0) )
-        write(at_v_unit,at_v_format) ( at_v(:,i) , i=1,at_sys%N(0) )
-     end if
-     
 
      if (N_MD_since_re.gt.0) then
         reneigh = reneigh + 1
@@ -154,6 +154,10 @@ program test
         call compute_f(swap_in=.false.)
      end if
 
+     if (collect_atom == 0) then
+        write(at_x_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
+        write(at_v_unit,at_format) ( at_v(:,i) , i=1,at_sys%N(0) )
+     end if
 
      call correct_so
      call place_in_cells
