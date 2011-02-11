@@ -13,20 +13,14 @@ ifeq ($(DEBUG),T)
 F90FLAGS+= -g
 endif
 
-#F90LIBS=-L. -ldcmt
-
-libdcmt.a :
-	@cd ../dcmt/lib ; $(MAKE) lib
-	@cp ../dcmt/lib/libdcmt.a ./
-
 %.o : %.f90
-	$(F90) $(F90FLAGS) -c $< $(F90LIBS)
+	$(F90) $(F90FLAGS) -c $< 
 
 MPCDMD_test : stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o
-	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o -o MPCDMD_test $(F90LIBS)
+	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o LJ.o MD.o MPCDMD_test.o -o MPCDMD_test
 
 MPCD_test : stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o MPCD_test.o
-	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o MPCD_test.o -o MPCD_test $(F90LIBS)
+	$(F90) $(F90FLAGS) stdtypes.o mtprng.o ParseText.o sys.o group.o MPCD.o MPCD_test.o -o MPCD_test 
 
 clean:
 	rm *.o *.mod
