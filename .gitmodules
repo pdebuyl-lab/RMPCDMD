@@ -1,9 +1,6 @@
 [submodule "ParseText"]
 	path = ParseText
 	url = pierre@cenoli41.ulb.ac.be:ParseText.git 
-[submodule "dcmt"]
-	path = dcmt
-	url = pierre@cenoli41.ulb.ac.be:dcmt.git
 [submodule "mtprng"]
 	path = mtprng
 	url = pierre@cenoli41.ulb.ac.be:mtprng.git
