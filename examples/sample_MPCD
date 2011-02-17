@@ -1,0 +1,17 @@
+
+soN_groups = 1
+
+soN_max = 5120
+soN_species = 1 
+soN01 = 5120
+somass01 = 1.d0
+so_u_int01 = 0.d0
+so_u_int02 = 0.d0
+soN02 = 4000
+somass02 = 3.d0
+
+so_T = 0.5
+N_cells = 8 8 8 
+cell_unit = 1.d0
+
+seed = -1
