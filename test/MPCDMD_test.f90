@@ -5,6 +5,7 @@ program test
   use MPCD
   use MD
   use ParseText
+  use MPCDMD
   implicit none
   
   type(PTo) :: CF
@@ -14,6 +15,10 @@ program test
   integer :: collect_atom
   character(len=10) :: at_format
   integer :: seed
+
+  call MPCDMD_info
+  call mtprng_info(short=.true.)
+  call PTinfo(short=.true.)
 
   call PTparse(CF,'sample_MPCDMD',9)
 

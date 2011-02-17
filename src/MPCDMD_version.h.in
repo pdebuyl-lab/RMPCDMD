@@ -1,0 +1,6 @@
+
+character(len=200), parameter :: MPCDMD_version_date = '@MPCDMD_version_date@'
+character(len=200), parameter :: MPCDMD_commit = '@MPCDMD_commit@'
+character(len=200), parameter :: MPCDMD_machine = '@MPCDMD_machine@'
+character(len=200), parameter :: MPCDMD_compiler = '@MPCDMD_compiler@'
+
