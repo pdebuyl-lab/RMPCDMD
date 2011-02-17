@@ -2,6 +2,7 @@ program test
   use sys
   use MPCD
   use ParseText
+  use MPCDMD
   implicit none
   
   type(PTo) :: CF
@@ -10,6 +11,9 @@ program test
   double precision :: MPCD_kin, MPCD_kin_0, MPCD_mom(3), MPCD_mom_0(3)
   integer :: seed
 
+  call MPCDMD_info
+  call mtprng_info(short=.true.)
+  call PTinfo(short=.true.)
 
   call PTparse(CF,'sample_MPCD',9)
 
