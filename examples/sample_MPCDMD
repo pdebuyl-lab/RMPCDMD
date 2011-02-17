@@ -1,0 +1,37 @@
+soN_max = 327680 
+soN_species = 1 
+soN01 = 327680 
+somass01 = 1.d0
+so_u_int01 = 0.d0
+
+N_groups = 1 
+atN_max = 1 
+atN_species = 1
+atN01 = 1 
+atmass01 = 250 
+
+group01 = atom
+group01N = 1 
+group01species = 1
+
+at_ateps01 = 1.d0
+at_atsig01 = 4.d0
+at_atsmooth01 = F 
+
+at_soeps01 = 1.d0 
+at_sosig01 = 3.d0
+at_sosmooth01 = F 
+
+LJskinfactor = 1.2d0
+
+N_cells = 32 32 32 
+cell_unit = 1.d0
+so_T = 0.3333333333333333333
+atinit = random 
+seed = -1
+
+DT = 0.02d0
+N_MD_loop = 50 
+N_loop = 10 
+h = 0.01
+collect_atom = 1
