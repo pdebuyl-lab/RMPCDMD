@@ -43,6 +43,7 @@ program test
   end do
 
 
+
   if (at_sys%N_max<sum(group_list(:)%N)) stop 'at_sys%N_max < # atoms from group_list'
 
   call config_LJdata(CF, at_sys%N_species, so_sys%N_species)
@@ -57,12 +58,22 @@ program test
         call config_atom_group(group_list(i))
      else if (group_list(i)%g_type == DIMER_G) then
         call config_dimer_group(group_list(i))
+     else if (group_list(i)%g_type == ELAST_G) then
+        call config_elast_group(CF,group_list(i),i,10)
      else
         stop 'unknown group type'
      end if
   end do
 
-  call init_atoms(CF)
+  write(*,*) group_list(1)%N
+  write(*,*) group_list(1)%istart
+  write(*,*) group_list(1)%elast_nlink
+  do i=1,group_list(1)%elast_nlink
+     write(*,*) group_list(1)%elast_index(:,i), group_list(1)%elast_r0(i)
+  end do
+
+!  call init_atoms(CF)
+  at_v = 0.d0
 
   write(*,*) so_sys%N_species
   write(*,*) so_sys%N_max

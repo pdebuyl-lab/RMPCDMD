@@ -7,7 +7,10 @@ module group
      integer :: g_type
      integer :: species1, species2
      double precision :: dimer_length
-     double precision :: elast_k
+     double precision :: elast_k, elast_rmax
+     integer :: elast_nlink
+     integer, allocatable :: elast_index(:,:)
+     double precision, allocatable :: elast_r0(:)
   end type group_t
 
   integer, parameter :: ATOM_G=1
@@ -46,6 +49,8 @@ contains
        group_var % g_type = ELAST_G
        group_var % N = PTread_i(CF,'group'//group_index//'N')
        group_var % elast_k = PTread_d(CF,'group'//group_index//'k')
+       group_var % elast_rmax = PTread_d(CF,'group'//group_index//'rmax')
+       group_var % species1 = PTread_i(CF,'group'//group_index//'species')
     case default
        write(*,*) 'unknown type for', g_string
        stop

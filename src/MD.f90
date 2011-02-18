@@ -262,6 +262,10 @@ contains
 
     do at_g = 1, N_groups
        
+       if (group_list(at_g)%g_type .eq. ELAST_G) then
+          call compute_f_elast(at_g)
+       end if
+
        do at_h = at_g, N_groups
           
           if ( (at_g.eq.at_h) .and. (group_list(at_g) % g_type .ne. ATOM_G) ) cycle
@@ -355,6 +359,10 @@ contains
     end do
 
     do at_g = 1, N_groups
+
+       if (group_list(at_g)%g_type .eq. ELAST_G) then
+          at_at_en = at_at_en + compute_pot_elast(at_g)
+       end if
 
        do at_h = at_g, N_groups
 
@@ -500,5 +508,124 @@ contains
     end if
 
   end subroutine reac_MD_do
+
+  subroutine config_elast_group(CF,g_var,group_i,f_unit)
+    use ParseText
+    type(PTo), intent(in) :: CF
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in) :: group_i, f_unit
+
+    character(len=2) :: group_index
+    character(len=64) :: r_file
+    integer :: i,j, N_link, i_link
+    double precision, allocatable :: dist_table(:,:) 
+    double precision :: x(3)
+    
+    write(group_index,'(i2.02)') group_i
+
+    r_file = PTread_s(CF,'group'//group_index//'r_file')
+
+    open(f_unit,file=r_file)
+    
+    read(f_unit,*) at_r(:,g_var%istart:g_var%istart+g_var%N-1)
+
+    close(f_unit)
+
+    allocate(dist_table(g_var%N,g_var%N))
+
+    do i=g_var%istart, g_var%istart + g_var%N - 1
+       at_species(i) = g_var % species1
+    end do
+
+    do i=1,g_var%N
+       do j=i+1,g_var%N
+          call rel_pos(at_r(:,g_var%istart+i-1),at_r(:,g_var%istart+j-1),L,x)
+          dist_table(i,j) = sqrt(sum( x**2 ))
+          dist_table(j,i) = dist_table(i,j)
+       end do
+    end do
+
+    N_link = 0
+    do i=1,g_var%N
+       do j=i+1,g_var%N
+          if (dist_table(j,i) .le. g_var%elast_rmax) then
+             N_link = N_link + 1
+          end if
+       end do
+    end do
+
+    if (N_link .eq. 0) then
+       stop 'elast group with 0 links, stopping.'
+    end if
+
+    g_var%elast_nlink = N_link
+
+    allocate(g_var%elast_index(2,N_link))
+    allocate(g_var%elast_r0(N_link))
+    i_link = 1
+    do i=1,g_var%N
+       do j=i+1,g_var%N
+          if (dist_table(j,i) .le. g_var%elast_rmax) then
+             g_var%elast_index(1,i_link) = g_var%istart+i-1
+             g_var%elast_index(2,i_link) = g_var%istart+j-1
+             g_var%elast_r0(i_link) = dist_table(j,i)
+             i_link = i_link + 1
+          end if
+       end do
+    end do
+
+    deallocate(dist_table)
+
+  end subroutine config_elast_group
+
+  subroutine compute_f_elast(g_i)
+    integer, intent(in) :: g_i
+
+    integer :: i, part1, part2
+    double precision :: r, f(3), x(3)
+
+    do i=1, group_list(g_i)%elast_nlink
+
+       part1 = group_list(g_i) % elast_index(1,i)
+       part2 = group_list(g_i) % elast_index(2,i)
+
+       call rel_pos( at_r(:,part1) , at_r(:,part2) , L, x)
+       
+       r = sqrt( sum( x**2 ) )
+
+       f = - group_list(g_i) % elast_k * ( r - group_list(g_i) % elast_r0(i) ) * x / r
+
+       at_f(:,part1) = at_f(:,part1) + f
+       at_f(:,part2) = at_f(:,part2) - f
+
+    end do
+
+  end subroutine compute_f_elast
+
+  function compute_pot_elast(g_i)
+    double precision :: compute_pot_elast
+    integer, intent(in) :: g_i
+
+    integer :: i, part1, part2
+    double precision :: r, x(3), u
+
+    u = 0.d0
+
+    do i=1, group_list(g_i)%elast_nlink
+
+       part1 = group_list(g_i) % elast_index(1,i)
+       part2 = group_list(g_i) % elast_index(2,i)
+
+       call rel_pos( at_r(:,part1) , at_r(:,part2) , L, x)
+       
+       r = sqrt( sum( x**2 ) )
+
+       u = u + 0.5d0 * group_list(g_i) % elast_k * ( r - group_list(g_i) % elast_r0(i) )**2
+
+    end do
+
+    compute_pot_elast = u
+
+  end function compute_pot_elast
 
 end module MD

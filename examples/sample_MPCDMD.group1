@@ -1,0 +1,40 @@
+soN_max = 10000 
+soN_species = 1 
+soN01 = 10000
+somass01 = 1.d0
+so_u_int01 = 0.d0
+
+N_groups = 1 
+atN_max = 4 
+atN_species = 1
+atN01 = 4 
+atmass01 = 500 
+
+group01 = elast 
+group01N = 4 
+group01species = 1
+group01k = 1.
+group01rmax = 2.
+group01r_file = r_in
+
+at_ateps01 = 1.d0
+at_atsig01 = 4.d0
+at_atsmooth01 = F 
+
+at_soeps01 = 1.d0 
+at_sosig01 = 3.d0
+at_sosmooth01 = F 
+
+LJskinfactor = 1.2d0
+
+N_cells = 32 32 32 
+cell_unit = 1.d0
+so_T = 0.3333333333333333333
+atinit = random 
+seed = -1
+
+DT = 0.02d0
+N_MD_loop = 50 
+N_loop = 10 
+h = 0.01
+collect_atom = 1
