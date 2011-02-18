@@ -7,7 +7,7 @@ program test
   
   type(PTo) :: CF
 
-  integer :: i_time, i_in
+  integer :: i_time, i_in, N_outer, N_loop
   double precision :: MPCD_kin, MPCD_kin_0, MPCD_mom(3), MPCD_mom_0(3)
   integer :: seed
 
@@ -28,19 +28,22 @@ program test
   call config_MPCD(CF)
 
   call homogeneous_solvent(PTread_d(CF,'so_T'))
+
+  tau=PTread_d(CF,'tau')
+  N_outer = PTread_i(CF,'N_outer')
+  N_loop = PTread_i(CF,'N_loop')
   
   call PTkill(CF)
 
-  tau=1.d0
 
   call compute_en_mom(MPCD_kin_0,MPCD_mom_0)
   write(*,'(4e28.18)') MPCD_kin_0, MPCD_mom_0
 
   open(11,file='kin_mom')
 
-  do i_time = 1,10000
+  do i_time = 1,N_outer
      
-     do i_in = 1,10
+     do i_in = 1,N_loop
         call place_in_cells
         call compute_v_com
         call generate_omega
