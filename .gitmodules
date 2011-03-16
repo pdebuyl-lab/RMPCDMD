@@ -4,3 +4,6 @@
 [submodule "mtprng"]
 	path = mtprng
 	url = git://cenoli41.ulb.ac.be/mtprng.git
+[submodule "f90h5md"]
+	path = f90h5md
+	url = pierre@cenoli41.ulb.ac.be:f90h5md.git
