@@ -1,3 +1,8 @@
+
+! The module LJ serves to describe the Lennard-Jones interaction potential and
+! provides routines for the computation of the forces and potential energy, with
+! and without smoothing.
+
 module LJ
   
   type LJdata

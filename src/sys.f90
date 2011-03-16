@@ -1,3 +1,13 @@
+
+! The module sys serves to describe the following data, of interest for an 
+! ensemble of particles:
+!   - maximum size of the system
+!   - number of species
+!   - number of particles of each species
+!   - mass for each species
+! This module does not contain information on the interaction potentials. This 
+! is found, for instance, in the LJ module.
+
 module sys
   
   type sys_t
