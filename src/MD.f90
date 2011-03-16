@@ -326,13 +326,14 @@ contains
 
   end subroutine MD_step2
 
-  subroutine compute_tot_mom_energy(file_unit)
+  subroutine compute_tot_mom_energy(file_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
     integer, intent(in) :: file_unit
+    double precision, intent(out) :: at_sol_en, at_at_en, sol_kin, at_kin, energy
+    double precision :: mom(3), at_mom(3)
 
     integer :: at_i, at_j, j, dim, part, at_si
     integer :: at_g, at_h, at_j_1
     double precision :: LJcut_sqr, LJsig, x(3), y(3), dist_sqr
-    double precision :: at_sol_en, at_at_en, sol_kin, at_kin, mom(3), at_mom(3)
 
     at_sol_en = 0.d0 ; at_at_en = 0.d0 ; sol_kin = 0.d0 ; at_kin = 0.d0 ; mom = 0.d0 ; at_mom = 0.d0
 
@@ -400,6 +401,7 @@ contains
     end do
 
     if (file_unit > 0) write(file_unit,'(7e30.20)') at_sol_en, at_at_en, sol_kin, at_kin, excess, at_sol_en+at_at_en+sol_kin+at_kin, at_sol_en+at_at_en+sol_kin+at_kin+excess
+    energy = at_sol_en+at_at_en+sol_kin+at_kin+excess
     
   end subroutine compute_tot_mom_energy
 

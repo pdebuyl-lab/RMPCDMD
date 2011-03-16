@@ -6,16 +6,22 @@ program test
   use MD
   use ParseText
   use MPCDMD
+  use h5md
   implicit none
   
   type(PTo) :: CF
 
   integer :: i_time, i_in, i, istart, reneigh
   integer :: N_MD_loop, N_loop, en_unit, at_x_unit, at_v_unit
-  double precision :: max_d
+  double precision :: max_d, realtime
   character(len=10) :: at_format
   integer :: collect_atom
   integer :: seed
+  double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
+
+  integer(HID_T) :: file_ID
+  type(h5md_t) :: posID
+  type(h5md_t) :: enID, so_kinID, at_kinID, excessID, at_soID, at_atID
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -72,7 +78,7 @@ program test
      write(*,*) group_list(1)%elast_index(:,i), group_list(1)%elast_r0(i)
   end do
 
-!  call init_atoms(CF)
+  call init_atoms(CF)
   at_v = 0.d0
 
   write(*,*) so_sys%N_species
@@ -123,7 +129,18 @@ program test
   open(at_v_unit,file='at_v')
   write(at_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
   write(*,*) at_format
-  call compute_tot_mom_energy(en_unit)
+  
+  i_time = 0
+  realtime = 0.d0
+  call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+
+  call begin_h5md
+
+  call h5md_append_obs_value_d(at_soID, at_sol_en, i_time, realtime)
+  call h5md_append_obs_value_d(at_atID, at_at_en, i_time, realtime)
+  call h5md_append_obs_value_d(at_kinID, at_kin, i_time, realtime)
+  call h5md_append_obs_value_d(so_kinID, sol_kin, i_time, realtime)
+  call h5md_append_obs_value_d(enID, energy, i_time, realtime)
 
   reneigh = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
@@ -151,6 +168,8 @@ program test
            write(at_v_unit,at_format) ( at_v(:,i) , i=1,at_sys%N(0) )
         end if
 
+        realtime=realtime+DT
+
      end do
 
      call correct_at
@@ -166,8 +185,19 @@ program test
      call generate_omega
      call simple_MPCD_step
 
-     call compute_tot_mom_energy(en_unit)
+     call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+
+     call h5md_append_obs_value_d(at_soID, at_sol_en, i_time, realtime)
+     call h5md_append_obs_value_d(at_atID, at_at_en, i_time, realtime)
+     call h5md_append_obs_value_d(at_kinID, at_kin, i_time, realtime)
+     call h5md_append_obs_value_d(so_kinID, sol_kin, i_time, realtime)
+     call h5md_append_obs_value_d(enID, energy, i_time, realtime)
+     call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
   end do
+
+  i_time = i_time-1
+
+  call end_h5md
 
   write(*,*) reneigh, ' extra reneighbourings for ', N_loop*N_MD_loop, ' total steps'
 
@@ -195,6 +225,34 @@ contains
     end do
   end subroutine correct_at
 
+  subroutine begin_h5md
+    call h5open_f(h5_error)
+    call h5md_open_file(file_ID, 'data.h5', 'MPCDMD')
+
+    call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID)
+    call h5md_create_obs(file_ID, 'energy', enID)
+    call h5md_create_obs(file_ID, 'at_at_int', at_atID)
+    call h5md_create_obs(file_ID, 'at_so_int', at_soID)
+    call h5md_create_obs(file_ID, 'so_kin', so_kinID)
+    call h5md_create_obs(file_ID, 'at_kin', at_kinID)
+    call h5md_create_obs(file_ID, 'excess', excessID)
+    
+  end subroutine begin_h5md
+
+  subroutine end_h5md
+    call h5md_close_ID(posID)
+    call h5md_close_ID(enID)
+    call h5md_close_ID(at_atID)
+    call h5md_close_ID(at_soID)
+    call h5md_close_ID(so_kinID)
+    call h5md_close_ID(at_kinID)
+    call h5md_close_ID(excessID)
+
+    call h5fclose_f(file_ID, h5_error)
+    
+    call h5close_f(h5_error)
+
+  end subroutine end_h5md
 
 end program test
 
