@@ -11,10 +11,11 @@ program test
   
   type(PTo) :: CF
 
-  integer :: i_time, i_in, i, istart, reneigh
+  integer :: i_time, i_in, i, j, n_sub, idx(2), istart, reneigh
   integer :: N_MD_loop, N_loop, en_unit, at_x_unit, at_v_unit
   double precision :: max_d, realtime
   character(len=10) :: at_format
+  character(len=2) :: i_s, j_s
   integer :: collect_atom
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
@@ -66,6 +67,13 @@ program test
      else
         stop 'unknown group type'
      end if
+     write(i_s,'(i2.2)') i
+     n_sub = PTread_i(CF, 'group'//i_s//'sub')
+     do j=1,n_sub
+        write(j_s, '(i2.2)') j
+        idx = PTread_ivec(CF, 'group'//i_s//'sub'//j_s, 2)
+        at_subgroup(idx(1):idx(2)) = j
+     end do
   end do
 
   call init_atoms(CF)
@@ -126,6 +134,7 @@ program test
 
   call begin_h5md
 
+  call h5_custom_write_sub(file_ID)
   call h5md_append_obs_value_d(at_soID, at_sol_en, i_time, realtime)
   call h5md_append_obs_value_d(at_atID, at_at_en, i_time, realtime)
   call h5md_append_obs_value_d(at_kinID, at_kin, i_time, realtime)
@@ -243,6 +252,29 @@ contains
     call h5close_f(h5_error)
 
   end subroutine end_h5md
+
+  subroutine h5_custom_write_sub(file_ID, group_name)
+    integer(HID_T), intent(inout) :: file_ID
+    character(len=*), intent(in), optional :: group_name
+
+    character(len=128) :: path
+    integer(HID_T) :: d_id, s_id
+    integer(HSIZE_T) :: dims(1)
+
+    if (present(group_name)) then
+       path = 'trajectory/'//group_name//'/subgroup'
+    else
+       path = 'trajectory/subgroup'
+    end if
+    
+    dims(1) = at_sys%N_max
+    call h5screate_simple_f(1, dims, s_id, h5_error)
+    call h5dcreate_f(file_id,path,H5T_NATIVE_INTEGER, s_id, d_id, h5_error)
+    call h5dwrite_f(d_id, H5T_NATIVE_INTEGER, at_subgroup, dims, h5_error)
+    call h5dclose_f(d_id, h5_error)
+    call h5sclose_f(s_id, h5_error)
+
+  end subroutine h5_custom_write_sub
 
 end program test
 

@@ -19,6 +19,7 @@ module MD
   double precision, allocatable :: at_r_neigh(:,:)
   integer, allocatable :: at_neigh_list(:,:)
   integer, allocatable :: at_species(:)
+  integer, allocatable :: at_subgroup(:)
 
   double precision :: DT
 
@@ -43,6 +44,7 @@ contains
     allocate(at_f2(3,at_sys%N_max))
     allocate(at_r_neigh(3,at_sys%N_max))
     allocate(at_species(at_sys%N_max))
+    allocate(at_subgroup(at_sys%N_max))
 
     allocate(at_neigh_list(0:max_neigh, at_sys%N_max))
 
