@@ -1,18 +1,40 @@
+
+!> This module holds the variables for a MPCD simulation.
+!!
+!! Most variables are global. The MPCD particles variables are prefixed by
+!! "so_" (for solvent) so as not to be mixed up with the MD module.
+
 module MPCD
   use sys
   use mtprng
   implicit none
 
-  double precision, parameter :: PI = 3.1415926535897932384626433832795029d0     ! Pi computed via N[Pi,35] in Mathematica
+  !> Value of Pi computed via N[Pi,35] in Mathematica
+  double precision, parameter :: PI = 3.1415926535897932384626433832795029d0
+  !> The size of the list of particles for each MPCD cell
   integer, parameter :: max_per_cell=128
 
   ! MPCD box variables
+  !> The number of cells in each direction
   integer :: N_cells(3)
+  !> The list of particles belonging to each cell
   integer, allocatable :: par_list(:,:,:,:)
+  !> The list of cell-wise center of mass momenta.
+  !! The leftmost index is
+  !! - 1:3 : components of the mometum.
+  !! - 4   : total mass in the cell
   double precision, allocatable :: Vcom(:,:,:,:)
+  !> rotation matrix for each cell.
   double precision, allocatable :: omega(:,:,:,:,:)
-  double precision :: a, oo_a
-  double precision :: L(3), oo_L(3)
+  !> The length of a cell.
+  double precision :: a
+  !> The inverse length of a cell.
+  double precision :: oo_a
+  !> Size of the system in each direction. The box is [0:L(d)] in the direction d.
+  double precision :: L(3)
+  !> Inverse of L
+  double precision :: oo_L(3)
+  !> The MPCD streaming step.
   double precision :: tau
 
   ! MPCD particles variables
