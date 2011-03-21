@@ -1,3 +1,5 @@
+
+!> This module holds the variable to embed molecular dynamics particles (called "atoms" in this program) in a MPCD solvent.
 module MD
   use mtprng
   use group

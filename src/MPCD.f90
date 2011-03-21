@@ -38,17 +38,39 @@ module MPCD
   double precision :: tau
 
   ! MPCD particles variables
-  double precision, allocatable :: so_r(:,:), so_v(:,:)
-  double precision, allocatable, target :: so_f1(:,:), so_f2(:,:)
-  double precision, pointer :: so_f(:,:), so_f_old(:,:), so_f_temp(:,:)
+  !> Position of the MPCD solvent, dimension (3,N)
+  double precision, allocatable :: so_r(:,:)
+  !> Velocity of the MPCD solvent, dimension (3,N)
+  double precision, allocatable :: so_v(:,:)
+  !> Force for the MPCD solvent, copy 1. It is used in alternance with copy 2.
+  double precision, allocatable, target :: so_f1(:,:)
+  !> Force for the MPCD solvent, copy 2. It is used in alternance with copy 1.
+  double precision, allocatable, target :: so_f2(:,:)
+  !> Pointer to the force for the MPCD solvent. so_f points to the last computed force.
+  double precision, pointer :: so_f(:,:)
+  !> Pointer to the force for the MPCD solvent. so_f_old points to the before-to-last computed force.
+  double precision, pointer :: so_f_old(:,:)
+  !> Pointer to the force for the MPCD solvent. so_f_temp holds the pointer while switching so_f and so_f_old.
+  double precision, pointer :: so_f_temp(:,:)
+  !> List of solvent particles that are neighbour to colloid particles.
   double precision, allocatable :: so_r_neigh(:,:)
+  !> The species of each solvent particle.
   integer, allocatable :: so_species(:)
+  !> The per-species internal energy. Allows to consider exo- and endo-thermic reactions.
   double precision, allocatable :: u_int(:)
-  logical(kind=1), allocatable :: is_local(:), exists(:)
+  !> Flag that indicates that a particle is found on this CPU.
+  logical(kind=1), allocatable :: is_local(:)
+  !> Flag that indicates that a particle exists: it has not been "destroyed" by a chemical reaction.
+  logical(kind=1), allocatable :: exists(:)
+  !> Flag that indicates that the force on a particle is non-zero and that MD stepping should be used instead of simple streaming.
   logical(kind=1), allocatable :: is_MD(:)
+  !> Number of MD steps that should be taken into account when performing a streaming.
   integer, allocatable :: N_MD(:)
 
+  !> Information on the solvent system, based on sys_t from the sys group.
   type(sys_t) :: so_sys
+
+  !> State of the random number generator.
   type(mtprng_state), save :: ran_state
 
 contains

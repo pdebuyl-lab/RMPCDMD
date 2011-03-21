@@ -1,23 +1,42 @@
 
-! The module LJ serves to describe the Lennard-Jones interaction potential and
-! provides routines for the computation of the forces and potential energy, with
-! and without smoothing.
+!> The module LJ serves to describe the Lennard-Jones interaction potential and
+!! provides routines for the computation of the forces and potential energy, with
+!! and without smoothing.
 
 module LJ
   
+  !> A LJdata variable contains all the parameters for Lennard-Jones interaction
+  !! between two ensembles of particles. Each ensemble may possess several 
+  !! species. The interaction may be smoothed or not.
   type LJdata
-     integer :: Na, Nb
+     !> Number of particles in ensemble a.
+     integer :: Na
+     !> Number of particles in ensemble a.
+     integer :: Nb
+     !> Epsilon parameter, dimensions (Na,Nb).
      double precision, allocatable :: eps(:,:)
+     !> Sigma parameter, dimensions (Na,Nb).
      double precision, allocatable :: sig(:,:)
+     !> Cut-off radius, dimensions (Na,Nb).
      double precision, allocatable :: cut(:,:)
+     !> Neighbouring radius (cut-off + skin), dimensions (Na,Nb).
      double precision, allocatable :: neigh(:,:)
+     !> Switch for the smoothing of the potential, dimensions (Na,Nb).
      logical, allocatable :: smooth(:,:)
   end type LJdata
 
-  type(LJdata) :: at_at, at_so
+  !> The inter-atoms LJ parameters.
+  type(LJdata) :: at_at
+  !> The atom-solvent LJ parameters.
+  type(LJdata) :: at_so
 
 contains
 
+  !> Configures LJ parameters from a configuration file.
+  !>
+  !> @param CF the configuration file.
+  !> @param Nat the number of atom species.
+  !> @param Nso The number of solvent species.
   subroutine config_LJdata(CF, Nat, Nso)
     use ParseText
     implicit none
@@ -89,8 +108,11 @@ contains
     
   end subroutine config_LJdata
 
-  !!function LJ_force_or
-  ! returns the LJ force over r
+  !> Returns the magnitude of the LJ force over r.
+  !>
+  !> @param eps The LJ epsilon parameter.
+  !> @param sigma The LJ sigma parameter.
+  !> @param rsq The squared distance between particles.
   !  ! The corresponding potential is
   ! \begin{equation}
   ! V_{LJ}(r) = 4 \epsilon \left( \frac{\sigma^{12}}{r^{12}} - \frac{\sigma^{6}}{r^{6}} + \frac{1}{4} \right)
@@ -112,7 +134,13 @@ contains
 
   end function LJ_force_or
 
-  !!function LJ_force_smooth_or 
+  !> Returns the magnitude of the LJ force over r, with smoothing.
+  !>
+  !> @param eps The LJ epsilon parameter.
+  !> @param sigma The LJ sigma parameter.
+  !> @param rsq The squared distance between particles.
+  !> @param rcut The cut-off radius.
+  !> @param The smoothing parameter.
   ! returns the magnitude over r of the smoothed LJ force.
   ! The smoothed potential is V_LJ * x**4/(1.+x**4) where x = (r-rcut)/(sigma*h) P. H. Colberg & F. Hofling, Comp. Phys. Comm. 2011 (in press at the time of writing this comment).
   ! 
@@ -134,6 +162,11 @@ contains
 
   end function LJ_force_smooth_or
 
+  !> Returns the LJ potential of two particles.
+  !>
+  !> @param eps The LJ epsilon parameter.
+  !> @param sigma The LJ sigma parameter.
+  !> @param rsq The squared distance between particles.
   function LJ_V(eps, sigma, rsq)
     implicit none
     double precision :: LJ_V
@@ -147,6 +180,13 @@ contains
 
   end function LJ_V
 
+  !> Returns the LJ potential of two particles, with smoothing.
+  !>
+  !> @param eps The LJ epsilon parameter.
+  !> @param sigma The LJ sigma parameter.
+  !> @param rsq The squared distance between particles.
+  !> @param rcut The cut-off radius.
+  !> @param The smoothing parameter.
   function LJ_V_smooth(eps, sigma, rsq, rcut, h)
     implicit none
     double precision :: LJ_V_smooth

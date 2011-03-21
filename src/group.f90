@@ -1,21 +1,43 @@
+
+!> This module allows the description of colloid groups of the type "ATOM", "DIMER" and "ELAST".
+
 module group
   
+  !> Contains information about an atomic group.
   type group_t
+     !> Global group ID. This needs to be set to pass around groups between CPUs.
      integer :: GID
+     !> Number of atoms in the group.
      integer :: N
+     !> First index at which the group is found in the "at_*" arrays.
      integer :: istart
+     !> Type of the group. Needs to be set to one of the hardcoded values of this module.
      integer :: g_type
-     integer :: species1, species2
+     !> Species holder 1. For value of first atom in a dimer and/or configuration purposes.
+     integer :: species1
+     !> Species holder 2. For value of second atom in a dimer and/or configuration purposes.
+     integer :: species2
+     !> In the case of a dimer, length of the dimer.
      double precision :: dimer_length
+     !> In the case of an elastic network, stiffness of the network.
      double precision :: elast_k
   end type group_t
 
+  !> g_type parameter for unbound LJ atoms.
   integer, parameter :: ATOM_G=1
+  !> g_type parameter for a dimer.
   integer, parameter :: DIMER_G=2
+  !> g_type parameter for an elastic network.
   integer, parameter :: ELAST_G=3
 
 contains
 
+  !> Sets a group variable from a configuration file.
+  !>
+  !> @param group_var Variable that is set from the file.
+  !> @param group_i Index of the group, used to parse the file.
+  !> @param istart Index of the first atom in the "at_*" arrays
+  !> @param CF Configuration file.
   subroutine config_group(group_var, group_i, istart, CF)
     use ParseText
     implicit none
