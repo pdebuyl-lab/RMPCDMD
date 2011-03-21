@@ -226,7 +226,7 @@ contains
 
   subroutine begin_h5md
     call h5open_f(h5_error)
-    call h5md_open_file(file_ID, 'data.h5', 'MPCDMD')
+    call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
 
     call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID)
     call h5md_create_obs(file_ID, 'energy', enID)
