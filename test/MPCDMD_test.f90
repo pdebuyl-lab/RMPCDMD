@@ -58,7 +58,8 @@ program test
   call config_MPCD(CF)
 
   call config_MD
-
+  
+  istart=1
   do i=1,N_groups
      if (group_list(i)%g_type == ATOM_G) then
         call config_atom_group(group_list(i))
@@ -72,7 +73,8 @@ program test
      do j=1,n_sub
         write(j_s, '(i2.2)') j
         idx = PTread_ivec(CF, 'group'//i_s//'sub'//j_s, 2)
-        at_subgroup(idx(1):idx(2)) = j
+        at_subgroup(idx(1):idx(2)) = istart
+        istart = istart + 1
      end do
   end do
 
