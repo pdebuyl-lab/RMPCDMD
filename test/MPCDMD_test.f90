@@ -127,7 +127,6 @@ program test
 
   call begin_h5md
 
-  call h5_custom_write_sub(file_ID)
   call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
   call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
   call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
