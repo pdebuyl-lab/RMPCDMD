@@ -14,7 +14,9 @@ program test
   integer :: i_time, i_in, i, istart, reneigh
   integer :: N_MD_loop, N_loop, en_unit, at_x_unit, at_v_unit
   double precision :: max_d, realtime
-  character(len=10) :: at_format
+  character(len=11) :: at_format
+  character(len=16) :: init_mode
+  character(len=2) :: g_string
   integer :: collect_atom
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
@@ -23,12 +25,17 @@ program test
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
   type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, v_com_ID
+  integer(HID_T) :: other_ID
+  type(h5md_t) :: dset_ID
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
   call PTinfo(short=.true.)
 
   call PTparse(CF,'sample_MPCDMD',9)
+
+  call h5open_f(h5_error)
+
 
   seed = PTread_i(CF,'seed')
   if (seed < 0) then
@@ -72,14 +79,29 @@ program test
      end if
   end do
 
-  write(*,*) group_list(1)%N
-  write(*,*) group_list(1)%istart
-  write(*,*) group_list(1)%elast_nlink
-  do i=1,group_list(1)%elast_nlink
-     write(*,*) group_list(1)%elast_index(:,i), group_list(1)%elast_r0(i)
+  do i=1,N_groups
+     write(g_string,'(i02.2)') i
+     init_mode = PTread_s(CF, 'group'//g_string//'init')
+     if (init_mode .eq. 'file') then
+        ! load data from file, specifying which group and which file
+        init_mode = PTread_s(CF, 'group'//g_string//'file')
+        call h5md_open_file(other_ID, init_mode)
+        call h5md_open_trajectory(other_ID, 'position', dset_ID)
+        call h5md_load_trajectory_data_d(dset_ID, &
+             at_r, -1)
+        !at_r(:, group_list(i)%istart:group_list(i)%istart + group_list(i)%N - 1), -1)
+        call h5md_close_ID(dset_ID)
+        call h5fclose_f(other_ID, h5_error)
+     else if (init_mode .eq. 'random') then
+        ! init set group for random init
+        write(*,*) 'MPCDMD> WARNING random not yet supported'
+     else
+        write(*,*) 'MPCDMD> unknown init_mode ', init_mode, ' for group'//g_string
+        stop 
+     end if
   end do
 
-  call init_atoms(CF)
+  !call init_atoms(CF)
   at_v = 0.d0
 
   write(*,*) so_sys%N_species
@@ -128,7 +150,7 @@ program test
   open(at_x_unit,file='at_x')
   at_v_unit=13
   open(at_v_unit,file='at_v')
-  write(at_format,'(a1,i02.2,a7)') '(', 3*at_sys%N(0),'e20.10)'
+  write(at_format,'(a1,i03.3,a7)') '(', 3*at_sys%N(0),'e20.10)'
   write(*,*) at_format
   
   i_time = 0
@@ -237,7 +259,6 @@ contains
   end subroutine correct_at
 
   subroutine begin_h5md
-    call h5open_f(h5_error)
     call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
 
     call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID)
