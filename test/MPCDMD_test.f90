@@ -18,10 +18,11 @@ program test
   integer :: collect_atom
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
+  double precision :: v_com(3), mass_temp
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
-  type(h5md_t) :: enID, so_kinID, at_kinID, excessID, at_soID, at_atID
+  type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, v_com_ID
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -58,7 +59,7 @@ program test
   call config_MPCD(CF)
 
   call config_MD
-
+  
   do i=1,N_groups
      if (group_list(i)%g_type == ATOM_G) then
         call config_atom_group(group_list(i))
@@ -136,11 +137,12 @@ program test
 
   call begin_h5md
 
-  call h5md_append_obs_value_d(at_soID, at_sol_en, i_time, realtime)
-  call h5md_append_obs_value_d(at_atID, at_at_en, i_time, realtime)
-  call h5md_append_obs_value_d(at_kinID, at_kin, i_time, realtime)
-  call h5md_append_obs_value_d(so_kinID, sol_kin, i_time, realtime)
-  call h5md_append_obs_value_d(enID, energy, i_time, realtime)
+  call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
+  call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
+  call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
+  call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+  call h5md_write_obs(enID, energy, i_time, realtime)
+  call h5md_write_obs(v_com_ID, v_com, i_time, realtime)
 
   reneigh = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
@@ -187,11 +189,20 @@ program test
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
 
-     call h5md_append_obs_value_d(at_soID, at_sol_en, i_time, realtime)
-     call h5md_append_obs_value_d(at_atID, at_at_en, i_time, realtime)
-     call h5md_append_obs_value_d(at_kinID, at_kin, i_time, realtime)
-     call h5md_append_obs_value_d(so_kinID, sol_kin, i_time, realtime)
-     call h5md_append_obs_value_d(enID, energy, i_time, realtime)
+     v_com = 0.d0
+     mass_temp = 0.d0
+     do i=1,at_sys%N(0)
+        v_com = v_com + at_sys%mass(at_species(i)) * at_v(:,i)
+        mass_temp = mass_temp + at_sys%mass(at_species(i))
+     end do
+     v_com = v_com / mass_temp
+
+     call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
+     call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
+     call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
+     call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+     call h5md_write_obs(enID, energy, i_time, realtime)
+     call h5md_write_obs(v_com_ID, v_com, i_time, realtime)
      call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
   end do
 
@@ -227,16 +238,16 @@ contains
 
   subroutine begin_h5md
     call h5open_f(h5_error)
-    call h5md_open_file(file_ID, 'data.h5', 'MPCDMD')
+    call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
 
     call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID)
-    call h5md_create_obs(file_ID, 'energy', enID)
-    call h5md_create_obs(file_ID, 'at_at_int', at_atID)
-    call h5md_create_obs(file_ID, 'at_so_int', at_soID)
-    call h5md_create_obs(file_ID, 'so_kin', so_kinID)
-    call h5md_create_obs(file_ID, 'at_kin', at_kinID)
-    call h5md_create_obs(file_ID, 'excess', excessID)
-    
+    call h5md_create_obs(file_ID, 'energy', enID, energy)
+    call h5md_create_obs(file_ID, 'at_at_int', at_atID, at_at_en, link_from='energy')
+    call h5md_create_obs(file_ID, 'at_so_int', at_soID, at_sol_en, link_from='energy')
+    call h5md_create_obs(file_ID, 'so_kin', so_kinID, sol_kin, link_from='energy')
+    call h5md_create_obs(file_ID, 'at_kin', at_kinID, at_kin, link_from='energy')
+    call h5md_create_obs(file_ID, 'v_com', v_com_ID, v_com, link_from='energy')
+
   end subroutine begin_h5md
 
   subroutine end_h5md
@@ -246,7 +257,6 @@ contains
     call h5md_close_ID(at_soID)
     call h5md_close_ID(so_kinID)
     call h5md_close_ID(at_kinID)
-    call h5md_close_ID(excessID)
 
     call h5fclose_f(file_ID, h5_error)
     

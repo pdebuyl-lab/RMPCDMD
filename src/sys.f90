@@ -1,26 +1,40 @@
 
-! The module sys serves to describe the following data, of interest for an 
-! ensemble of particles:
-!   - maximum size of the system
-!   - number of species
-!   - number of particles of each species
-!   - mass for each species
-! This module does not contain information on the interaction potentials. This 
-! is found, for instance, in the LJ module.
+!> The module sys serves to describe the following data, of interest for an 
+!! ensemble of particles:
+!!   - maximum size of the system
+!!   - number of species
+!!   - number of particles of each species
+!!   - mass for each species
+!!
+!! This module does not contain information on the interaction potentials. This 
+!! is found, for instance, in the LJ module.
 
 module sys
   
+  !> contains the variables of a given system.
   type sys_t
+     !> user given name
      character(len=12) :: name
+     !> Maximum number of particles in the sytem. This is useful to allocate arrays, for instance.
      integer :: N_max
+     !> Number of species
      integer :: N_species
+     !> N(0) is the total number of particles, 1:N_species are the per-species number.
      integer, allocatable :: N(:)
+     !> mass of each species
      double precision, allocatable :: mass(:)
+     !> inverse mass of each species
      double precision, allocatable :: oo_mass(:)
   end type sys_t
 
 contains
-
+  !> Configures a sys_t variable.
+  !!
+  !! The routine takes all data from a ParseText configuration file.
+  !! It then allocates the arrays in the sys_t variable.
+  !! @param sys_var The resulting sys_t variable
+  !! @param name The name of the system, serves to read the appropriate lines of the configuration.
+  !! @param CF The Configuration file.
   subroutine config_sys(sys_var, name, CF)
     use ParseText
     implicit none
