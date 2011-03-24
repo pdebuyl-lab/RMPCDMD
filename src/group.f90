@@ -52,8 +52,8 @@ contains
 
     character(len=2) :: group_index
     character(len=16) :: g_string
-    integer :: s(2), i0
-    integer, allocatable :: subg_ver(:)
+    integer :: s(2), i0, i
+    integer, allocatable :: subg_vec(:)
 
     write(group_index,'(i2.02)') group_i
 
@@ -83,7 +83,7 @@ contains
     if (group_var % N_sub > 0) then
        allocate( subg_vec(group_var % N_sub) )
        allocate( group_var % subgroup(2,group_var % N_sub) )
-       subg_vec = PTread_i_vec(CF,'group'//group_index//'Nsub', size(subg_ver))
+       subg_vec = PTread_ivec(CF,'group'//group_index//'sub', size(subg_vec))
        i0 = 1
        do i=1,group_var % N_sub
           group_var % subgroup(1,i) = i0
