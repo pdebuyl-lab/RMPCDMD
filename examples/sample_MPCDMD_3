@@ -15,9 +15,11 @@ atmass01 = 2681
 
 group01 = atom
 group01N = 1 
+group01Nsub = 0
 group01species = 1
 group02 = atom
 group02N = 4 
+group02Nsub = 0
 group02species = 1
 
 at_ateps01 = 1.d0
@@ -32,10 +34,13 @@ LJskinfactor = 1.2d0
 
 N_cells = 20 20 20 
 cell_unit = 1.d0
+so_T = 0.4
 
 atinit = random 
+seed = -1
 
 DT = 0.01d0
 N_MD_loop = 100 
 N_loop = 500
 h = 0.01
+collect_atom = 0
