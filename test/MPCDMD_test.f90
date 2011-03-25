@@ -95,6 +95,9 @@ program test
      else if (init_mode .eq. 'random') then
         ! init set group for random init
         write(*,*) 'MPCDMD> WARNING random not yet supported'
+     else if (init_mode .eq. 'lattice') then
+        ! init set group for lattice init
+        write(*,*) 'MPCDMD> WARNING lattice not yet supported'
      else
         write(*,*) 'MPCDMD> unknown init_mode ', init_mode, ' for group'//g_string
         stop 
