@@ -102,7 +102,7 @@ program test
         lat_0 = PTread_dvec(CF, 'group'//g_string//'lat_0', size(lat_0))
         lat_d = PTread_dvec(CF, 'group'//g_string//'lat_d', size(lat_d))
         lat_n = PTread_ivec(CF, 'group'//g_string//'lat_n', size(lat_n))
-        lat_idx = (/ 0, 0, 0 /)
+        lat_idx = (/ 1, 0, 0 /)
         do j=group_list(i)%istart, group_list(i)%istart + group_list(i)%N - 1
            lat_idx(1) = lat_idx(1) + 1
            if (lat_idx(1) .ge. lat_n(1)) then
@@ -189,6 +189,8 @@ program test
   call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
 
   call begin_h5md
+
+  call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
 
   call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
   call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
