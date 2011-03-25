@@ -26,6 +26,14 @@ module group
      double precision :: dimer_length
      !> In the case of an elastic network, stiffness of the network.
      double precision :: elast_k
+     !> In the case of an elastic network, maximum separation between linked beads.
+     double precision :: elast_rmax
+     !> In the case of an elastic network, number of link
+     integer :: elast_nlink
+     !> In the case of an elastic network, index of the links. Dimensions (2,elast_nlink).
+     integer, allocatable :: elast_index(:,:)
+     !> In the case of an elastic network, rest distance of the spring. Dimension (elast_nlink).
+     double precision, allocatable :: elast_r0(:)
   end type group_t
 
   !> g_type parameter for unbound LJ atoms.
@@ -74,6 +82,8 @@ contains
        group_var % g_type = ELAST_G
        group_var % N = PTread_i(CF,'group'//group_index//'N')
        group_var % elast_k = PTread_d(CF,'group'//group_index//'k')
+       group_var % elast_rmax = PTread_d(CF,'group'//group_index//'rmax')
+       group_var % species1 = PTread_i(CF,'group'//group_index//'species')
     case default
        write(*,*) 'unknown type for', g_string
        stop
