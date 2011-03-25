@@ -101,6 +101,9 @@ program test
      end if
   end do
 
+  call config_elast_group2(CF,group_list(1),1,10)
+
+
   !call init_atoms(CF)
   at_v = 0.d0
 

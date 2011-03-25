@@ -520,26 +520,30 @@ contains
     integer, intent(in) :: group_i, f_unit
 
     character(len=2) :: group_index
-    character(len=64) :: r_file
+    integer :: i
+    
+    write(group_index,'(i2.02)') group_i
+
+    do i=g_var%istart, g_var%istart + g_var%N - 1
+       at_species(i) = g_var % species1
+    end do
+
+  end subroutine config_elast_group
+
+  subroutine config_elast_group2(CF,g_var,group_i,f_unit)
+    use ParseText
+    type(PTo), intent(in) :: CF
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in) :: group_i, f_unit
+
+    character(len=2) :: group_index
     integer :: i,j, N_link, i_link
     double precision, allocatable :: dist_table(:,:) 
     double precision :: x(3)
     
     write(group_index,'(i2.02)') group_i
 
-    r_file = PTread_s(CF,'group'//group_index//'r_file')
-
-    open(f_unit,file=r_file)
-    
-    read(f_unit,*) at_r(:,g_var%istart:g_var%istart+g_var%N-1)
-
-    close(f_unit)
-
     allocate(dist_table(g_var%N,g_var%N))
-
-    do i=g_var%istart, g_var%istart + g_var%N - 1
-       at_species(i) = g_var % species1
-    end do
 
     do i=1,g_var%N
        do j=i+1,g_var%N
@@ -580,7 +584,7 @@ contains
 
     deallocate(dist_table)
 
-  end subroutine config_elast_group
+  end subroutine config_elast_group2
 
   subroutine compute_f_elast(g_i)
     integer, intent(in) :: g_i
