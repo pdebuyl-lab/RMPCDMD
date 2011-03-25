@@ -21,6 +21,9 @@ program test
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
   double precision :: v_com(3), mass_temp
+  double precision :: lat_0(3), lat_d(3)
+  integer :: lat_idx(3), lat_n(3)
+  integer :: j
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
@@ -96,14 +99,37 @@ program test
         write(*,*) 'MPCDMD> WARNING random not yet supported'
      else if (init_mode .eq. 'lattice') then
         ! init set group for lattice init
-        write(*,*) 'MPCDMD> WARNING lattice not yet supported'
+        lat_0 = PTread_dvec(CF, 'group'//g_string//'lat_0', size(lat_0))
+        lat_d = PTread_dvec(CF, 'group'//g_string//'lat_d', size(lat_d))
+        lat_n = PTread_ivec(CF, 'group'//g_string//'lat_n', size(lat_n))
+        lat_idx = (/ 0, 0, 0 /)
+        do j=group_list(i)%istart, group_list(i)%istart + group_list(i)%N - 1
+           lat_idx(1) = lat_idx(1) + 1
+           if (lat_idx(1) .ge. lat_n(1)) then
+              lat_idx(1) = 0
+              lat_idx(2) = lat_idx(2) + 1
+           end if
+           if (lat_idx(2) .ge. lat_n(2)) then
+              lat_idx(2) = 0
+              lat_idx(3) = lat_idx(3) + 1
+           end if
+           if (lat_idx(3) .ge. lat_n(3)) then
+              lat_idx(3) = 0
+           end if
+           at_r(:,j) = lat_0 + lat_d * dble(lat_idx)
+
+        end do
+              
      else
         write(*,*) 'MPCDMD> unknown init_mode ', init_mode, ' for group'//g_string
         stop 
      end if
+  
+     if (group_list(i)%g_type == ELAST_G) call config_elast_group2(CF,group_list(i),1,10)
+
+  
   end do
 
-  call config_elast_group2(CF,group_list(1),1,10)
 
 
   !call init_atoms(CF)
