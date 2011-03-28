@@ -20,14 +20,15 @@ program test
   integer :: collect_atom
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
-  double precision :: v_com(3), mass_temp
   double precision :: lat_0(3), lat_d(3)
   integer :: lat_idx(3), lat_n(3)
   integer :: j
+  double precision :: v_sub1(3), v_sub2(3), r_sub1(3), r_sub2(3)
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
-  type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, v_com_ID
+  type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID
+  type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
 
@@ -187,6 +188,12 @@ program test
   i_time = 0
   realtime = 0.d0
   call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+  if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+     v_sub1 = com_v(group_list(1),1)
+     v_sub2 = com_v(group_list(1),2)
+     r_sub1 = com_r(group_list(1),1)
+     r_sub2 = com_r(group_list(1),2)
+  end if
 
   call begin_h5md
 
@@ -197,7 +204,14 @@ program test
   call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
   call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
   call h5md_write_obs(enID, energy, i_time, realtime)
-  call h5md_write_obs(v_com_ID, v_com, i_time, realtime)
+  if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+     call h5md_write_obs(vs1ID, v_sub1, i_time, realtime)
+     call h5md_write_obs(vs2ID, v_sub2, i_time, realtime)
+     call h5md_write_obs(rs1ID, r_sub1, i_time, realtime)
+     call h5md_write_obs(rs2ID, r_sub2, i_time, realtime)
+  end if
+
+  at_jumps = 0
 
   reneigh = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
@@ -243,21 +257,26 @@ program test
      call simple_MPCD_step
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+        v_sub1 = com_v(group_list(1),1)
+        v_sub2 = com_v(group_list(1),2)
+        r_sub1 = com_r(group_list(1),1)
+        r_sub2 = com_r(group_list(1),2)
+     end if
 
-     v_com = 0.d0
-     mass_temp = 0.d0
-     do i=1,at_sys%N(0)
-        v_com = v_com + at_sys%mass(at_species(i)) * at_v(:,i)
-        mass_temp = mass_temp + at_sys%mass(at_species(i))
-     end do
-     v_com = v_com / mass_temp
 
      call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
      call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
      call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
      call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
      call h5md_write_obs(enID, energy, i_time, realtime)
-     call h5md_write_obs(v_com_ID, v_com, i_time, realtime)
+     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+        call h5md_write_obs(vs1ID, v_sub1, i_time, realtime)
+        call h5md_write_obs(vs2ID, v_sub2, i_time, realtime)
+        call h5md_write_obs(rs1ID, r_sub1, i_time, realtime)
+        call h5md_write_obs(rs2ID, r_sub2, i_time, realtime)
+     end if
+
      call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
   end do
 
@@ -285,8 +304,14 @@ contains
 
     do i=1,at_sys%N(0)
        do dim=1,3
-          if (at_r(dim,i) < 0.d0) at_r(dim,i) = at_r(dim,i) + L(dim)
-          if (at_r(dim,i) >= L(dim)) at_r(dim,i) = at_r(dim,i) - L(dim)
+          if (at_r(dim,i) < 0.d0) then
+             at_r(dim,i) = at_r(dim,i) + L(dim)
+             at_jumps(dim,i) = at_jumps(dim,i) - 1
+          end if
+          if (at_r(dim,i) >= L(dim)) then
+             at_r(dim,i) = at_r(dim,i) - L(dim)
+             at_jumps(dim, i) = at_jumps(dim,i) + 1
+          end if
        end do
     end do
   end subroutine correct_at
@@ -300,7 +325,12 @@ contains
     call h5md_create_obs(file_ID, 'at_so_int', at_soID, at_sol_en, link_from='energy')
     call h5md_create_obs(file_ID, 'so_kin', so_kinID, sol_kin, link_from='energy')
     call h5md_create_obs(file_ID, 'at_kin', at_kinID, at_kin, link_from='energy')
-    call h5md_create_obs(file_ID, 'v_com', v_com_ID, v_com, link_from='energy')
+    if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+       call h5md_create_obs(file_ID, 'v_com_1', vs1ID, v_sub1, link_from='energy')
+       call h5md_create_obs(file_ID, 'v_com_2', vs2ID, v_sub2, link_from='energy')
+       call h5md_create_obs(file_ID, 'r_com_1', rs1ID, r_sub1, link_from='energy')
+       call h5md_create_obs(file_ID, 'r_com_2', rs2ID, r_sub2, link_from='energy')
+    end if
 
   end subroutine begin_h5md
 
@@ -311,6 +341,12 @@ contains
     call h5md_close_ID(at_soID)
     call h5md_close_ID(so_kinID)
     call h5md_close_ID(at_kinID)
+    if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+       call h5md_close_ID(vs1ID)
+       call h5md_close_ID(vs2ID)
+       call h5md_close_ID(rs1ID)
+       call h5md_close_ID(rs2ID)
+    end if
 
     call h5fclose_f(file_ID, h5_error)
     

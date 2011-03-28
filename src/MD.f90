@@ -19,6 +19,7 @@ module MD
   double precision, allocatable, target :: at_f1(:,:), at_f2(:,:)
   double precision, pointer :: at_f(:,:), at_f_old(:,:), at_f_temp(:,:)
   double precision, allocatable :: at_r_neigh(:,:)
+  integer, allocatable :: at_jumps(:,:)
   integer, allocatable :: at_neigh_list(:,:)
   integer, allocatable :: at_species(:)
 
@@ -44,6 +45,7 @@ contains
     allocate(at_f1(3,at_sys%N_max))
     allocate(at_f2(3,at_sys%N_max))
     allocate(at_r_neigh(3,at_sys%N_max))
+    allocate(at_jumps(3,at_sys%N_max))
     allocate(at_species(at_sys%N_max))
 
     allocate(at_neigh_list(0:max_neigh, at_sys%N_max))
@@ -635,5 +637,66 @@ contains
     compute_pot_elast = u
 
   end function compute_pot_elast
+
+  !> Computes the center of mass position of a group or subgroup.
+  !! @param g_var The group to consider
+  !! @param sub_g Optionally, the index of a subgroup.
+  !! @return com_r The coordinates.
+  function com_r(g_var, sub_g)
+    double precision :: com_r(3)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in), optional :: sub_g
+    
+    integer :: i, i1,iN
+    double precision :: mass
+    
+    if (present(sub_g)) then
+       i1 = g_var % subgroup(1, sub_g)
+       iN = g_var % subgroup(2, sub_g)
+    else
+       i1 = g_var % istart
+       iN = g_var % istart + g_var % N - 1
+    end if
+    
+    com_r = 0.d0 ; mass = 0.d0
+    do i = i1, iN
+       com_r = com_r + (at_r(:,i) + at_jumps(:,i) * L ) * at_sys % mass(at_species(i))
+       mass = mass + at_sys % mass(at_species(i))
+    end do
+    
+    com_r = com_r / mass
+
+  end function com_r
+
+  !> Computes the center of mass velocity of a group or subgroup.
+  !! @param g_var The group to consider
+  !! @param sub_g Optionally, the index of a subgroup.
+  !! @return com_r The velocity.
+  function com_v(g_var, sub_g)
+    double precision :: com_v(3)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in), optional :: sub_g
+    
+    integer :: i, i1,iN
+    double precision :: mass
+    
+    if (present(sub_g)) then
+       i1 = g_var % subgroup(1, sub_g)
+       iN = g_var % subgroup(2, sub_g)
+    else
+       i1 = g_var % istart
+       iN = g_var % istart + g_var % N - 1
+    end if
+    
+    com_v = 0.d0 ; mass = 0.d0
+    do i = i1, iN
+       com_v = com_v + at_v(:,i) * at_sys % mass(at_species(i))
+       mass = mass + at_sys % mass(at_species(i))
+    end do
+    
+    com_v = com_v / mass
+
+  end function com_v
+
 
 end module MD
