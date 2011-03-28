@@ -75,6 +75,10 @@ module MPCD
 
 contains
   
+  !> Reads the cell size and allocates all MPCD solvent arrays.
+  !! Also reads the number of particles for each species and the internal energy
+  !! of each species.
+  !! @param CF Configuration file.
   subroutine config_MPCD(CF)
     use ParseText
     implicit none
@@ -118,6 +122,10 @@ contains
 
   end subroutine config_MPCD
 
+  !> Initializes a solvent with random positions in the simulation box, regardless
+  !! of any obstacle.
+  !! Velocities taken from a flat velocity profile with requested temperature.
+  !! @param temperature The temperature given to the solvent.
   subroutine homogeneous_solvent(temperature)
     double precision, intent(in) :: temperature
     integer :: i, Nloop
@@ -142,6 +150,8 @@ contains
 
   end subroutine homogeneous_solvent
 
+  !> Builds "par_list" by filling for each cell the list of solvent particles
+  !! that are explicitly found in that cell.
   subroutine place_in_cells
     
     integer :: i, ci, cj, ck
@@ -168,6 +178,10 @@ contains
 
   end subroutine place_in_cells
   
+  !> Computes the center of mass velocity of each cell.
+  !!
+  !! The first three elements of Vcom(:,ci,cj,ck) represent the momenta while
+  !! the fourth is the mass of that cell.
   subroutine compute_v_com
 
     integer :: i,j, ci, cj, ck
@@ -188,6 +202,8 @@ contains
     end do
   end subroutine compute_v_com
 
+  !> Generates, for each cell, a rotation matrix whose angle is
+  !! Pi/2 and whose orientation vector is chosen at random.
   subroutine generate_omega
     
     integer :: ci,cj,ck
@@ -219,6 +235,8 @@ contains
     end do
   end subroutine generate_omega
 
+  !> Collides the particles whithin each cell, according to their precomputed
+  !! rotation matrix.
   subroutine simple_MPCD_step
 
     integer :: i, j
@@ -243,6 +261,8 @@ contains
 
   end subroutine simple_MPCD_step
 
+  !> Advances all particles according to their velocity, for 
+  !! a time of tau.
   subroutine MPCD_stream
     integer :: i
 
