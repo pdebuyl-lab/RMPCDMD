@@ -15,3 +15,4 @@ tau = 0.5d0
 N_loop = 100
 N_outer = 100000
 seed = -1
+shifting = F

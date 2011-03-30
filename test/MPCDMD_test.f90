@@ -166,6 +166,8 @@ program test
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
 
+  do_shifting = PTread_l(CF, 'shifting')
+
   call PTkill(CF)
 
   
@@ -216,6 +218,8 @@ program test
   reneigh = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
+  
+  shift = 0.d0
 
   !at_v(:,1) = (/ 0.02d0, 0.01d0, 0.015d0 /)
 
@@ -248,6 +252,12 @@ program test
      if (collect_atom == 0) then
         write(at_x_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
         write(at_v_unit,at_format) ( at_v(:,i) , i=1,at_sys%N(0) )
+     end if
+
+     if (do_shifting) then
+        shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
      end if
 
      call correct_so
@@ -293,8 +303,8 @@ contains
 
     do i=1,so_sys%N(0)
        do dim=1,3
-          if (so_r(dim,i) < 0.d0) so_r(dim,i) = so_r(dim,i) + L(dim)
-          if (so_r(dim,i) >= L(dim)) so_r(dim,i) = so_r(dim,i) - L(dim)
+          if (so_r(dim,i) < shift(dim)) so_r(dim,i) = so_r(dim,i) + L(dim)
+          if (so_r(dim,i) >= L(dim)+shift(dim)) so_r(dim,i) = so_r(dim,i) - L(dim)
        end do
     end do
   end subroutine correct_so

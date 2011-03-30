@@ -30,6 +30,7 @@ program test
   call homogeneous_solvent(PTread_d(CF,'so_T'))
 
   tau=PTread_d(CF,'tau')
+  do_shifting = PTread_l(CF, 'shifting')
   N_outer = PTread_i(CF,'N_outer')
   N_loop = PTread_i(CF,'N_loop')
   
@@ -41,6 +42,8 @@ program test
 
   open(11,file='kin_mom')
 
+  shift = 0.d0
+  
   do i_time = 1,N_outer
      
      do i_in = 1,N_loop
@@ -49,6 +52,13 @@ program test
         call generate_omega
         call simple_MPCD_step
         call MPCD_stream
+
+        if (do_shifting) then
+           shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+           shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+           shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        end if
+
         call correct_so
 
      end do
@@ -79,8 +89,8 @@ contains
 
     do i=1,so_sys%N(0)
        do dim=1,3
-          if (so_r(dim,i) < 0.d0) so_r(dim,i) = so_r(dim,i) + L(dim)
-          if (so_r(dim,i) >= L(dim)) so_r(dim,i) = so_r(dim,i) - L(dim)
+          if (so_r(dim,i) < shift(dim)) so_r(dim,i) = so_r(dim,i) + L(dim)
+          if (so_r(dim,i) >= L(dim)+shift(dim)) so_r(dim,i) = so_r(dim,i) - L(dim)
        end do
     end do
   end subroutine correct_so

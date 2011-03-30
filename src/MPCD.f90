@@ -36,6 +36,10 @@ module MPCD
   double precision :: oo_L(3)
   !> The MPCD streaming step.
   double precision :: tau
+  !> Switch to activate gridshifting.
+  logical :: do_shifting
+  !> Value of the shift. Is kept between -a/2 and a/2.
+  double precision :: shift(3)
 
   ! MPCD particles variables
   !> Position of the MPCD solvent, dimension (3,N)
@@ -160,7 +164,7 @@ contains
     par_list = 0
 
     do i=1,so_sys%N(0)
-       cc = floor(so_r(:,i) * oo_a) + 1
+       cc = floor((so_r(:,i)-shift) * oo_a) + 1
        ci = cc(1) ; cj = cc(2) ; ck = cc(3)
        
        if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
