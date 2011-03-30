@@ -24,6 +24,7 @@ program test
   integer :: lat_idx(3), lat_n(3)
   integer :: j
   double precision :: v_sub1(3), v_sub2(3), r_sub1(3), r_sub2(3)
+  double precision :: com_g1(3)
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
@@ -31,6 +32,8 @@ program test
   type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
+
+  type(rad_dist) :: gor
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -197,6 +200,8 @@ program test
      r_sub2 = com_r(group_list(1),2)
   end if
 
+  call init_gor(gor,100,.1d0,group_list(1)%istart, group_list(1)%N)
+
   call begin_h5md
 
   call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
@@ -273,7 +278,11 @@ program test
         r_sub1 = com_r(group_list(1),1)
         r_sub2 = com_r(group_list(1),2)
      end if
-
+     
+     if (i_time .ge. 200) then
+        com_g1 = com_r(group_list(1))
+        call update_gor(gor, com_g1)
+     end if
 
      call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
      call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
@@ -291,6 +300,10 @@ program test
   end do
 
   i_time = i_time-1
+
+  call write_gor(gor,file_ID)
+  write(*,*) gor % t_count
+  write(*,*) gor % N
 
   call end_h5md
 
