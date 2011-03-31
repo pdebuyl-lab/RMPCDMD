@@ -128,8 +128,11 @@ contains
     integer :: i, j, iter, dim
     double precision :: x(3), dsqr, t_factor
     logical :: too_close
+    double precision :: tot_m, tot_v(3)
 
     t_factor = sqrt(3.d0*temperature)
+    tot_m = 0.d0
+    tot_v = 0.d0
 
     i=1
     iter=1
@@ -151,6 +154,8 @@ contains
           x = x-0.5d0
           so_v(:,i) = x*2.d0 * t_factor/sqrt(so_sys%mass(so_species(i)))
           i=i+1
+          tot_m = tot_m + so_sys%mass(so_species(i))
+          tot_v = tot_v + so_sys%mass(so_species(i)) * so_v(:,i)
        end if
        if (i>so_sys%N(0)) exit
        if (iter>100*so_sys%N(0)) then
@@ -158,6 +163,10 @@ contains
           write(*,*) 'failed to place all solvent particle'
           stop
        end if
+    end do
+    tot_v = tot_v / tot_m
+    do i=1,so_sys%N(0)
+       so_v(:,i) = so_v(:,i) - tot_v
     end do
     
   end subroutine fill_with_solvent

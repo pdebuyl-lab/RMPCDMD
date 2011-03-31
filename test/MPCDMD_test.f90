@@ -25,6 +25,8 @@ program test
   integer :: j
   double precision :: v_sub1(3), v_sub2(3), r_sub1(3), r_sub2(3)
   double precision :: com_g1(3)
+  double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
+  integer :: N_th_loop
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
@@ -159,13 +161,15 @@ program test
   write(*,*) at_so%smooth
   write(*,*) at_at%smooth
 
-  call fill_with_solvent(PTread_d(CF,'so_T'))
+  target_T = PTread_d(CF,'so_T')
+  call fill_with_solvent( target_T )
   call place_in_cells
   call make_neigh_list
 
   N_loop = PTread_i(CF, 'N_loop')
   N_MD_loop = PTread_i(CF, 'N_MD_loop')
-  DT = PTread_d(CF, 'DT')
+  N_th_loop = PTread_i(CF, 'N_th_loop')
+  MD_DT = PTread_d(CF, 'DT')
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
 
@@ -227,8 +231,67 @@ program test
   shift = 0.d0
 
   !at_v(:,1) = (/ 0.02d0, 0.01d0, 0.015d0 /)
+  DT = 2.d0*MD_DT
+  do i_time = 1,N_th_loop
+     
+     do i_in = 1,N_MD_loop/2
+        call MD_step1
 
-  do i_time = 1,N_loop
+        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
+           reneigh = reneigh + 1
+           call correct_so
+           call place_in_cells
+           call make_neigh_list
+        end if
+
+        call compute_f
+        call MD_step2
+
+        realtime=realtime+DT
+
+     end do
+
+     call correct_at
+     
+     if (do_shifting) then
+        shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+     end if
+
+     call correct_so
+     call place_in_cells
+     call compute_v_com
+     call generate_omega
+     call simple_MPCD_step
+
+     total_kin = 0.d0
+     total_mass = 0.d0
+     do i=1,at_sys%N(0)
+        total_mass = total_mass + at_sys % mass( at_species(i) )
+        total_kin = total_kin + 0.5d0 * at_sys % mass( at_species(i) ) * sum( at_v(:,i)**2 )
+     end do
+     do i=1,so_sys%N(0)
+        total_mass = total_mass + so_sys % mass( so_species(i) )
+        total_kin = total_kin + 0.5d0 * so_sys % mass( so_species(i) ) * sum( so_v(:,i)**2 )
+     end do
+     actual_T = total_kin * 2.d0/(3.d0 * total_mass )
+     v_factor = sqrt( target_T / actual_T )
+     at_v = at_v * v_factor
+     so_v = so_v * v_factor
+
+     call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+
+     call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
+     call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
+     call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
+     call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+     call h5md_write_obs(enID, energy, i_time, realtime)
+
+  end do
+
+  DT = MD_DT
+  do i_time = N_th_loop+1,N_loop+N_th_loop
      
      do i_in = 1,N_MD_loop
         call MD_step1
@@ -298,6 +361,7 @@ program test
 
      call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
   end do
+
 
   i_time = i_time-1
 
