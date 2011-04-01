@@ -237,7 +237,8 @@ program test
      do i_in = 1,N_MD_loop/2
         call MD_step1
 
-        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
+        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
+             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
            reneigh = reneigh + 1
            call correct_so
            call place_in_cells
@@ -297,7 +298,8 @@ program test
      do i_in = 1,N_MD_loop
         call MD_step1
 
-        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
+        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
+             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
            reneigh = reneigh + 1
            call correct_so
            call place_in_cells
