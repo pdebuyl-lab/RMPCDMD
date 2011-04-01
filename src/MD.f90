@@ -270,7 +270,9 @@ contains
           if (dist_sqr < dist_min) dist_min=dist_sqr
           if ( dist_sqr .le. at_so%cut(at_si, so_species(part))**2 ) then
              if (at_so%smooth(at_si,so_species(part))) then
-                f_var = LJ_force_smooth_or(at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), dist_sqr, at_so%cut(at_si,so_species(part)), h) * x
+                f_var = LJ_force_smooth_or( &
+                at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), &
+                dist_sqr, at_so%cut(at_si,so_species(part)), h ) * x
              else
                 f_var = LJ_force_or(at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), dist_sqr) * x
              end if
@@ -307,7 +309,9 @@ contains
                 if (dist_sqr .lt. at_dist_min) at_dist_min = dist_sqr
                 if ( dist_sqr .le. LJcut_sqr ) then
                    if (at_at%smooth(at_species(at_i), at_species(at_j))) then
-                      f_var = LJ_force_smooth_or(at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, dist_sqr, at_at%cut(at_species(at_i),at_species(at_j)), h) * x
+                      f_var = LJ_force_smooth_or( &
+                           at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, dist_sqr, &
+                           at_at%cut(at_species(at_i),at_species(at_j)), h) * x
                    else
                       f_var = LJ_force_or(at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, dist_sqr) * x
                    end if
@@ -368,7 +372,9 @@ contains
           dist_sqr = sum( x**2 )
           if ( dist_sqr .le. LJcut_sqr ) then
              if (at_so%smooth(at_species(at_i),so_species(part))) then
-                at_sol_en = at_sol_en + LJ_V_smooth( at_so%eps( at_species(at_i), so_species(part)) , LJsig, dist_sqr , at_so%cut( at_species(at_i), so_species(part) ), h)
+                at_sol_en = at_sol_en + LJ_V_smooth( &
+                     at_so%eps( at_species(at_i), so_species(part)) , &
+                     LJsig, dist_sqr , at_so%cut( at_species(at_i), so_species(part) ), h)
              else
                 at_sol_en = at_sol_en + LJ_V( at_so%eps( at_species(at_i), so_species(part)) , LJsig, dist_sqr )
              end if
@@ -404,7 +410,9 @@ contains
                 dist_sqr = sum( x**2 )
                 if ( dist_sqr .le. LJcut_sqr ) then
                    if (at_at%smooth(at_species(at_i),at_species(at_j))) then
-                      at_at_en = at_at_en + LJ_V_smooth(at_at%eps( at_species(at_i), at_species(at_j) ) , LJsig, dist_sqr , at_at%cut( at_species(at_i),  at_species(at_j) ) , h)
+                      at_at_en = at_at_en + LJ_V_smooth( &
+                           at_at%eps( at_species(at_i), at_species(at_j) ) , &
+                           LJsig, dist_sqr , at_at%cut( at_species(at_i),  at_species(at_j) ) , h)
                    else
                       at_at_en = at_at_en + LJ_V(at_at%eps( at_species(at_i), at_species(at_j) ) , LJsig, dist_sqr )
                    end if
@@ -422,7 +430,8 @@ contains
        at_mom = at_mom + at_sys%mass( at_si ) * at_v(:,at_i)
     end do
 
-    if (file_unit > 0) write(file_unit,'(7e30.20)') at_sol_en, at_at_en, sol_kin, at_kin, excess, at_sol_en+at_at_en+sol_kin+at_kin, at_sol_en+at_at_en+sol_kin+at_kin+excess
+    if (file_unit > 0) write(file_unit,'(7e30.20)') at_sol_en, at_at_en, sol_kin, at_kin, &
+         excess, at_sol_en+at_at_en+sol_kin+at_kin, at_sol_en+at_at_en+sol_kin+at_kin+excess
     energy = at_sol_en+at_at_en+sol_kin+at_kin+excess
     
   end subroutine compute_tot_mom_energy
@@ -513,7 +522,8 @@ contains
        
        LJsig = at_so%sig(at_species(at_i),so_species(part))
        if (dist_sqr .le. at_so%cut(at_species(at_i),so_species(part))**2) then
-          delta_U = delta_U + 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+          delta_U = delta_U + 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * &
+               ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
        end if
        delta_U = delta_U + u_int(so_species(part))
        so_sys%N(so_species(part)) = so_sys%N(so_species(part)) - 1
@@ -522,7 +532,8 @@ contains
        
        LJsig = at_so%sig(at_species(at_i),so_species(part))
        if (dist_sqr .le. at_so%cut(at_species(at_i),so_species(part))**2) then
-          delta_U = delta_U - 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
+          delta_U = delta_U - 4.d0 * at_so%eps( at_species(at_i), so_species(part)) * &
+               ( (LJsig**2/dist_sqr)**6 - (LJsig**2/dist_sqr)**3 + 0.25d0 )
        end if
        delta_U = delta_U + u_int(so_species(part))
        so_sys%N(so_species(part)) = so_sys%N(so_species(part)) + 1

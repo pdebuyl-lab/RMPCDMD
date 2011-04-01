@@ -8,11 +8,6 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 FIND_PACKAGE(HDF5_Fortran)
 
-if (CMAKE_Fortran_COMPILER MATCHES "gfortran")
-  # gfortran
-  set (CMAKE_Fortran_FLAGS "-ffree-line-length-none")
-endif (CMAKE_Fortran_COMPILER MATCHES "gfortran")
-
 ENABLE_TESTING()
 
 add_subdirectory(ParseText)

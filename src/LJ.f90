@@ -142,7 +142,8 @@ contains
   !> @param rcut The cut-off radius.
   !> @param The smoothing parameter.
   ! returns the magnitude over r of the smoothed LJ force.
-  ! The smoothed potential is V_LJ * x**4/(1.+x**4) where x = (r-rcut)/(sigma*h) P. H. Colberg & F. Hofling, Comp. Phys. Comm. 2011 (in press at the time of writing this comment).
+  ! The smoothed potential is V_LJ * x**4/(1.+x**4) where x = (r-rcut)/(sigma*h) 
+  ! See P. H. Colberg & F. Hofling, Comp. Phys. Comm. 182, pp 1120-1129 (2011)
   ! 
   function LJ_force_smooth_or(eps, sigma, rsq, rcut, h)
     implicit none
@@ -158,7 +159,8 @@ contains
 
     LJ_force_smooth_or = 24.d0*eps* sig6_o_r6/rsq * (2.d0*sig6_o_r6 - 1.d0) * x4/(1.d0+x4)
 
-    LJ_force_smooth_or = LJ_force_smooth_or + 16.d0 * eps * sig6_o_r6 * ( sig6_o_r6 - 1.d0 )/sqrt(rsq) * x**3 / ( (1.d0 + x4)**2 * sigma * h)
+    LJ_force_smooth_or = LJ_force_smooth_or + &
+         16.d0 * eps * sig6_o_r6 * ( sig6_o_r6 - 1.d0 )/sqrt(rsq) * x**3 / ( (1.d0 + x4)**2 * sigma * h)
 
   end function LJ_force_smooth_or
 

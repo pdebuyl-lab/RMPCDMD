@@ -66,7 +66,8 @@ module MPCD
   logical(kind=1), allocatable :: is_local(:)
   !> Flag that indicates that a particle exists: it has not been "destroyed" by a chemical reaction.
   logical(kind=1), allocatable :: exists(:)
-  !> Flag that indicates that the force on a particle is non-zero and that MD stepping should be used instead of simple streaming.
+  !> Flag that indicates that the force on a particle is non-zero and that MD stepping should be 
+  !! used instead of simple streaming.
   logical(kind=1), allocatable :: is_MD(:)
   !> Number of MD steps that should be taken into account when performing a streaming.
   integer, allocatable :: N_MD(:)
