@@ -153,9 +153,9 @@ contains
           x(1) = mtprng_rand_real1(ran_state) ; x(2) = mtprng_rand_real1(ran_state) ;  x(3) = mtprng_rand_real1(ran_state) ;
           x = x-0.5d0
           so_v(:,i) = x*2.d0 * t_factor/sqrt(so_sys%mass(so_species(i)))
-          i=i+1
           tot_m = tot_m + so_sys%mass(so_species(i))
           tot_v = tot_v + so_sys%mass(so_species(i)) * so_v(:,i)
+          i=i+1
        end if
        if (i>so_sys%N(0)) exit
        if (iter>100*so_sys%N(0)) then
