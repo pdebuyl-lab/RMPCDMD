@@ -12,9 +12,8 @@ program test
   type(PTo) :: CF
 
   integer :: i_time, i_in, i, istart, reneigh
-  integer :: N_MD_loop, N_loop, en_unit, at_x_unit, at_v_unit
+  integer :: N_MD_loop, N_loop, en_unit
   double precision :: max_d, realtime
-  character(len=11) :: at_format
   character(len=16) :: init_mode
   character(len=2) :: g_string
   integer :: collect_atom
@@ -187,12 +186,6 @@ program test
 
   en_unit = 11
   open(en_unit,file='energy')
-  at_x_unit=12
-  open(at_x_unit,file='at_x')
-  at_v_unit=13
-  open(at_v_unit,file='at_v')
-  write(at_format,'(a1,i03.3,a7)') '(', 3*at_sys%N(0),'e20.10)'
-  write(*,*) at_format
   
   i_time = 0
   realtime = 0.d0
@@ -308,10 +301,6 @@ program test
         call compute_f
         call MD_step2
 
-        if (collect_atom > 0) then
-           write(at_x_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
-           write(at_v_unit,at_format) ( at_v(:,i) , i=1,at_sys%N(0) )
-        end if
 
         realtime=realtime+DT
 
@@ -319,11 +308,6 @@ program test
 
      call correct_at
      
-     if (collect_atom == 0) then
-        write(at_x_unit,at_format) ( at_r(:,i) , i=1,at_sys%N(0) )
-        write(at_v_unit,at_format) ( at_v(:,i) , i=1,at_sys%N(0) )
-     end if
-
      if (do_shifting) then
         shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
         shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
