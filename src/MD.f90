@@ -736,6 +736,7 @@ contains
     integer, intent(in) :: N
 
     allocate(gor%g(N_gor))
+    gor % g = 0 
     gor % t_count = 0
     gor % dr = dr
     gor % istart = istart

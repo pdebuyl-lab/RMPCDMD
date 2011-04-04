@@ -281,6 +281,7 @@ program test
      call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
      call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
      call h5md_write_obs(enID, energy, i_time, realtime)
+     call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
 
   end do
 
@@ -399,10 +400,10 @@ contains
     call h5md_create_obs(file_ID, 'so_kin', so_kinID, sol_kin, link_from='energy')
     call h5md_create_obs(file_ID, 'at_kin', at_kinID, at_kin, link_from='energy')
     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
-       call h5md_create_obs(file_ID, 'v_com_1', vs1ID, v_sub1, link_from='energy')
-       call h5md_create_obs(file_ID, 'v_com_2', vs2ID, v_sub2, link_from='energy')
-       call h5md_create_obs(file_ID, 'r_com_1', rs1ID, r_sub1, link_from='energy')
-       call h5md_create_obs(file_ID, 'r_com_2', rs2ID, r_sub2, link_from='energy')
+       call h5md_create_obs(file_ID, 'v_com_1', vs1ID, v_sub1)
+       call h5md_create_obs(file_ID, 'v_com_2', vs2ID, v_sub2, link_from='v_com_1')
+       call h5md_create_obs(file_ID, 'r_com_1', rs1ID, r_sub1, link_from='v_com_1')
+       call h5md_create_obs(file_ID, 'r_com_2', rs2ID, r_sub2, link_from='v_com_1')
     end if
 
   end subroutine begin_h5md

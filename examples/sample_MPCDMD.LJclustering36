@@ -1,0 +1,52 @@
+soN_max = 130000 
+soN_species = 2 
+soN01 = 65000 
+somass01 = 1.d0
+so_u_int01 = 0.d0
+soN02 = 65000 
+somass02 = 1.d0
+so_u_int02 = 0.d0
+
+N_groups = 1 
+atN_max = 36 
+atN_species = 1
+atN01 = 36 
+atmass01 = 10. 
+
+group01 = atom 
+group01k = 10.
+group01rmax = 7.5
+group01N = 36 
+group01Nsub = 2 
+group01sub = 18 18 
+group01species = 1
+group01init = lattice 
+group01lat_0 = 5. 5. 5. 
+group01lat_d = 3. 3. 3. 
+group01lat_n = 4 4 4 
+group01file = data_in.h5
+
+at_ateps01 = 1.d0
+at_atsig01 = 2.d0
+at_atsmooth01 = T 
+
+at_soeps01 = 1.d0 1.d0
+at_sosig01 = 1.d0 1.d0
+at_sosmooth01 = F F 
+
+LJskinfactor = 1.3d0
+
+N_cells = 24 24 24  
+cell_unit = 1.d0
+so_T = 0.4
+shifting = T
+
+atinit = random 
+seed = -1
+
+DT = 0.02d0
+N_MD_loop = 25 
+N_loop = 400 
+N_th_loop = 1000
+h = 0.01
+collect_atom = 0
