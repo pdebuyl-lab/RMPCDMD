@@ -13,7 +13,7 @@ program test
 
   integer :: i_time, i_in, i, istart, reneigh, N_MD_since_re
   integer :: N_MD_loop, N_loop, en_unit
-  double precision :: max_d, realtime
+  double precision :: realtime
   character(len=16) :: init_mode
   character(len=2) :: g_string
   integer :: collect_atom
@@ -301,10 +301,11 @@ program test
         call MD_step1
 
         N_MD_since_re = N_MD_since_re + 1
-        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
-             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
 
-        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. (N_MD_since_re.ge.N_MD_max)) then
+        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
+             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
+             (N_MD_since_re.ge.N_MD_max)) then
+
            tau = N_MD_since_re*DT
            call MPCD_stream
            N_MD_since_re = 0
