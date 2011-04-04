@@ -29,7 +29,7 @@ program test
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
-  type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID
+  type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, tempID
   type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
@@ -196,17 +196,23 @@ program test
      r_sub1 = com_r(group_list(1),1)
      r_sub2 = com_r(group_list(1),2)
   end if
+  total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
+       sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
+  actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
   call init_gor(gor,100,.1d0,group_list(1)%istart, group_list(1)%N)
 
   call begin_h5md
 
   call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
-
+  if (allocated(group_list(1)%subgroup) ) then
+     call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
+  end if
   call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
   call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
   call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
   call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+  call h5md_write_obs(tempID, actual_T, i_time, realtime)
   call h5md_write_obs(enID, energy, i_time, realtime)
   if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
      call h5md_write_obs(vs1ID, v_sub1, i_time, realtime)
@@ -281,6 +287,7 @@ program test
      call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
      call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
      call h5md_write_obs(enID, energy, i_time, realtime)
+     call h5md_write_obs(tempID, actual_T, i_time, realtime)
      call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
 
   end do
@@ -329,15 +336,18 @@ program test
         r_sub2 = com_r(group_list(1),2)
      end if
      
-     if (i_time .ge. 200) then
-        com_g1 = com_r(group_list(1))
-        call update_gor(gor, com_g1)
-     end if
+     com_g1 = com_r(group_list(1))
+     call update_gor(gor, com_g1)
+
+     total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
+          sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
+     actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
      call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
      call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
      call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
      call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+     call h5md_write_obs(tempID, actual_T, i_time, realtime)
      call h5md_write_obs(enID, energy, i_time, realtime)
      if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
         call h5md_write_obs(vs1ID, v_sub1, i_time, realtime)
@@ -395,6 +405,7 @@ contains
 
     call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID)
     call h5md_create_obs(file_ID, 'energy', enID, energy)
+    call h5md_create_obs(file_ID, 'temperature', tempID, actual_T, link_from='energy')
     call h5md_create_obs(file_ID, 'at_at_int', at_atID, at_at_en, link_from='energy')
     call h5md_create_obs(file_ID, 'at_so_int', at_soID, at_sol_en, link_from='energy')
     call h5md_create_obs(file_ID, 'so_kin', so_kinID, sol_kin, link_from='energy')
@@ -411,6 +422,7 @@ contains
   subroutine end_h5md
     call h5md_close_ID(posID)
     call h5md_close_ID(enID)
+    call h5md_close_ID(tempID)
     call h5md_close_ID(at_atID)
     call h5md_close_ID(at_soID)
     call h5md_close_ID(so_kinID)
@@ -427,6 +439,24 @@ contains
     call h5close_f(h5_error)
 
   end subroutine end_h5md
+
+  subroutine attr_subgroup_h5md(ID, name, data)
+    type(h5md_t), intent(inout) :: ID
+    character(len=*), intent(in) :: name
+    integer, intent(in) :: data(:,:)
+
+    integer(HID_T) :: a_id, s_id
+    integer(HSIZE_T) :: a_size(2)
+
+    a_size = shape(data)
+    
+    call h5screate_simple_f(2, a_size, s_id, h5_error)
+    call h5acreate_f(ID%d_id, name, H5T_NATIVE_INTEGER, s_id, a_id, h5_error)
+    call h5awrite_f(a_id, H5T_NATIVE_INTEGER, data, a_size, h5_error)
+    call h5aclose_f(a_id, h5_error)
+    call h5sclose_f(s_id, h5_error)
+
+  end subroutine attr_subgroup_h5md
 
 end program test
 
