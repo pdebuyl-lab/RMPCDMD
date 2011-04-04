@@ -1,37 +1,90 @@
+
+!> This module holds the variables for a MPCD simulation.
+!!
+!! Most variables are global. The MPCD particles variables are prefixed by
+!! "so_" (for solvent) so as not to be mixed up with the MD module.
+
 module MPCD
   use sys
   use mtprng
   implicit none
 
-  double precision, parameter :: PI = 3.1415926535897932384626433832795029d0     ! Pi computed via N[Pi,35] in Mathematica
+  !> Value of Pi computed via N[Pi,35] in Mathematica
+  double precision, parameter :: PI = 3.1415926535897932384626433832795029d0
+  !> The size of the list of particles for each MPCD cell
   integer, parameter :: max_per_cell=128
 
   ! MPCD box variables
+  !> The number of cells in each direction
   integer :: N_cells(3)
+  !> The list of particles belonging to each cell
   integer, allocatable :: par_list(:,:,:,:)
+  !> The list of cell-wise center of mass momenta.
+  !! The leftmost index is
+  !! - 1:3 : components of the mometum.
+  !! - 4   : total mass in the cell
   double precision, allocatable :: Vcom(:,:,:,:)
+  !> rotation matrix for each cell.
   double precision, allocatable :: omega(:,:,:,:,:)
-  double precision :: a, oo_a
-  double precision :: L(3), oo_L(3)
+  !> The length of a cell.
+  double precision :: a
+  !> The inverse length of a cell.
+  double precision :: oo_a
+  !> Size of the system in each direction. The box is [0:L(d)] in the direction d.
+  double precision :: L(3)
+  !> Inverse of L
+  double precision :: oo_L(3)
+  !> The MPCD streaming step.
   double precision :: tau
+  !> Switch to activate gridshifting.
+  logical :: do_shifting
+  !> Value of the shift. Is kept between -a/2 and a/2.
+  double precision :: shift(3)
 
   ! MPCD particles variables
-  double precision, allocatable :: so_r(:,:), so_v(:,:)
-  double precision, allocatable, target :: so_f1(:,:), so_f2(:,:)
-  double precision, pointer :: so_f(:,:), so_f_old(:,:), so_f_temp(:,:)
+  !> Position of the MPCD solvent, dimension (3,N)
+  double precision, allocatable :: so_r(:,:)
+  !> Velocity of the MPCD solvent, dimension (3,N)
+  double precision, allocatable :: so_v(:,:)
+  !> Force for the MPCD solvent, copy 1. It is used in alternance with copy 2.
+  double precision, allocatable, target :: so_f1(:,:)
+  !> Force for the MPCD solvent, copy 2. It is used in alternance with copy 1.
+  double precision, allocatable, target :: so_f2(:,:)
+  !> Pointer to the force for the MPCD solvent. so_f points to the last computed force.
+  double precision, pointer :: so_f(:,:)
+  !> Pointer to the force for the MPCD solvent. so_f_old points to the before-to-last computed force.
+  double precision, pointer :: so_f_old(:,:)
+  !> Pointer to the force for the MPCD solvent. so_f_temp holds the pointer while switching so_f and so_f_old.
+  double precision, pointer :: so_f_temp(:,:)
+  !> List of solvent particles that are neighbour to colloid particles.
   double precision, allocatable :: so_r_neigh(:,:)
+  !> The species of each solvent particle.
   integer, allocatable :: so_species(:)
+  !> The per-species internal energy. Allows to consider exo- and endo-thermic reactions.
   double precision, allocatable :: u_int(:)
-  logical(kind=1), allocatable :: is_local(:), exists(:)
+  !> Flag that indicates that a particle is found on this CPU.
+  logical(kind=1), allocatable :: is_local(:)
+  !> Flag that indicates that a particle exists: it has not been "destroyed" by a chemical reaction.
+  logical(kind=1), allocatable :: exists(:)
+  !> Flag that indicates that the force on a particle is non-zero and that MD stepping should be 
+  !! used instead of simple streaming.
   logical(kind=1), allocatable :: is_MD(:)
+  !> Number of MD steps that should be taken into account when performing a streaming.
   integer, allocatable :: N_MD(:)
   integer :: N_MD_max
 
+  !> Information on the solvent system, based on sys_t from the sys group.
   type(sys_t) :: so_sys
+
+  !> State of the random number generator.
   type(mtprng_state), save :: ran_state
 
 contains
   
+  !> Reads the cell size and allocates all MPCD solvent arrays.
+  !! Also reads the number of particles for each species and the internal energy
+  !! of each species.
+  !! @param CF Configuration file.
   subroutine config_MPCD(CF)
     use ParseText
     implicit none
@@ -75,6 +128,10 @@ contains
 
   end subroutine config_MPCD
 
+  !> Initializes a solvent with random positions in the simulation box, regardless
+  !! of any obstacle.
+  !! Velocities taken from a flat velocity profile with requested temperature.
+  !! @param temperature The temperature given to the solvent.
   subroutine homogeneous_solvent(temperature)
     double precision, intent(in) :: temperature
     integer :: i, Nloop
@@ -99,6 +156,8 @@ contains
 
   end subroutine homogeneous_solvent
 
+  !> Builds "par_list" by filling for each cell the list of solvent particles
+  !! that are explicitly found in that cell.
   subroutine place_in_cells
     
     integer :: i, ci, cj, ck
@@ -107,7 +166,7 @@ contains
     par_list = 0
 
     do i=1,so_sys%N(0)
-       cc = floor(so_r(:,i) * oo_a) + 1
+       cc = floor((so_r(:,i)-shift) * oo_a) + 1
        ci = cc(1) ; cj = cc(2) ; ck = cc(3)
        
        if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
@@ -125,6 +184,10 @@ contains
 
   end subroutine place_in_cells
   
+  !> Computes the center of mass velocity of each cell.
+  !!
+  !! The first three elements of Vcom(:,ci,cj,ck) represent the momenta while
+  !! the fourth is the mass of that cell.
   subroutine compute_v_com
 
     integer :: i,j, ci, cj, ck
@@ -145,6 +208,8 @@ contains
     end do
   end subroutine compute_v_com
 
+  !> Generates, for each cell, a rotation matrix whose angle is
+  !! Pi/2 and whose orientation vector is chosen at random.
   subroutine generate_omega
     
     integer :: ci,cj,ck
@@ -176,6 +241,8 @@ contains
     end do
   end subroutine generate_omega
 
+  !> Collides the particles whithin each cell, according to their precomputed
+  !! rotation matrix.
   subroutine simple_MPCD_step
 
     integer :: i, j
@@ -200,6 +267,8 @@ contains
 
   end subroutine simple_MPCD_step
 
+  !> Advances all particles according to their velocity, for 
+  !! a time of tau.
   subroutine MPCD_stream
     integer :: i
 

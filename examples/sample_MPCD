@@ -14,4 +14,9 @@ so_T = 0.5
 N_cells = 8 8 8 
 cell_unit = 1.d0
 
+tau = 0.5d0
+N_loop = 10
+N_outer = 100
+
 seed = -1
+shifting = F

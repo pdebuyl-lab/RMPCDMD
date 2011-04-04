@@ -1,0 +1,18 @@
+
+soN_groups = 1
+
+soN_max = 10000
+soN_species = 1 
+soN01 = 10000
+somass01 = 1.d0
+so_u_int01 = 0.d0
+
+so_T = 0.166666666666667d0
+N_cells = 10 10 10
+cell_unit = 1.d0
+
+tau = 0.5d0
+N_loop = 100
+N_outer = 100000
+seed = -1
+shifting = F

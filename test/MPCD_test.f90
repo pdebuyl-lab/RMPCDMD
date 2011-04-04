@@ -2,14 +2,18 @@ program test
   use sys
   use MPCD
   use ParseText
+  use MPCDMD
   implicit none
   
   type(PTo) :: CF
 
-  integer :: i_time, i_in
+  integer :: i_time, i_in, N_outer, N_loop
   double precision :: MPCD_kin, MPCD_kin_0, MPCD_mom(3), MPCD_mom_0(3)
   integer :: seed
 
+  call MPCDMD_info
+  call mtprng_info(short=.true.)
+  call PTinfo(short=.true.)
 
   call PTparse(CF,'sample_MPCD',9)
 
@@ -24,24 +28,37 @@ program test
   call config_MPCD(CF)
 
   call homogeneous_solvent(PTread_d(CF,'so_T'))
+
+  tau=PTread_d(CF,'tau')
+  do_shifting = PTread_l(CF, 'shifting')
+  N_outer = PTread_i(CF,'N_outer')
+  N_loop = PTread_i(CF,'N_loop')
   
   call PTkill(CF)
 
-  tau=1.d0
 
   call compute_en_mom(MPCD_kin_0,MPCD_mom_0)
   write(*,'(4e28.18)') MPCD_kin_0, MPCD_mom_0
 
   open(11,file='kin_mom')
 
-  do i_time = 1,10000
+  shift = 0.d0
+  
+  do i_time = 1,N_outer
      
-     do i_in = 1,10
+     do i_in = 1,N_loop
         call place_in_cells
         call compute_v_com
         call generate_omega
         call simple_MPCD_step
         call MPCD_stream
+
+        if (do_shifting) then
+           shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+           shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+           shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        end if
+
         call correct_so
 
      end do
@@ -72,8 +89,8 @@ contains
 
     do i=1,so_sys%N(0)
        do dim=1,3
-          if (so_r(dim,i) < 0.d0) so_r(dim,i) = so_r(dim,i) + L(dim)
-          if (so_r(dim,i) >= L(dim)) so_r(dim,i) = so_r(dim,i) - L(dim)
+          if (so_r(dim,i) < shift(dim)) so_r(dim,i) = so_r(dim,i) + L(dim)
+          if (so_r(dim,i) >= L(dim)+shift(dim)) so_r(dim,i) = so_r(dim,i) - L(dim)
        end do
     end do
   end subroutine correct_so

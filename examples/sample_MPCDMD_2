@@ -39,3 +39,4 @@ DT = 0.01d0
 N_MD_loop = 100 
 N_loop = 20000
 h = 0.01
+shifting = F
