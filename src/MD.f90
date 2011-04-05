@@ -436,32 +436,6 @@ contains
     
   end subroutine compute_tot_mom_energy
 
-  subroutine reac_MD_loop
-    integer :: at_i, part, at_si, so_si, j
-    double precision :: alpha, delta_U
-    logical :: called
-
-    called = .false.
-    
-    do at_i=1,at_sys%N(0)
-       at_si = at_species(at_i)
-       do j=1, at_neigh_list(0,at_i)
-          part = at_neigh_list(j, at_i)
-          so_si = so_species(part)
-          if (reac_table(at_si,so_si).gt.0) then
-             alpha = mtprng_rand_real1(ran_state)
-             if ( .true. ) then
-!             if (reac_rates(at_si,so_si)*DT .gt. alpha) then
-                call reac_MD_do(at_i,part,delta_U)
-                if (abs(delta_U) > 1d-10) exit
-                !excess = excess + delta_U
-             end if
-          end if
-       end do
-    end do
-
-  end subroutine reac_MD_loop
-
   subroutine rel_pos(r1, r2, Lvar, rvar)
     double precision, intent(in) :: r1(3), r2(3), Lvar(3)
     double precision, intent(out) :: rvar(3)
