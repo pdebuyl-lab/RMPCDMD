@@ -23,7 +23,7 @@ ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake)
 
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY} ${HDF5_INC}) 
 add_executable(MPCDMD_test src/MPCDMD.f90 src/LJ.f90 src/MD.f90
-src/MPCD.f90 src/group.f90 src/sys.f90 test/MPCDMD_test.f90 f90h5md/h5md.f90)
+src/MPCD.f90 src/group.f90 src/sys.f90 src/reaction.f90 test/MPCDMD_test.f90 f90h5md/h5md.f90)
 target_link_libraries(MPCDMD_test ParseText mtprng ${HDF5LIB} ${HDF5FORTRANLIB} ${ZLIB} ${SZLIB})
 add_dependencies(MPCDMD_test MPCDMD_version)
 
