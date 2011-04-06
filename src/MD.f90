@@ -6,10 +6,11 @@ module MD
   use sys
   use LJ
   use MPCD
+  use reaction
   use HDF5
   implicit none
 
-  integer, parameter :: max_neigh=32768
+  integer, parameter :: max_neigh=1024
 
   type(sys_t) :: at_sys
 
@@ -24,12 +25,16 @@ module MD
   integer, allocatable :: at_neigh_list(:,:)
   integer, allocatable :: at_species(:)
 
+  integer, allocatable :: so_neigh_list(:,:)
+
   double precision :: DT
 
   integer, allocatable :: reac_table(:,:)
   integer, allocatable :: reac_product(:,:)
   double precision, allocatable :: reac_rates(:,:)
   double precision :: excess
+  type(reac_t), allocatable :: at_so_reac(:,:)
+  logical(kind=1), allocatable :: so_do_reac(:)
 
   double precision :: h
 
@@ -58,6 +63,10 @@ contains
     allocate(at_species(at_sys%N_max))
 
     allocate(at_neigh_list(0:max_neigh, at_sys%N_max))
+
+    allocate(so_neigh_list(0:8, so_sys%N_max) )
+    allocate(so_do_reac( so_sys % N_max ) )
+    allocate(at_so_reac( at_sys % N_species , so_sys % N_species ) )
 
     j=1
     do i=1,at_sys%N_species
@@ -199,13 +208,14 @@ contains
 
   subroutine make_neigh_list
 
-    integer :: at_i, i, dim
+    integer :: at_i, i, dim, part
     integer :: ci, cj, ck, mi, mj, mk
     integer :: Si, Sj, Sk
     integer :: extent
     double precision :: dist_sqr, neigh_sqr, x(3)
     
     at_neigh_list = 0
+    so_neigh_list = 0
 
     do at_i=1,at_sys%N(0)
        
@@ -229,6 +239,10 @@ contains
                          stop
                       end if
                       at_neigh_list(at_neigh_list(0,at_i),at_i) = par_list(i,mi,mj,mk)
+                      part = par_list(i,mi,mj,mk)
+                      so_neigh_list(0,part) = so_neigh_list(0,part) + 1
+                      if ( so_neigh_list(0,part) > 8 ) stop 'too many neighbours for solvent'
+                      so_neigh_list(so_neigh_list(0,part),part) = at_i
                    end if
                 end do
              end do
@@ -241,11 +255,13 @@ contains
 
   end subroutine make_neigh_list
 
-  subroutine compute_f
+  subroutine compute_f(enable_reaction)
+    logical, intent(in) :: enable_reaction
 
-    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1
+    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1, so_n
     double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
     double precision :: dist_min, d, at_dist_min
+    logical :: too_many_atoms
 
     so_f_temp => so_f
     so_f => so_f_old
@@ -278,6 +294,43 @@ contains
              end if
              so_f(:,part) = so_f(:,part) + f_var
              at_f(:,at_i) = at_f(:,at_i) - f_var
+             if (enable_reaction .and. at_so_reac(at_si,so_species(part)) % on) then
+                if (.not. so_do_reac(part) ) then
+                   !eval rate
+                   if ( at_so_reac(at_si, so_species(part)) % rate * DT > mtprng_rand_real1(ran_state) ) then
+                      if (at_so_reac(at_si, so_species(part)) % at_exit) then
+                         so_do_reac(part) = .true.
+                      else
+                         stop 'immediate reaction not implemented yet'
+                      end if
+                   end if
+                end if
+             end if ! (enable_reaction)
+          else
+             if (enable_reaction .and. at_so_reac(at_si,so_species(part)) % on) then
+                if (so_do_reac(part)) then
+                   !check for neighbours!
+                   too_many_atoms = .false.
+                   do so_n = 1, so_neigh_list(0,part)
+                      if (so_neigh_list(so_n,part).eq.at_i) cycle
+                      call rel_pos(so_r(:,part),at_r(:,so_neigh_list(so_n,part)),L,x)
+                      if ( sum(x**2) < at_so%cut(at_si, so_species(part))**2 ) then
+                         too_many_atoms = .true.
+                         exit
+                      end if
+                   end do
+                   if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
+                      if (.not. too_many_atoms) then
+                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
+                         so_species(part) = at_so_reac(at_si, so_species(part)) % product1
+                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
+                         so_do_reac(part) = .false.
+                      end if
+                   else
+                      stop 'two products reaction not implemented yet'
+                   end if
+                end if
+             end if ! (enable_reaction)
           end if
        end do
     end do
