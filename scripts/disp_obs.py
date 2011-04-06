@@ -11,7 +11,11 @@ if (len(argv) > 1):
     o = argv[1]
     d_set = a['observables'][o]['samples']
     t_set = a['observables'][o]['time']
-    plt.plot(t_set, d_set, label=o)
+    if ( len(d_set.shape) == 2 ):
+        for i in range(d_set.shape[1]):
+            plt.plot(t_set, d_set[:,i], label=o+str(i))
+    else:
+        plt.plot(t_set, d_set, label=o)
 
 else:
 
