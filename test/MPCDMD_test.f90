@@ -132,8 +132,10 @@ program test
         stop 
      end if
   
-     if (group_list(i)%g_type == ELAST_G) call config_elast_group2(CF,group_list(i),1,10)
-
+     if (group_list(i)%g_type == ELAST_G) then
+        call config_elast_group2(CF,group_list(i),1,10)
+        write(*,*) 'group', i, 'configured with', group_list(i)%elast_nlink, 'links'
+     end if
   
   end do
 
