@@ -24,6 +24,7 @@ program test
   integer :: j
   double precision :: v_sub1(3), v_sub2(3), r_sub1(3), r_sub2(3)
   double precision :: com_g1(3)
+  double precision :: total_v(3)
   double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
   integer :: N_th_loop
   logical :: reactive
@@ -33,6 +34,7 @@ program test
   type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, tempID
   type(h5md_t) :: solvent_N_ID
   type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
+  type(h5md_t) :: total_vID
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
 
@@ -132,8 +134,10 @@ program test
         stop 
      end if
   
-     if (group_list(i)%g_type == ELAST_G) call config_elast_group2(CF,group_list(i),1,10)
-
+     if (group_list(i)%g_type == ELAST_G) then
+        call config_elast_group2(CF,group_list(i),1,10)
+        write(*,*) 'group', i, 'configured with', group_list(i)%elast_nlink, 'links'
+     end if
   
   end do
 
@@ -205,7 +209,7 @@ program test
   
   i_time = 0
   realtime = 0.d0
-  call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+  call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
   if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
      v_sub1 = com_v(group_list(1),1)
      v_sub2 = com_v(group_list(1),2)
@@ -228,6 +232,7 @@ program test
   call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
   call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
   call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+  call h5md_write_obs(total_vID, total_v, i_time, realtime)
   call h5md_write_obs(tempID, actual_T, i_time, realtime)
   call h5md_write_obs(solvent_N_ID, so_sys%N, i_time, realtime)
   call h5md_write_obs(enID, energy, i_time, realtime)
@@ -297,12 +302,13 @@ program test
      at_v = at_v * v_factor
      so_v = so_v * v_factor
 
-     call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+     call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
 
      call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
      call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
      call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
      call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+     call h5md_write_obs(total_vID, total_v, i_time, realtime)
      call h5md_write_obs(enID, energy, i_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys%N, i_time, realtime)
@@ -346,7 +352,7 @@ program test
      call generate_omega
      call simple_MPCD_step
 
-     call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+     call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
         v_sub1 = com_v(group_list(1),1)
         v_sub2 = com_v(group_list(1),2)
@@ -365,6 +371,7 @@ program test
      call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
      call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
      call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
+     call h5md_write_obs(total_vID, total_v, i_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys%N, i_time, realtime)
      call h5md_write_obs(enID, energy, i_time, realtime)
@@ -430,6 +437,7 @@ contains
     call h5md_create_obs(file_ID, 'at_so_int', at_soID, at_sol_en, link_from='energy')
     call h5md_create_obs(file_ID, 'so_kin', so_kinID, sol_kin, link_from='energy')
     call h5md_create_obs(file_ID, 'at_kin', at_kinID, at_kin, link_from='energy')
+    call h5md_create_obs(file_ID, 'total_v', total_vID, total_v, link_from='energy')
     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
        call h5md_create_obs(file_ID, 'v_com_1', vs1ID, v_sub1)
        call h5md_create_obs(file_ID, 'v_com_2', vs2ID, v_sub2, link_from='v_com_1')
@@ -448,6 +456,7 @@ contains
     call h5md_close_ID(at_soID)
     call h5md_close_ID(so_kinID)
     call h5md_close_ID(at_kinID)
+    call h5md_close_ID(total_vID)
     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
        call h5md_close_ID(vs1ID)
        call h5md_close_ID(vs2ID)
