@@ -12,11 +12,12 @@ program test
   type(PTo) :: CF
 
   integer :: i_time, i_in, i, istart, reneigh
+  integer :: i_MD_time
   integer :: N_MD_loop, N_loop, en_unit
   double precision :: max_d, realtime
   character(len=16) :: init_mode
   character(len=2) :: g_string
-  integer :: collect_atom
+  integer :: collect_atom, collect_MD_steps
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
   double precision :: lat_0(3), lat_d(3)
@@ -175,6 +176,7 @@ program test
   MD_DT = PTread_d(CF, 'DT')
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
+  collect_MD_steps = PTread_i(CF,'collect_MD_steps')
 
   do_shifting = PTread_l(CF, 'shifting')
 
@@ -192,6 +194,7 @@ program test
   open(en_unit,file='energy')
   
   i_time = 0
+  i_MD_time = 0
   realtime = 0.d0
   call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
   if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
@@ -212,19 +215,13 @@ program test
   if (allocated(group_list(1)%subgroup) ) then
      call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
   end if
-  call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
-  call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
-  call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
-  call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
-  call h5md_write_obs(total_vID, total_v, i_time, realtime)
-  call h5md_write_obs(tempID, actual_T, i_time, realtime)
-  call h5md_write_obs(enID, energy, i_time, realtime)
-  if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
-     call h5md_write_obs(vs1ID, v_sub1, i_time, realtime)
-     call h5md_write_obs(vs2ID, v_sub2, i_time, realtime)
-     call h5md_write_obs(rs1ID, r_sub1, i_time, realtime)
-     call h5md_write_obs(rs2ID, r_sub2, i_time, realtime)
-  end if
+  call h5md_write_obs(at_soID, at_sol_en, i_MD_time, realtime)
+  call h5md_write_obs(at_atID, at_at_en, i_MD_time, realtime)
+  call h5md_write_obs(at_kinID, at_kin, i_MD_time, realtime)
+  call h5md_write_obs(so_kinID, sol_kin, i_MD_time, realtime)
+  call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
+  call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
+  call h5md_write_obs(enID, energy, i_MD_time, realtime)
 
   at_jumps = 0
 
@@ -252,6 +249,7 @@ program test
         call MD_step2
 
         realtime=realtime+DT
+        i_MD_time = i_MD_time + 1
 
      end do
 
@@ -286,14 +284,14 @@ program test
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
 
-     call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
-     call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
-     call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
-     call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
-     call h5md_write_obs(total_vID, total_v, i_time, realtime)
-     call h5md_write_obs(enID, energy, i_time, realtime)
-     call h5md_write_obs(tempID, actual_T, i_time, realtime)
-     call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
+     call h5md_write_obs(at_soID, at_sol_en, i_MD_time, realtime)
+     call h5md_write_obs(at_atID, at_at_en, i_MD_time, realtime)
+     call h5md_write_obs(at_kinID, at_kin, i_MD_time, realtime)
+     call h5md_write_obs(so_kinID, sol_kin, i_MD_time, realtime)
+     call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
+     call h5md_write_obs(enID, energy, i_MD_time, realtime)
+     call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
+     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
 
   end do
 
@@ -316,6 +314,20 @@ program test
 
 
         realtime=realtime+DT
+        i_MD_time = i_MD_time + 1
+
+        if ( mod(i_MD_time, collect_MD_steps) .eq. 0 ) then
+           if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+              v_sub1 = com_v(group_list(1),1)
+              v_sub2 = com_v(group_list(1),2)
+              r_sub1 = com_r(group_list(1),1)
+              r_sub2 = com_r(group_list(1),2)
+              call h5md_write_obs(vs1ID, v_sub1, i_MD_time, realtime)
+              call h5md_write_obs(vs2ID, v_sub2, i_MD_time, realtime)
+              call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
+              call h5md_write_obs(rs2ID, r_sub2, i_MD_time, realtime)
+           end if
+        end if
 
      end do
 
@@ -334,12 +346,6 @@ program test
      call simple_MPCD_step
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
-     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
-        v_sub1 = com_v(group_list(1),1)
-        v_sub2 = com_v(group_list(1),2)
-        r_sub1 = com_r(group_list(1),1)
-        r_sub2 = com_r(group_list(1),2)
-     end if
      
      com_g1 = com_r(group_list(1))
      call update_gor(gor, com_g1)
@@ -348,25 +354,19 @@ program test
           sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
      actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-     call h5md_write_obs(at_soID, at_sol_en, i_time, realtime)
-     call h5md_write_obs(at_atID, at_at_en, i_time, realtime)
-     call h5md_write_obs(at_kinID, at_kin, i_time, realtime)
-     call h5md_write_obs(so_kinID, sol_kin, i_time, realtime)
-     call h5md_write_obs(total_vID, total_v, i_time, realtime)
-     call h5md_write_obs(tempID, actual_T, i_time, realtime)
-     call h5md_write_obs(enID, energy, i_time, realtime)
-     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
-        call h5md_write_obs(vs1ID, v_sub1, i_time, realtime)
-        call h5md_write_obs(vs2ID, v_sub2, i_time, realtime)
-        call h5md_write_obs(rs1ID, r_sub1, i_time, realtime)
-        call h5md_write_obs(rs2ID, r_sub2, i_time, realtime)
-     end if
-
-     call h5md_write_trajectory_data_d(posID, at_r, i_time, realtime)
+     call h5md_write_obs(at_soID, at_sol_en, i_MD_time, realtime)
+     call h5md_write_obs(at_atID, at_at_en, i_MD_time, realtime)
+     call h5md_write_obs(at_kinID, at_kin, i_MD_time, realtime)
+     call h5md_write_obs(so_kinID, sol_kin, i_MD_time, realtime)
+     call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
+     call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
+     call h5md_write_obs(enID, energy, i_MD_time, realtime)
+     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
   end do
 
 
   i_time = i_time-1
+  i_MD_time = i_MD_time-1
 
   call write_gor(gor,file_ID)
   write(*,*) gor % t_count
