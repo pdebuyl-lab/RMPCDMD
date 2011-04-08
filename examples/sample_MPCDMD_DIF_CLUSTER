@@ -1,0 +1,69 @@
+soN_max = 327680 
+soN_species = 1 
+soN01 = 327680 
+somass01 = 1.d0
+so_u_int01 = 0.d0
+soN02 = 0 
+somass02 = 1.d0
+so_u_int02 = 0.d0
+
+N_groups = 1 
+atN_max = 36 
+atN_species = 1
+atN01 = 36 
+atmass01 = 10. 
+
+group01 = elast 
+group01k = 40.
+group01rmax = 3.5 
+group01N = 36 
+group01Nsub = 2 
+group01sub = 18 18
+group01species = 1
+group01init = file 
+group01lat_0 = 5. 5. 5. 
+group01lat_d = 3. 3. 3. 
+group01lat_n = 4 4 4 
+group01file = data_in.h5
+
+at_ateps01 = 1.d0 1.d0
+at_atsig01 = 2.d0 2.d0
+at_atsmooth01 = T T
+at_ateps02 = 1.d0 1.d0
+at_atsig02 = 2.d0 2.d0 
+at_atsmooth02 = T T
+
+at_soeps01 = 1.d0 1.d0
+at_sosig01 = 1.d0 1.d0
+at_sosmooth01 = F F 
+at_soeps02 = 2.d0 1.d0
+at_sosig02 = 1.d0 1.d0
+at_sosmooth02 = F F
+
+LJskinfactor = 1.3d0
+
+N_cells = 32 32 32 
+cell_unit = 1.d0
+so_T = 0.4
+shifting = T
+
+atinit = random 
+
+DT = 0.005d0
+N_MD_loop = 100 
+N_loop = 35000 
+N_th_loop = 20 
+h = 0.01
+collect_atom = 0
+collect_MD_steps = 5
+
+reactive = F 
+
+reac01_01_on = T
+reac01_01_at_exit = T 
+reac01_01_two_products = F
+reac01_01_product1 = 2
+reac01_01_rate = 1. 
+reac01_02_on = F
+reac02_01_on = F
+reac02_02_on = F
