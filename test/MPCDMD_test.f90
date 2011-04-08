@@ -234,11 +234,10 @@ program test
   
   shift = 0.d0
 
-  !at_v(:,1) = (/ 0.02d0, 0.01d0, 0.015d0 /)
-  DT = 2.d0*MD_DT
+  DT = MD_DT
   do i_time = 1,N_th_loop
      
-     do i_in = 1,N_MD_loop/2
+     do i_in = 1,N_MD_loop
         call MD_step1
 
         if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
