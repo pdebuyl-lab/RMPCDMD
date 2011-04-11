@@ -40,6 +40,7 @@ program test
   type(h5md_t) :: dset_ID
 
   type(rad_dist) :: gor
+  double precision :: x_temp(3)
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -238,6 +239,7 @@ program test
   call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
   call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
   call h5md_write_obs(enID, energy, i_MD_time, realtime)
+  call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
 
   at_jumps = 0
 
@@ -307,6 +309,7 @@ program test
      call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
+     call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
      call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
 
   end do
@@ -377,7 +380,22 @@ program test
      call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
+     call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
      call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
+
+     if (mod(i_time,10).eq.0) then
+        do i=1,so_sys%N(0)
+           if (so_species(i) .eq. 2) then
+              call rel_pos( so_r(:,i), com_g1, L, x_temp)
+              if ( sqrt( sum(x_temp**2) ) > 10.d0 ) then
+                 so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) - 1
+                 so_species(i) = 1
+                 so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) + 1
+              end if
+           end if
+        end do
+     end if
+
   end do
 
 
