@@ -14,6 +14,7 @@ program test
   integer :: i_time, i_in, i, istart, reneigh
   integer :: i_MD_time
   integer :: N_MD_loop, N_loop, en_unit
+  integer :: flush_unit
   double precision :: max_d, realtime
   character(len=16) :: init_mode
   character(len=2) :: g_string
@@ -38,6 +39,8 @@ program test
   type(h5md_t) :: dset_ID
 
   type(rad_dist) :: gor
+  character(len=5) :: zone
+  integer :: values(8)
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -192,6 +195,8 @@ program test
 
   en_unit = 11
   open(en_unit,file='energy')
+  flush_unit = 12
+  open(flush_unit,file='flush_file')
   
   i_time = 0
   i_MD_time = 0
@@ -362,6 +367,16 @@ program test
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
+
+     if (mod(i_time, 100).eq.0) then
+        call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
+        write(flush_unit, *) 'flushed at i_time ', i_time
+        call date_and_time(zone=zone)
+        call date_and_time(values=values)
+        write(flush_unit, '(i4,a,i2,a,i2,a2,i2,a,i2,a,a5)') &
+             values(1),'/',values(2),'/',values(3),'  ',values(5),':', values(6),' ', zone
+     end if
+
   end do
 
 
