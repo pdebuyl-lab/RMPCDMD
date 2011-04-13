@@ -370,16 +370,17 @@ contains
 
   end subroutine MD_step2
 
-  subroutine compute_tot_mom_energy(file_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy)
+  subroutine compute_tot_mom_energy(file_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
     integer, intent(in) :: file_unit
-    double precision, intent(out) :: at_sol_en, at_at_en, sol_kin, at_kin, energy
-    double precision :: mom(3), at_mom(3)
+    double precision, intent(out) :: at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v(3)
+    double precision :: mom(3), at_mom(3), mass, at_mass
 
     integer :: at_i, at_j, j, dim, part, at_si
     integer :: at_g, at_h, at_j_1
     double precision :: LJcut_sqr, LJsig, x(3), y(3), dist_sqr
 
-    at_sol_en = 0.d0 ; at_at_en = 0.d0 ; sol_kin = 0.d0 ; at_kin = 0.d0 ; mom = 0.d0 ; at_mom = 0.d0
+    at_sol_en = 0.d0 ; at_at_en = 0.d0 ; sol_kin = 0.d0 ; at_kin = 0.d0
+    mom = 0.d0 ; at_mom = 0.d0 ; mass = 0.d0 ; at_mass = 0.d0
 
     do at_i=1,at_sys%N(0)
        do j=1, at_neigh_list(0,at_i)
@@ -402,6 +403,7 @@ contains
 
     do part=1,so_sys%N(0)
        sol_kin = sol_kin + 0.5d0 * so_sys%mass( so_species(part) ) * sum( so_v(:,part)**2 )
+       mass = mass + so_sys%mass(so_species(part))
        mom = mom + so_sys%mass(so_species(part)) * so_v(:,part)
     end do
 
@@ -445,13 +447,15 @@ contains
     do at_i = 1,at_sys%N(0)
        at_si = at_species(at_i)
        at_kin = at_kin + 0.5d0 * at_sys%mass( at_si ) * sum( at_v(:,at_i)**2 )
+       at_mass = at_mass + at_sys%mass( at_si )
        at_mom = at_mom + at_sys%mass( at_si ) * at_v(:,at_i)
     end do
 
     if (file_unit > 0) write(file_unit,'(7e30.20)') at_sol_en, at_at_en, sol_kin, at_kin, &
          excess, at_sol_en+at_at_en+sol_kin+at_kin, at_sol_en+at_at_en+sol_kin+at_kin+excess
     energy = at_sol_en+at_at_en+sol_kin+at_kin+excess
-    
+    total_v = (mom + at_mom) / (mass + at_mass)
+
   end subroutine compute_tot_mom_energy
 
   subroutine reac_MD_loop
