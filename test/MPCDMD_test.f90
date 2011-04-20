@@ -402,6 +402,8 @@ program test
   i_time = i_time-1
   i_MD_time = i_MD_time-1
 
+  call dump_solvent_species_h5md
+
   call write_gor(gor,file_ID)
   write(*,*) gor % t_count
   write(*,*) gor % N
@@ -501,6 +503,42 @@ contains
     call h5sclose_f(s_id, h5_error)
 
   end subroutine attr_subgroup_h5md
+
+  subroutine dump_solvent_species_h5md
+    integer :: i, ci, cj, ck
+    integer :: cc(3)
+
+    integer, allocatable :: temp_list(:,:,:)
+
+    integer(HID_T) :: s_id, d_id
+    integer(HSIZE_T) :: dims(3)
+    integer :: rank
+
+    allocate(temp_list(N_cells(1),N_cells(2),N_cells(3) ) )
+
+    temp_list = 0
+
+    do i=1,so_sys%N(0)
+       cc = floor((so_r(:,i)-shift) * oo_a) + 1
+       ci = cc(1) ; cj = cc(2) ; ck = cc(3)
+       
+       if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
+          write(*,*) 'particle', i, 'out of bounds'
+       end if
+       if (so_species(i).eq.2) then
+          temp_list(ci,cj,ck) = temp_list(ci,cj,ck) + 1
+       end if
+    end do
+    
+    rank = 3
+    dims = N_cells
+    call h5screate_simple_f(rank,dims, s_id, h5_error)
+    call h5dcreate_f(file_ID, 'trajectory/densityB', H5T_NATIVE_INTEGER, s_id, d_id, h5_error)
+    call h5dwrite_f(d_id, H5T_NATIVE_INTEGER, temp_list, dims, h5_error)
+
+    deallocate(temp_list)
+
+  end subroutine dump_solvent_species_h5md
 
 end program test
 
