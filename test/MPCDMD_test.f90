@@ -7,6 +7,7 @@ program test
   use ParseText
   use MPCDMD
   use h5md
+  use radial_dist
   implicit none
   
   type(PTo) :: CF
@@ -38,7 +39,8 @@ program test
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
 
-  type(rad_dist) :: gor
+  type(rad_dist_t) :: so_dist, at_dist
+  integer, allocatable :: list(:)
   character(len=5) :: zone
   integer :: values(8)
 
@@ -212,7 +214,8 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  call init_gor(gor,100,.1d0,group_list(1)%istart, group_list(1)%N)
+  call init_rad(so_dist,60,.1d0)
+  call init_rad(at_dist,60,.1d0)
 
   call begin_h5md
 
@@ -353,7 +356,14 @@ program test
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
      com_g1 = com_r(group_list(1))
-     call update_gor(gor, com_g1)
+     allocate(list(group_list(1)%N))
+     list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
+     call update_rad(at_dist, com_g1, at_r, list)
+     deallocate(list)
+
+     call list_idx_from_x0(com_g1, 6.d0, a, list)
+     call update_rad(so_dist, com_g1, so_r, list)
+     deallocate(list)
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
           sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
@@ -383,9 +393,8 @@ program test
   i_time = i_time-1
   i_MD_time = i_MD_time-1
 
-  call write_gor(gor,file_ID)
-  write(*,*) gor % t_count
-  write(*,*) gor % N
+  call write_rad(at_dist,file_ID)
+  call write_rad(so_dist,file_ID, group_name='solvent')
 
   call end_h5md
 
@@ -438,7 +447,7 @@ contains
        call h5md_create_obs(file_ID, 'r_com_1', rs1ID, r_sub1, link_from='v_com_1')
        call h5md_create_obs(file_ID, 'r_com_2', rs2ID, r_sub2, link_from='v_com_1')
     end if
-
+    call h5md_create_trajectory_group(file_ID, group_name='solvent')
   end subroutine begin_h5md
 
   subroutine end_h5md
