@@ -40,3 +40,4 @@ N_MD_loop = 50
 N_loop = 5000
 
 shifting = F
+collect_traj_steps = 1

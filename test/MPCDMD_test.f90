@@ -19,7 +19,7 @@ program test
   double precision :: max_d, realtime
   character(len=16) :: init_mode
   character(len=2) :: g_string
-  integer :: collect_atom, collect_MD_steps
+  integer :: collect_atom, collect_MD_steps, collect_traj_steps
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
   double precision :: lat_0(3), lat_d(3)
@@ -182,7 +182,7 @@ program test
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
   collect_MD_steps = PTread_i(CF,'collect_MD_steps')
-
+  collect_traj_steps = PTread_i(CF,'collect_traj_steps')
   do_shifting = PTread_l(CF, 'shifting')
 
   call PTkill(CF)
@@ -299,7 +299,6 @@ program test
      call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
-     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
 
   end do
 
@@ -376,7 +375,7 @@ program test
      call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
-     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
+     if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
 
      if (mod(i_time, 100).eq.0) then
         call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
