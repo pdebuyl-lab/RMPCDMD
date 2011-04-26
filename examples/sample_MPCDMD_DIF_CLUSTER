@@ -1,6 +1,6 @@
-soN_max = 327680 
+soN_max = 262144 
 soN_species = 1 
-soN01 = 327680 
+soN01 = 262144 
 somass01 = 1.d0
 so_u_int01 = 0.d0
 soN02 = 0 
@@ -36,7 +36,7 @@ at_atsmooth02 = T T
 at_soeps01 = 1.d0 1.d0
 at_sosig01 = 1.d0 1.d0
 at_sosmooth01 = F F 
-at_soeps02 = 2.d0 1.d0
+at_soeps02 = 5.d0 1.d0
 at_sosig02 = 1.d0 1.d0
 at_sosmooth02 = F F
 
@@ -44,18 +44,19 @@ LJskinfactor = 1.3d0
 
 N_cells = 32 32 32 
 cell_unit = 1.d0
-so_T = 0.4
+so_T = 0.33
 shifting = T
 
 atinit = random 
 
 DT = 0.005d0
-N_MD_loop = 100 
-N_loop = 35000 
+N_MD_loop = 200 
+N_loop = 17500 
 N_th_loop = 20 
 h = 0.01
 collect_atom = 0
 collect_MD_steps = 5
+collect_traj_steps = 2 
 
 reactive = F 
 
@@ -63,7 +64,7 @@ reac01_01_on = T
 reac01_01_at_exit = T 
 reac01_01_two_products = F
 reac01_01_product1 = 2
-reac01_01_rate = 1. 
+reac01_01_rate = 200. 
 reac01_02_on = F
 reac02_01_on = F
 reac02_02_on = F

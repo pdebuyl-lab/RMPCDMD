@@ -277,4 +277,59 @@ contains
     
   end subroutine MPCD_stream
 
+  subroutine list_idx_from_x0(x0, radius, unit_len, list)
+    implicit none
+    double precision, intent(in) :: x0(3)
+    double precision, intent(in) :: radius
+    double precision, intent(in) :: unit_len
+    integer, intent(inout), allocatable :: list(:)
+
+    integer :: i0, j0, k0
+    integer :: il, jl, kl, iu, ju, ku, mi, mj, mk
+    integer :: i, j, k
+    integer :: in_cell, part, idx
+
+    integer :: list_len
+
+
+    i0 = floor(x0(1)/a)
+    j0 = floor(x0(2)/a)
+    k0 = floor(x0(3)/a)
+
+    il = i0 - ceiling( radius/a )
+    jl = j0 - ceiling( radius/a )
+    kl = k0 - ceiling( radius/a )
+
+    iu = i0 + ceiling( radius/a )
+    ju = j0 + ceiling( radius/a )
+    ku = k0 + ceiling( radius/a )
+    
+    list_len = 0    
+    do k = kl, ku
+       do j = jl, ju
+          do i=il,iu
+             mi = modulo(i-1,N_cells(1)) + 1 ; mj = modulo(j-1,N_cells(2)) + 1 ; mk = modulo(k-1,N_cells(3)) + 1 ; 
+             list_len = list_len + par_list(0, mi,mj,mk)
+          end do
+       end do
+    end do
+
+    allocate(list(list_len))
+
+    idx=1
+    do k = kl, ku
+       do j = jl, ju
+          do i=il,iu
+             mi = modulo(i-1,N_cells(1)) + 1 ; mj = modulo(j-1,N_cells(2)) + 1 ; mk = modulo(k-1,N_cells(3)) + 1 ; 
+             do in_cell=1,par_list(0, mi,mj,mk)
+                part = par_list(in_cell, mi,mj,mk)
+                list(idx) = part
+                idx = idx + 1
+             end do
+          end do
+       end do
+    end do
+
+  end subroutine list_idx_from_x0
+
 end module MPCD

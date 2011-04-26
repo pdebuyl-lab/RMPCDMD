@@ -39,3 +39,4 @@ N_loop = 10
 h = 0.01
 collect_atom = 1
 shifting = F
+collect_traj_steps = 1

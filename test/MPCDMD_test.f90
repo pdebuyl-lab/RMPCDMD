@@ -7,6 +7,7 @@ program test
   use ParseText
   use MPCDMD
   use h5md
+  use radial_dist
   implicit none
   
   type(PTo) :: CF
@@ -14,10 +15,11 @@ program test
   integer :: i_time, i_in, i, istart, reneigh
   integer :: i_MD_time
   integer :: N_MD_loop, N_loop, en_unit
+  integer :: flush_unit
   double precision :: max_d, realtime
   character(len=16) :: init_mode
   character(len=2) :: g_string
-  integer :: collect_atom, collect_MD_steps
+  integer :: collect_atom, collect_MD_steps, collect_traj_steps
   integer :: seed
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
   double precision :: lat_0(3), lat_d(3)
@@ -39,8 +41,11 @@ program test
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
 
-  type(rad_dist) :: gor
   double precision :: x_temp(3)
+  type(rad_dist_t) :: so_dist, at_dist
+  integer, allocatable :: list(:)
+  character(len=5) :: zone
+  integer :: values(8)
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -194,7 +199,7 @@ program test
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
   collect_MD_steps = PTread_i(CF,'collect_MD_steps')
-
+  collect_traj_steps = PTread_i(CF,'collect_traj_steps')
   do_shifting = PTread_l(CF, 'shifting')
 
   call PTkill(CF)
@@ -209,6 +214,8 @@ program test
 
   en_unit = 11
   open(en_unit,file='energy')
+  flush_unit = 12
+  open(flush_unit,file='flush_file')
   
   i_time = 0
   i_MD_time = 0
@@ -224,7 +231,8 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  call init_gor(gor,100,.1d0,group_list(1)%istart, group_list(1)%N)
+  call init_rad(so_dist,60,.1d0)
+  call init_rad(at_dist,60,.1d0)
 
   call begin_h5md
 
@@ -310,7 +318,6 @@ program test
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
-     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
 
   end do
 
@@ -367,7 +374,14 @@ program test
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
      com_g1 = com_r(group_list(1))
-     call update_gor(gor, com_g1)
+     allocate(list(group_list(1)%N))
+     list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
+     call update_rad(at_dist, com_g1, at_r, list)
+     deallocate(list)
+
+     call list_idx_from_x0(com_g1, 6.d0, a, list)
+     call update_rad(so_dist, com_g1, so_r, list)
+     deallocate(list)
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
           sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
@@ -381,7 +395,6 @@ program test
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
-     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
 
      if (mod(i_time,10).eq.0) then
         do i=1,so_sys%N(0)
@@ -395,6 +408,16 @@ program test
            end if
         end do
      end if
+     if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
+
+     if (mod(i_time, 100).eq.0) then
+        call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
+        write(flush_unit, *) 'flushed at i_time ', i_time
+        call date_and_time(zone=zone)
+        call date_and_time(values=values)
+        write(flush_unit, '(i4,a,i2,a,i2,a2,i2,a,i2,a,a5)') &
+             values(1),'/',values(2),'/',values(3),'  ',values(5),':', values(6),' ', zone
+     end if
 
   end do
 
@@ -402,9 +425,8 @@ program test
   i_time = i_time-1
   i_MD_time = i_MD_time-1
 
-  call write_gor(gor,file_ID)
-  write(*,*) gor % t_count
-  write(*,*) gor % N
+  call write_rad(at_dist,file_ID)
+  call write_rad(so_dist,file_ID, group_name='solvent')
 
   call end_h5md
 
@@ -458,7 +480,7 @@ contains
        call h5md_create_obs(file_ID, 'r_com_1', rs1ID, r_sub1, link_from='v_com_1')
        call h5md_create_obs(file_ID, 'r_com_2', rs2ID, r_sub2, link_from='v_com_1')
     end if
-
+    call h5md_create_trajectory_group(file_ID, group_name='solvent')
   end subroutine begin_h5md
 
   subroutine end_h5md
