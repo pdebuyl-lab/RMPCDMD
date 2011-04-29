@@ -50,3 +50,4 @@ N_loop = 200
 N_th_loop = 200
 h = 0.01
 collect_atom = 0
+collect_traj_steps = 1

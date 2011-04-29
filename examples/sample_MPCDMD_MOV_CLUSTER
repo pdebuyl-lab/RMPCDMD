@@ -1,5 +1,5 @@
 soN_max = 262144 
-soN_species = 1 
+soN_species = 2
 soN01 = 262144 
 somass01 = 1.d0
 so_u_int01 = 0.d0
@@ -9,13 +9,15 @@ so_u_int02 = 0.d0
 
 N_groups = 1 
 atN_max = 36 
-atN_species = 1
-atN01 = 36 
+atN_species = 2 
+atN01 = 18 
 atmass01 = 10. 
+atN02 = 18
+atmass02 = 10.
 
 group01 = elast 
 group01k = 40.
-group01rmax = 3.5 
+group01rmax = 3.5
 group01N = 36 
 group01Nsub = 2 
 group01sub = 18 18
@@ -45,7 +47,7 @@ LJskinfactor = 1.3d0
 N_cells = 32 32 32 
 cell_unit = 1.d0
 so_T = 0.33
-shifting = T
+shifting = T 
 
 atinit = random 
 
@@ -58,7 +60,7 @@ collect_atom = 0
 collect_MD_steps = 5
 collect_traj_steps = 2 
 
-reactive = F 
+reactive = T 
 
 reac01_01_on = T
 reac01_01_at_exit = T 
