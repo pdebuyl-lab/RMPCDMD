@@ -541,35 +541,27 @@ contains
 
   end subroutine reac_MD_do
 
-  subroutine config_elast_group(CF,g_var,group_i,f_unit)
+  subroutine config_elast_group(g_var)
     use ParseText
-    type(PTo), intent(in) :: CF
     type(group_t), intent(inout) :: g_var
-    integer, intent(in) :: group_i, f_unit
 
-    character(len=2) :: group_index
-    integer :: i
+    integer :: i, g_n
     
-    write(group_index,'(i2.02)') group_i
-
-    do i=g_var%istart, g_var%istart + g_var%N - 1
-       at_species(i) = g_var % species1
-    end do
+    i = g_var % istart
+    g_n = g_var % N
+    at_species(i:i+g_n/2-1) = g_var % species1
+    at_species(i+g_n/2:i+g_n-1) = g_var % species2
 
   end subroutine config_elast_group
 
-  subroutine config_elast_group2(CF,g_var,group_i,f_unit)
+  subroutine config_elast_group2(g_var)
     use ParseText
-    type(PTo), intent(in) :: CF
     type(group_t), intent(inout) :: g_var
-    integer, intent(in) :: group_i, f_unit
 
-    character(len=2) :: group_index
     integer :: i,j, N_link, i_link
     double precision, allocatable :: dist_table(:,:) 
     double precision :: x(3)
     
-    write(group_index,'(i2.02)') group_i
 
     allocate(dist_table(g_var%N,g_var%N))
 
