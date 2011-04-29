@@ -92,7 +92,7 @@ program test
      else if (group_list(i)%g_type == DIMER_G) then
         call config_dimer_group(group_list(i))
      else if (group_list(i)%g_type == ELAST_G) then
-        call config_elast_group(CF,group_list(i),i,10)
+        call config_elast_group(group_list(i))
      else
         stop 'unknown group type'
      end if
@@ -142,7 +142,7 @@ program test
      end if
   
      if (group_list(i)%g_type == ELAST_G) then
-        call config_elast_group2(CF,group_list(i),1,10)
+        call config_elast_group2(group_list(i))
         write(*,*) 'group', i, 'configured with', group_list(i)%elast_nlink, 'links'
      end if
   

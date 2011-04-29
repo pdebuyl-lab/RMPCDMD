@@ -83,7 +83,9 @@ contains
        group_var % N = PTread_i(CF,'group'//group_index//'N')
        group_var % elast_k = PTread_d(CF,'group'//group_index//'k')
        group_var % elast_rmax = PTread_d(CF,'group'//group_index//'rmax')
-       group_var % species1 = PTread_i(CF,'group'//group_index//'species')
+       s = PTread_ivec(CF,'group'//group_index//'species',2)
+       group_var % species1 = s(1)
+       group_var % species2 = s(2)
     case default
        write(*,*) 'unknown type for', g_string
        stop
