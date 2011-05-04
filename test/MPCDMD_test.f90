@@ -36,6 +36,8 @@ program test
   type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, tempID
   type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
   type(h5md_t) :: total_vID
+  type(h5md_t) :: colloid_forceID ! the total force on the compound
+  double precision :: colloid_f(3)
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
 
@@ -333,6 +335,8 @@ program test
               call h5md_write_obs(vs2ID, v_sub2, i_MD_time, realtime)
               call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
               call h5md_write_obs(rs2ID, r_sub2, i_MD_time, realtime)
+              colloid_f = sum( at_f(group_list(1)%istart:group_list(1)%istart+group_list(1)%N-1,:) , dim=1)
+              call h5md_write_obs(colloid_forceID, colloid_f, i_MD_time, realtime)
            end if
         end if
 
@@ -351,6 +355,7 @@ program test
      call compute_v_com
      call generate_omega
      call simple_MPCD_step
+
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
@@ -445,6 +450,7 @@ contains
        call h5md_create_obs(file_ID, 'v_com_2', vs2ID, v_sub2, link_from='v_com_1')
        call h5md_create_obs(file_ID, 'r_com_1', rs1ID, r_sub1, link_from='v_com_1')
        call h5md_create_obs(file_ID, 'r_com_2', rs2ID, r_sub2, link_from='v_com_1')
+       call h5md_create_obs(file_ID, 'colloid_force', colloid_forceID, colloid_f, link_from='v_com_1')
     end if
     call h5md_create_trajectory_group(file_ID, group_name='solvent')
   end subroutine begin_h5md
@@ -463,6 +469,7 @@ contains
        call h5md_close_ID(vs2ID)
        call h5md_close_ID(rs1ID)
        call h5md_close_ID(rs2ID)
+       call h5md_close_ID(colloid_forceID)
     end if
 
     call h5fclose_f(file_ID, h5_error)
