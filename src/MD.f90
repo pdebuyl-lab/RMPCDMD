@@ -57,7 +57,7 @@ contains
 
     allocate(at_neigh_list(0:max_neigh, at_sys%N_max))
 
-    allocate(so_neigh_list(0:8, so_sys%N_max) )
+    allocate(so_neigh_list(0:16, so_sys%N_max) )
     allocate(so_do_reac( so_sys % N_max ) )
     allocate(at_so_reac( at_sys % N_species , so_sys % N_species ) )
 
@@ -234,7 +234,7 @@ contains
                       at_neigh_list(at_neigh_list(0,at_i),at_i) = par_list(i,mi,mj,mk)
                       part = par_list(i,mi,mj,mk)
                       so_neigh_list(0,part) = so_neigh_list(0,part) + 1
-                      if ( so_neigh_list(0,part) > 8 ) stop 'too many neighbours for solvent'
+                      if ( so_neigh_list(0,part) > 16 ) stop 'too many neighbours for solvent'
                       so_neigh_list(so_neigh_list(0,part),part) = at_i
                    end if
                 end do
