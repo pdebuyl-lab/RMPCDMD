@@ -42,6 +42,8 @@ module group
   integer, parameter :: DIMER_G=2
   !> g_type parameter for an elastic network.
   integer, parameter :: ELAST_G=3
+  !> g_type parameter for an shake/rattle compound.
+  integer, parameter :: SHAKE_G=4
 
 contains
 
@@ -82,6 +84,13 @@ contains
        group_var % g_type = ELAST_G
        group_var % N = PTread_i(CF,'group'//group_index//'N')
        group_var % elast_k = PTread_d(CF,'group'//group_index//'k')
+       group_var % elast_rmax = PTread_d(CF,'group'//group_index//'rmax')
+       s = PTread_ivec(CF,'group'//group_index//'species',2)
+       group_var % species1 = s(1)
+       group_var % species2 = s(2)
+    case('shake')
+       group_var % g_type = SHAKE_G
+       group_var % N = PTread_i(CF,'group'//group_index//'N')
        group_var % elast_rmax = PTread_d(CF,'group'//group_index//'rmax')
        s = PTread_ivec(CF,'group'//group_index//'species',2)
        group_var % species1 = s(1)

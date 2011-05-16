@@ -16,7 +16,7 @@ module MD
   integer :: N_groups
   type(group_t), allocatable :: group_list(:)
   
-  double precision, allocatable :: at_r(:,:), at_v(:,:)
+  double precision, allocatable :: at_r(:,:), at_r_old(:,:), at_v(:,:)
   double precision, allocatable, target :: at_f1(:,:), at_f2(:,:)
   double precision, pointer :: at_f(:,:), at_f_old(:,:), at_f_temp(:,:)
   double precision, allocatable :: at_r_neigh(:,:)
@@ -43,6 +43,7 @@ contains
     integer :: i,j
     
     allocate(at_r(3,at_sys%N_max))
+    allocate(at_r_old(3,at_sys%N_max))
     allocate(at_v(3,at_sys%N_max))
     allocate(at_f1(3,at_sys%N_max))
     allocate(at_f2(3,at_sys%N_max))
@@ -715,6 +716,72 @@ contains
     com_v = com_v / mass
 
   end function com_v
+
+  subroutine shake(g_var)
+    implicit none
+    type(group_t), intent(in) :: g_var
+
+    integer :: i, j, k, iter
+    double precision :: eps=1d-8, max_err, lagrange, local_r(3), dist
+
+    do iter=1,50000
+       max_err = 0.d0
+       do k=1,g_var % elast_nlink
+          i = g_var % elast_index(1, k)
+          j = g_var % elast_index(2, k)
+          local_r = at_r_old(:,i)-at_r_old(:,j)
+          lagrange = &
+               ( g_var % elast_r0(k)**2 - sum( (at_r(:,i)-at_r(:,j))**2 ) ) &
+               ! / (at_sys % oo_mass(at_species(i)) + at_sys % oo_mass(at_species(j)) ) &
+               / 2.d0 &
+               / sum( (at_r(:,i)-at_r(:,j))*local_r ) &
+               / 2.d0
+          at_r(:,i) = at_r(:,i) + local_r * lagrange
+          at_r(:,j) = at_r(:,j) - local_r * lagrange
+          dist = abs( sqrt(sum( (at_r(:,i) - at_r(:,j))**2 )) - g_var % elast_r0(k) )
+          if ( dist > max_err ) max_err = dist
+       end do
+       if ( max_err < eps ) exit
+    end do
+    if ( max_err > eps ) then
+       write(*,*) max_err, dist, iter
+       stop 'shake fails'
+    end if
+
+  end subroutine shake
+
+  subroutine rattle(g_var)
+    implicit none
+    type(group_t), intent(in) :: g_var
+
+    integer :: i, j, k, iter
+    double precision :: eps=1d-8, max_err, lagrange, local_r(3), dist
+
+    do iter=1,50000
+       max_err = 0.d0
+       do k=1,g_var % elast_nlink
+          i = g_var % elast_index(1, k)
+          j = g_var % elast_index(2, k)
+          local_r = at_r_old(:,i)-at_r_old(:,j)
+          lagrange = &
+               sum( local_r * &
+               ( at_v(:,i) - at_v(:,j) )/(1.d0) / &
+               ( g_var % elast_r0(k)**2 * &
+               (at_sys%oo_mass(at_species(i)) + at_sys%oo_mass(at_species(j))) ) &
+          )
+          at_v(:,i) = at_v(:,i) - local_r * lagrange * at_sys % oo_mass(at_species(i))
+          at_v(:,j) = at_v(:,j) + local_r * lagrange * at_sys % oo_mass(at_species(j))
+          dist = sqrt( sum( ( at_v(:,i)-at_v(:,j) ) * local_r ) )
+          if ( dist > max_err ) max_err = dist
+       end do
+       if ( max_err < eps ) exit
+    end do
+    if ( max_err > eps ) then
+       write(*,*) max_err, dist, iter
+       stop 'rattle fails'
+    end if
+
+  end subroutine rattle
 
 
 end module MD
