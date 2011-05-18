@@ -721,28 +721,32 @@ contains
     implicit none
     type(group_t), intent(in) :: g_var
 
-    integer :: i, j, k, iter
-    double precision :: eps=1d-8, max_err, lagrange, local_r(3), dist
+    integer :: i, j, k, iter, at_si, at_sj
+    double precision :: eps=1d-9, max_err, lagrange, x_old(3), x(3), dist
 
     do iter=1,50000
        max_err = 0.d0
        do k=1,g_var % elast_nlink
           i = g_var % elast_index(1, k)
+          at_si = at_species(i)
           j = g_var % elast_index(2, k)
-          local_r = at_r_old(:,i)-at_r_old(:,j)
+          at_sj = at_species(j)
+          call rel_pos(at_r_old(:,i),at_r_old(:,j), L, x_old)
+          call rel_pos(at_r(:,i),at_r(:,j), L, x)
           lagrange = &
-               ( g_var % elast_r0(k)**2 - sum( (at_r(:,i)-at_r(:,j))**2 ) ) &
-               ! / (at_sys % oo_mass(at_species(i)) + at_sys % oo_mass(at_species(j)) ) &
-               / 2.d0 &
-               / sum( (at_r(:,i)-at_r(:,j))*local_r ) &
-               / 2.d0
-          at_r(:,i) = at_r(:,i) + local_r * lagrange
-          at_r(:,j) = at_r(:,j) - local_r * lagrange
-          dist = abs( sqrt(sum( (at_r(:,i) - at_r(:,j))**2 )) - g_var % elast_r0(k) )
+               ( g_var % elast_r0(k)**2 - sum( x**2 ) ) &
+               / (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj) ) &
+               / 4.d0 &
+               / sum( x*x_old )
+          at_r(:,i) = at_r(:,i) + x_old * lagrange * (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj))
+          at_r(:,j) = at_r(:,j) - x_old * lagrange * (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj))
+          call rel_pos(at_r(:,i),at_r(:,j), L, x)
+          dist = abs( sqrt(sum( x**2 )) - g_var % elast_r0(k) )
           if ( dist > max_err ) max_err = dist
        end do
        if ( max_err < eps ) exit
     end do
+    write(21,'(i5.5,a)', advance='NO') iter, ' '
     if ( max_err > eps ) then
        write(*,*) max_err, dist, iter
        stop 'shake fails'
@@ -754,28 +758,31 @@ contains
     implicit none
     type(group_t), intent(in) :: g_var
 
-    integer :: i, j, k, iter
-    double precision :: eps=1d-8, max_err, lagrange, local_r(3), dist
+    integer :: i, j, k, iter, at_si, at_sj
+    double precision :: eps=1d-8, max_err, lagrange, x(3), dist, x_old(3)
 
     do iter=1,50000
        max_err = 0.d0
        do k=1,g_var % elast_nlink
           i = g_var % elast_index(1, k)
+          at_si = at_species(i)
           j = g_var % elast_index(2, k)
-          local_r = at_r_old(:,i)-at_r_old(:,j)
+          at_sj = at_species(j)
+          call rel_pos(at_r(:,i),at_r(:,j),L,x)
+          call rel_pos(at_r_old(:,i), at_r_old(:,j), L, x_old)
+          x = (x+x_old)*0.5d0
           lagrange = &
-               sum( local_r * &
-               ( at_v(:,i) - at_v(:,j) )/(1.d0) / &
+               sum( x * ( at_v(:,i) - at_v(:,j) )) / &
                ( g_var % elast_r0(k)**2 * &
-               (at_sys%oo_mass(at_species(i)) + at_sys%oo_mass(at_species(j))) ) &
-          )
-          at_v(:,i) = at_v(:,i) - local_r * lagrange * at_sys % oo_mass(at_species(i))
-          at_v(:,j) = at_v(:,j) + local_r * lagrange * at_sys % oo_mass(at_species(j))
-          dist = sqrt( sum( ( at_v(:,i)-at_v(:,j) ) * local_r ) )
+               (at_sys%oo_mass(at_si) + at_sys%oo_mass(at_sj)) )
+          at_v(:,i) = at_v(:,i) - x * lagrange * at_sys % oo_mass(at_si)
+          at_v(:,j) = at_v(:,j) + x * lagrange * at_sys % oo_mass(at_sj)
+          dist = sqrt( sum( ( at_v(:,i)-at_v(:,j) ) * x ) )
           if ( dist > max_err ) max_err = dist
        end do
        if ( max_err < eps ) exit
     end do
+    write(21,'(i5.5,a)') iter, ' '
     if ( max_err > eps ) then
        write(*,*) max_err, dist, iter
        stop 'rattle fails'

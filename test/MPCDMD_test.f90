@@ -324,6 +324,9 @@ program test
   do i_time = N_th_loop+1,N_loop+N_th_loop
      
      do i_in = 1,N_MD_loop
+
+        at_r_old = at_r
+
         call MD_step1
 
         do i=1,N_groups
@@ -517,7 +520,7 @@ contains
     
     call h5screate_simple_f(2, a_size, s_id, h5_error)
     call h5acreate_f(ID%d_id, name, H5T_NATIVE_INTEGER, s_id, a_id, h5_error)
-    call h5awrite_f(a_id, H5T_NATIVE_INTEGER, data, a_size, h5_error)
+    call h5awrite_f(a_id, H5T_NATIVE_INTEGER, data-1, a_size, h5_error)
     call h5aclose_f(a_id, h5_error)
     call h5sclose_f(s_id, h5_error)
 
