@@ -93,7 +93,7 @@ program test
         call config_atom_group(group_list(i))
      else if (group_list(i)%g_type == DIMER_G) then
         call config_dimer_group(group_list(i))
-     else if (group_list(i)%g_type == ELAST_G) then
+     else if (group_list(i)%g_type == ELAST_G .or. group_list(i)%g_type == SHAKE_G) then
         call config_elast_group(group_list(i))
      else
         stop 'unknown group type'
@@ -120,7 +120,7 @@ program test
         lat_0 = PTread_dvec(CF, 'group'//g_string//'lat_0', size(lat_0))
         lat_d = PTread_dvec(CF, 'group'//g_string//'lat_d', size(lat_d))
         lat_n = PTread_ivec(CF, 'group'//g_string//'lat_n', size(lat_n))
-        lat_idx = (/ 1, 0, 0 /)
+        lat_idx = (/ -1, 0, 0 /)
         do j=group_list(i)%istart, group_list(i)%istart + group_list(i)%N - 1
            lat_idx(1) = lat_idx(1) + 1
            if (lat_idx(1) .ge. lat_n(1)) then
@@ -143,7 +143,7 @@ program test
         stop 
      end if
   
-     if (group_list(i)%g_type == ELAST_G) then
+     if (group_list(i)%g_type == ELAST_G .or. group_list(i)%g_type == SHAKE_G) then
         call config_elast_group2(group_list(i))
         write(*,*) 'group', i, 'configured with', group_list(i)%elast_nlink, 'links'
      end if
@@ -233,8 +233,8 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  call init_rad(so_dist,60,.1d0)
-  call init_rad(at_dist,60,.1d0)
+  !call init_rad(so_dist,60,.1d0)
+  !call init_rad(at_dist,60,.1d0)
 
   call begin_h5md
 
@@ -263,7 +263,16 @@ program test
   do i_time = 1,N_th_loop
      
      do i_in = 1,N_MD_loop
+
+        at_r_old = at_r
+
         call MD_step1
+
+        do i=1,N_groups
+           if (group_list(i)%g_type .eq. SHAKE_G) then
+              call shake(group_list(i))
+           end if
+        end do
 
         if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
              (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
@@ -275,6 +284,12 @@ program test
 
         call compute_f(.false.)
         call MD_step2
+
+        do i=1,N_groups
+           if (group_list(i)%g_type .eq. SHAKE_G) then
+              call rattle(group_list(i))
+           end if
+        end do
 
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
@@ -321,13 +336,23 @@ program test
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
 
+     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
   end do
 
   DT = MD_DT
   do i_time = N_th_loop+1,N_loop+N_th_loop
      
      do i_in = 1,N_MD_loop
+
+        at_r_old = at_r
+
         call MD_step1
+
+        do i=1,N_groups
+           if (group_list(i)%g_type .eq. SHAKE_G) then
+              call shake(group_list(i))
+           end if
+        end do
 
         if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
              (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
@@ -340,6 +365,11 @@ program test
         call compute_f(reactive)
         call MD_step2
 
+        do i=1,N_groups
+           if (group_list(i)%g_type .eq. SHAKE_G) then
+              call rattle(group_list(i))
+           end if
+        end do
 
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
@@ -381,11 +411,11 @@ program test
      com_g1 = com_r(group_list(1))
      allocate(list(group_list(1)%N))
      list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
-     call update_rad(at_dist, com_g1, at_r, list)
+     !call update_rad(at_dist, com_g1, at_r, list)
      deallocate(list)
 
      call list_idx_from_x0(com_g1, 6.d0, a, list)
-     call update_rad(so_dist, com_g1, so_r, list)
+     !call update_rad(so_dist, com_g1, so_r, list)
      deallocate(list)
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
@@ -430,8 +460,8 @@ program test
   i_time = i_time-1
   i_MD_time = i_MD_time-1
 
-  call write_rad(at_dist,file_ID)
-  call write_rad(so_dist,file_ID, group_name='solvent')
+  !call write_rad(at_dist,file_ID)
+  !call write_rad(so_dist,file_ID, group_name='solvent')
 
   call end_h5md
 
@@ -525,7 +555,7 @@ contains
     
     call h5screate_simple_f(2, a_size, s_id, h5_error)
     call h5acreate_f(ID%d_id, name, H5T_NATIVE_INTEGER, s_id, a_id, h5_error)
-    call h5awrite_f(a_id, H5T_NATIVE_INTEGER, data, a_size, h5_error)
+    call h5awrite_f(a_id, H5T_NATIVE_INTEGER, data-1, a_size, h5_error)
     call h5aclose_f(a_id, h5_error)
     call h5sclose_f(s_id, h5_error)
 
