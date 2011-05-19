@@ -17,7 +17,7 @@ module MD
   integer :: N_groups
   type(group_t), allocatable :: group_list(:)
   
-  double precision, allocatable :: at_r(:,:), at_v(:,:)
+  double precision, allocatable :: at_r(:,:), at_r_old(:,:), at_v(:,:)
   double precision, allocatable, target :: at_f1(:,:), at_f2(:,:)
   double precision, pointer :: at_f(:,:), at_f_old(:,:), at_f_temp(:,:)
   double precision, allocatable :: at_r_neigh(:,:)
@@ -48,6 +48,7 @@ contains
     integer :: i,j
     
     allocate(at_r(3,at_sys%N_max))
+    allocate(at_r_old(3,at_sys%N_max))
     allocate(at_v(3,at_sys%N_max))
     allocate(at_f1(3,at_sys%N_max))
     allocate(at_f2(3,at_sys%N_max))
@@ -742,6 +743,79 @@ contains
     com_v = com_v / mass
 
   end function com_v
+
+  subroutine shake(g_var)
+    implicit none
+    type(group_t), intent(in) :: g_var
+
+    integer :: i, j, k, iter, at_si, at_sj
+    double precision :: eps=1d-9, max_err, lagrange, x_old(3), x(3), dist
+
+    do iter=1,50000
+       max_err = 0.d0
+       do k=1,g_var % elast_nlink
+          i = g_var % elast_index(1, k)
+          at_si = at_species(i)
+          j = g_var % elast_index(2, k)
+          at_sj = at_species(j)
+          call rel_pos(at_r_old(:,i),at_r_old(:,j), L, x_old)
+          call rel_pos(at_r(:,i),at_r(:,j), L, x)
+          lagrange = &
+               ( g_var % elast_r0(k)**2 - sum( x**2 ) ) &
+               / (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj) ) &
+               / 4.d0 &
+               / sum( x*x_old )
+          at_r(:,i) = at_r(:,i) + x_old * lagrange * (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj))
+          at_r(:,j) = at_r(:,j) - x_old * lagrange * (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj))
+          call rel_pos(at_r(:,i),at_r(:,j), L, x)
+          dist = abs( sqrt(sum( x**2 )) - g_var % elast_r0(k) )
+          if ( dist > max_err ) max_err = dist
+       end do
+       if ( max_err < eps ) exit
+    end do
+    write(21,'(i5.5,a)', advance='NO') iter, ' '
+    if ( max_err > eps ) then
+       write(*,*) max_err, dist, iter
+       stop 'shake fails'
+    end if
+
+  end subroutine shake
+
+  subroutine rattle(g_var)
+    implicit none
+    type(group_t), intent(in) :: g_var
+
+    integer :: i, j, k, iter, at_si, at_sj
+    double precision :: eps=1d-8, max_err, lagrange, x(3), dist, x_old(3)
+
+    do iter=1,50000
+       max_err = 0.d0
+       do k=1,g_var % elast_nlink
+          i = g_var % elast_index(1, k)
+          at_si = at_species(i)
+          j = g_var % elast_index(2, k)
+          at_sj = at_species(j)
+          call rel_pos(at_r(:,i),at_r(:,j),L,x)
+          call rel_pos(at_r_old(:,i), at_r_old(:,j), L, x_old)
+          x = (x+x_old)*0.5d0
+          lagrange = &
+               sum( x * ( at_v(:,i) - at_v(:,j) )) / &
+               ( g_var % elast_r0(k)**2 * &
+               (at_sys%oo_mass(at_si) + at_sys%oo_mass(at_sj)) )
+          at_v(:,i) = at_v(:,i) - x * lagrange * at_sys % oo_mass(at_si)
+          at_v(:,j) = at_v(:,j) + x * lagrange * at_sys % oo_mass(at_sj)
+          dist = sqrt( sum( ( at_v(:,i)-at_v(:,j) ) * x ) )
+          if ( dist > max_err ) max_err = dist
+       end do
+       if ( max_err < eps ) exit
+    end do
+    write(21,'(i5.5,a)') iter, ' '
+    if ( max_err > eps ) then
+       write(*,*) max_err, dist, iter
+       stop 'rattle fails'
+    end if
+
+  end subroutine rattle
 
 
 end module MD
