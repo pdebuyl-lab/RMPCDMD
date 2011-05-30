@@ -30,7 +30,7 @@ program test
   double precision :: total_v(3)
   double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
   integer :: N_th_loop
-  logical :: reactive
+  logical :: reactive, collide, switch
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID
@@ -57,17 +57,22 @@ program test
 
   call h5open_f(h5_error)
 
+  call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
 
   seed = PTread_i(CF,'seed')
   if (seed < 0) then
      seed = nint(100*secnds(0.))
   end if
+  call h5md_write_par(file_ID, 'seed', seed)
   call mtprng_init(seed, ran_state)
 
   call config_sys(so_sys,'so',CF)
+  call h5md_write_par(file_ID, 'so_Nmax', so_sys % N_max)
   call config_sys(at_sys,'at',CF)
+  call h5md_write_par(file_ID, 'at_Nmax', at_sys % N_max)
 
   N_groups = PTread_i(CF, 'N_groups')
+  call h5md_write_par(file_ID, 'N_groups', N_groups)
 
   if (N_groups <= 0) stop 'Ngroups is not a positive integer'
   allocate(group_list(N_groups))
@@ -83,8 +88,9 @@ program test
 
   call config_LJdata(CF, at_sys%N_species, so_sys%N_species)
 
-
   call config_MPCD(CF)
+  call h5md_write_par(file_ID, 'N_cells', N_cells)
+  call h5md_write_par(file_ID, 'cell_unit', a)
 
   call config_MD
   
@@ -99,6 +105,7 @@ program test
         stop 'unknown group type'
      end if
   end do
+  call h5md_write_par(file_ID, 'group g_type', group_list(:) % g_type)
 
   do i=1,N_groups
      write(g_string,'(i02.2)') i
@@ -151,6 +158,7 @@ program test
   end do
 
   reactive = PTread_l(CF, 'reactive')
+  call h5md_write_par(file_ID, 'reactive', reactive)
   if (reactive) then
      do i=1,at_sys % N_species
         do j=1,so_sys % N_species
@@ -165,6 +173,11 @@ program test
      end do
   end if
   so_do_reac = .false.
+
+  collide = PTread_l(CF, 'collide')
+  call h5md_write_par(file_id, 'collide', collide)
+  switch = PTread_l(CF, 'switch')
+  call h5md_write_par(file_id, 'switch', switch)
 
   !call init_atoms(CF)
   at_v = 0.d0
@@ -195,9 +208,13 @@ program test
   call make_neigh_list
 
   N_loop = PTread_i(CF, 'N_loop')
+  call h5md_write_par(file_ID, 'N_outer_loop', N_loop)
   N_MD_loop = PTread_i(CF, 'N_MD_loop')
+  call h5md_write_par(file_ID, 'N_MD_loop', N_MD_loop)
   N_th_loop = PTread_i(CF, 'N_th_loop')
   MD_DT = PTread_d(CF, 'DT')
+  DT = MD_DT
+  call h5md_write_par(file_ID, 'DT', DT)
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
   collect_MD_steps = PTread_i(CF,'collect_MD_steps')
@@ -212,7 +229,7 @@ program test
   so_f => so_f1
   so_f_old => so_f2
 
-  call compute_f(reactive)
+  call compute_f
 
   en_unit = 11
   open(en_unit,file='energy')
@@ -233,8 +250,8 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  !call init_rad(so_dist,60,.1d0)
-  !call init_rad(at_dist,60,.1d0)
+  call init_rad(so_dist,80,.1d0)
+  call init_rad(at_dist,80,.1d0)
 
   call begin_h5md
 
@@ -256,7 +273,7 @@ program test
   reneigh = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
-  
+
   shift = 0.d0
 
   DT = MD_DT
@@ -282,7 +299,7 @@ program test
            call make_neigh_list
         end if
 
-        call compute_f(.false.)
+        call compute_f
         call MD_step2
 
         do i=1,N_groups
@@ -293,6 +310,7 @@ program test
 
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
+
 
      end do
 
@@ -362,7 +380,7 @@ program test
            call make_neigh_list
         end if
 
-        call compute_f(reactive)
+        call compute_f
         call MD_step2
 
         do i=1,N_groups
@@ -370,6 +388,8 @@ program test
               call rattle(group_list(i))
            end if
         end do
+
+        if (reactive) call reac_loop
 
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
@@ -384,7 +404,7 @@ program test
               call h5md_write_obs(vs2ID, v_sub2, i_MD_time, realtime)
               call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
               call h5md_write_obs(rs2ID, r_sub2, i_MD_time, realtime)
-              colloid_f = sum( at_f(group_list(1)%istart:group_list(1)%istart+group_list(1)%N-1,:) , dim=1)
+              colloid_f = sum( at_f(:, group_list(1)%istart:group_list(1)%istart+group_list(1)%N-1) , dim=1)
               call h5md_write_obs(colloid_forceID, colloid_f, i_MD_time, realtime)
            end if
         end if
@@ -399,23 +419,27 @@ program test
         shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
      end if
 
+     com_g1 = com_r(group_list(1))
+
      call correct_so
-     call place_in_cells
-     call compute_v_com
-     call generate_omega
-     call simple_MPCD_step
+     if (collide) then
+        call place_in_cells
+        call compute_v_com
+        call generate_omega
+        if (switch) call switch_off(com_g1, 7.d0)
+        call simple_MPCD_step
+     end if
 
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
-     com_g1 = com_r(group_list(1))
      allocate(list(group_list(1)%N))
      list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
-     !call update_rad(at_dist, com_g1, at_r, list)
+     call update_rad(at_dist, com_g1, at_r, list)
      deallocate(list)
 
-     call list_idx_from_x0(com_g1, 6.d0, a, list)
-     !call update_rad(so_dist, com_g1, so_r, list)
+     call list_idx_from_x0(com_g1, 8.d0, a, list)
+     call update_rad(so_dist, com_g1, so_r, list)
      deallocate(list)
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
@@ -431,7 +455,7 @@ program test
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
 
-     if (mod(i_time,10).eq.0) then
+     if (mod(i_time,10).eq.0 .and. reactive) then
         do i=1,so_sys%N(0)
            if (so_species(i) .eq. 2) then
               call rel_pos( so_r(:,i), com_g1, L, x_temp)
@@ -453,6 +477,7 @@ program test
         write(flush_unit, '(i4,a,i2,a,i2,a2,i2,a,i2,a,a5)') &
              values(1),'/',values(2),'/',values(3),'  ',values(5),':', values(6),' ', zone
      end if
+
 
   end do
 
@@ -499,8 +524,29 @@ contains
     end do
   end subroutine correct_at
 
+  subroutine switch_off(x0, rcut)
+    double precision, intent(in) :: x0(3), rcut
+
+    integer :: ci,cj,ck
+    double precision :: dist, x(3)
+
+    do ck=1,N_cells(3)
+       do cj=1,N_cells(2)
+          do ci=1,N_cells(1)
+
+             call rel_pos(x0-shift, (/ (ci-0.5d0)*a, (cj-0.5d0)*a, (ck-0.5d0)*a /), L, x)
+             
+             if (sqrt(sum(x**2)) < rcut) par_list(0,ci,cj,ck)=0
+
+          end do
+       end do
+    end do
+
+
+
+  end subroutine switch_off
+
   subroutine begin_h5md
-    call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
 
     call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID)
     call h5md_create_obs(file_ID, 'energy', enID, energy)

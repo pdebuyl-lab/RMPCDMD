@@ -10,7 +10,7 @@ module MD
   use HDF5
   implicit none
 
-  integer, parameter :: max_neigh=1024
+  integer, parameter :: max_neigh=8192
 
   type(sys_t) :: at_sys
 
@@ -215,9 +215,9 @@ contains
        
        extent = ceiling( maxval(at_so%neigh(at_species(at_i),:) ) * oo_a )
 
-       Si = floor( at_r(1,at_i) * oo_a ) + 1
-       Sj = floor( at_r(2,at_i) * oo_a ) + 1
-       Sk = floor( at_r(3,at_i) * oo_a ) + 1
+       Si = floor( (at_r(1,at_i)-shift(1)) * oo_a ) + 1
+       Sj = floor( (at_r(2,at_i)-shift(2)) * oo_a ) + 1
+       Sk = floor( (at_r(3,at_i)-shift(3)) * oo_a ) + 1
        do ck= Sk - extent, Sk + extent
           do cj = Sj - extent, Sj + extent
              do ci = Si - extent, Si + extent
@@ -249,10 +249,10 @@ contains
 
   end subroutine make_neigh_list
 
-  subroutine compute_f(enable_reaction)
-    logical, intent(in) :: enable_reaction
+  subroutine compute_f
+    implicit none
 
-    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1, so_n
+    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1, i_neigh, neigh_idx
     double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
     double precision :: dist_min, d, at_dist_min
     logical :: too_many_atoms
@@ -288,43 +288,6 @@ contains
              end if
              so_f(:,part) = so_f(:,part) + f_var
              at_f(:,at_i) = at_f(:,at_i) - f_var
-             if (enable_reaction .and. at_so_reac(at_si,so_species(part)) % on) then
-                if (.not. so_do_reac(part) ) then
-                   !eval rate
-                   if ( at_so_reac(at_si, so_species(part)) % rate * DT > mtprng_rand_real1(ran_state) ) then
-                      if (at_so_reac(at_si, so_species(part)) % at_exit) then
-                         so_do_reac(part) = .true.
-                      else
-                         stop 'immediate reaction not implemented yet'
-                      end if
-                   end if
-                end if
-             end if ! (enable_reaction)
-          else
-             if (enable_reaction .and. at_so_reac(at_si,so_species(part)) % on) then
-                if (so_do_reac(part)) then
-                   !check for neighbours!
-                   too_many_atoms = .false.
-                   do so_n = 1, so_neigh_list(0,part)
-                      if (so_neigh_list(so_n,part).eq.at_i) cycle
-                      call rel_pos(so_r(:,part),at_r(:,so_neigh_list(so_n,part)),L,x)
-                      if ( sum(x**2) < at_so%cut(at_si, so_species(part))**2 ) then
-                         too_many_atoms = .true.
-                         exit
-                      end if
-                   end do
-                   if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
-                      if (.not. too_many_atoms) then
-                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
-                         so_species(part) = at_so_reac(at_si, so_species(part)) % product1
-                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
-                         so_do_reac(part) = .false.
-                      end if
-                   else
-                      stop 'two products reaction not implemented yet'
-                   end if
-                end if
-             end if ! (enable_reaction)
           end if
        end do
     end do
@@ -744,6 +707,35 @@ contains
 
   end function com_v
 
+  !> Computes the force applied on the center of mass of a group or subgroup.
+  !! @param g_var The group to consider
+  !! @param sub_g Optionally, the index of a subgroup.
+  !! @return com_f The velocity.
+  function com_f(g_var, sub_g)
+    double precision :: com_f(3)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in), optional :: sub_g
+    
+    integer :: i, i1,iN
+    
+    if (present(sub_g)) then
+       i1 = g_var % subgroup(1, sub_g)
+       iN = g_var % subgroup(2, sub_g)
+    else
+       i1 = g_var % istart
+       iN = g_var % istart + g_var % N - 1
+    end if
+    
+    com_f = 0.d0
+    do i = i1, iN
+       com_f = com_f + at_f(:,i)
+    end do
+    
+    com_f = com_f
+
+  end function com_f
+
+
   subroutine shake(g_var)
     implicit none
     type(group_t), intent(in) :: g_var
@@ -786,7 +778,7 @@ contains
     type(group_t), intent(in) :: g_var
 
     integer :: i, j, k, iter, at_si, at_sj
-    double precision :: eps=1d-8, max_err, lagrange, x(3), dist, x_old(3)
+    double precision :: eps=2d-8, max_err, lagrange, x(3), dist, x_old(3)
 
     do iter=1,50000
        max_err = 0.d0
@@ -817,5 +809,66 @@ contains
 
   end subroutine rattle
 
+  subroutine reac_loop
+    implicit none
+
+    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1, i_neigh, neigh_idx
+    double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
+    double precision :: dist_min, d, at_dist_min
+    logical :: too_many_atoms
+
+    do at_i=1,at_sys%N(0)
+       at_si = at_species(at_i)
+
+       do j=1, at_neigh_list(0,at_i)
+          part = at_neigh_list(j, at_i)
+          call rel_pos(so_r(:,part), at_r(:,at_i), L, x)
+          dist_sqr = sum( x**2 )
+          if (dist_sqr < dist_min) dist_min=dist_sqr
+          if ( dist_sqr .le. at_so%cut(at_si, so_species(part))**2 ) then
+             if (at_so_reac(at_si,so_species(part)) % on) then
+                if (.not. so_do_reac(part) ) then
+                   !eval rate
+                   if ( at_so_reac(at_si, so_species(part)) % rate * DT > mtprng_rand_real1(ran_state) ) then
+                      if (at_so_reac(at_si, so_species(part)) % at_exit) then
+                         so_do_reac(part) = .true.
+                      else
+                         stop 'immediate reaction not implemented yet'
+                      end if
+                   end if
+                end if
+             end if ! (enable_reaction)
+          else
+             if (at_so_reac(at_si,so_species(part)) % on) then
+                if (so_do_reac(part)) then
+                   !check for neighbours!
+                   too_many_atoms = .false.
+                   do i_neigh = 1, so_neigh_list(0,part)
+                      neigh_idx = so_neigh_list(i_neigh,part)
+                      !if (neigh_idx.eq.at_i) cycle
+                      call rel_pos(so_r(:,part),at_r(:,neigh_idx),L,x)
+                      if ( sum(x**2) <= 1.d0*at_so % cut(at_species(neigh_idx), so_species(part))**2 ) then
+                         too_many_atoms = .true.
+                         exit
+                      end if
+                   end do
+                   if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
+                      if (.not. too_many_atoms) then
+                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
+                         so_species(part) = at_so_reac(at_si, so_species(part)) % product1
+                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
+                         so_do_reac(part) = .false.
+                      end if
+                   else
+                      stop 'two products reaction not implemented yet'
+                   end if
+                end if
+             end if ! (enable_reaction)
+          end if
+       end do
+    end do
+
+
+  end subroutine reac_loop
 
 end module MD
