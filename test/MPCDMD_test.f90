@@ -68,6 +68,7 @@ program test
 
   call config_sys(so_sys,'so',CF)
   call h5md_write_par(file_ID, 'so_Nmax', so_sys % N_max)
+  call h5md_write_par(file_ID, 'solvent_N', so_sys % N)
   call config_sys(at_sys,'at',CF)
   call h5md_write_par(file_ID, 'at_Nmax', at_sys % N_max)
 
@@ -87,6 +88,11 @@ program test
   if (at_sys%N_max<sum(group_list(:)%N)) stop 'at_sys%N_max < # atoms from group_list'
 
   call config_LJdata(CF, at_sys%N_species, so_sys%N_species)
+
+  call h5md_write_par(file_ID, 'at_so_LJ_eps', at_so % eps)
+  call h5md_write_par(file_ID, 'at_so_LJ_sig', at_so % sig)
+  call h5md_write_par(file_ID, 'at_at_LJ_eps', at_at % eps)
+  call h5md_write_par(file_ID, 'at_at_LJ_sig', at_at % sig)
 
   call config_MPCD(CF)
   call h5md_write_par(file_ID, 'N_cells', N_cells)
@@ -203,6 +209,7 @@ program test
   write(*,*) at_at%smooth
 
   target_T = PTread_d(CF,'so_T')
+  call h5md_write_par(file_ID, 'solvent_temperature', target_T)
   call fill_with_solvent( target_T )
   call place_in_cells
   call make_neigh_list
@@ -485,6 +492,7 @@ program test
   i_time = i_time-1
   i_MD_time = i_MD_time-1
 
+  call correct_so
   call dump_solvent_species_h5md
 
   call write_rad(at_dist,file_ID)
@@ -615,16 +623,17 @@ contains
 
     integer, allocatable :: temp_list(:,:,:)
 
-    integer(HID_T) :: s_id, d_id
+    integer(HID_T) :: s_id, d_id, a_id
     integer(HSIZE_T) :: dims(3)
     integer :: rank
+    double precision :: data(3)
 
     allocate(temp_list(N_cells(1),N_cells(2),N_cells(3) ) )
 
     temp_list = 0
 
     do i=1,so_sys%N(0)
-       cc = floor((so_r(:,i)-shift) * oo_a) + 1
+       cc = floor(so_r(:,i) * oo_a) + 1
        ci = cc(1) ; cj = cc(2) ; ck = cc(3)
        
        if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
@@ -640,6 +649,25 @@ contains
     call h5screate_simple_f(rank,dims, s_id, h5_error)
     call h5dcreate_f(file_ID, 'trajectory/densityB', H5T_NATIVE_INTEGER, s_id, d_id, h5_error)
     call h5dwrite_f(d_id, H5T_NATIVE_INTEGER, temp_list, dims, h5_error)
+    call h5sclose_f(s_id, h5_error)
+
+    rank = 1
+    dims(1) = 3
+    call h5screate_simple_f(rank,dims, s_id, h5_error)
+    call h5acreate_f(d_id, 'x0', H5T_NATIVE_DOUBLE, s_id, a_id, h5_error)
+    data = 0.5d0*a
+    call h5awrite_f(a_id, H5T_NATIVE_DOUBLE, data, dims, h5_error)
+    call h5aclose_f(a_id, h5_error)
+    call h5sclose_f(s_id, h5_error)
+
+    call h5screate_simple_f(rank,dims, s_id, h5_error)
+    call h5acreate_f(d_id, 'dx', H5T_NATIVE_DOUBLE, s_id, a_id, h5_error)
+    data = a
+    call h5awrite_f(a_id, H5T_NATIVE_DOUBLE, data, dims, h5_error)
+    call h5aclose_f(a_id, h5_error)
+    call h5sclose_f(s_id, h5_error)
+
+    call h5dclose_f(d_id, h5_error)
 
     deallocate(temp_list)
 
