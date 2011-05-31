@@ -45,7 +45,7 @@ contains
     character(len=24) :: temp_name
     character(len=9) :: format1
     character(len=15) :: format2
-    integer :: len_name, i
+    integer :: i
 
     sys_var%name = name
 

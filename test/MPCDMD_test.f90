@@ -438,7 +438,7 @@ program test
      call update_rad(at_dist, com_g1, at_r, list)
      deallocate(list)
 
-     call list_idx_from_x0(com_g1, 8.d0, a, list)
+     call list_idx_from_x0(com_g1, 8.d0, list)
      call update_rad(so_dist, com_g1, so_r, list)
      deallocate(list)
 
@@ -528,7 +528,7 @@ contains
     double precision, intent(in) :: x0(3), rcut
 
     integer :: ci,cj,ck
-    double precision :: dist, x(3)
+    double precision :: x(3)
 
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)

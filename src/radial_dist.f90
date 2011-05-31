@@ -30,7 +30,6 @@ contains
     integer, intent(in) :: list(:)
 
     integer :: i, idx, N
-    double precision :: r
     
     N = size(list)
 

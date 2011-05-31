@@ -128,7 +128,7 @@ contains
 
   subroutine fill_with_solvent(temperature)
     double precision, intent(in) :: temperature
-    integer :: i, j, iter, dim
+    integer :: i, j, iter
     double precision :: x(3), dsqr, t_factor
     logical :: too_close
     double precision :: tot_m, tot_v(3)
@@ -202,7 +202,7 @@ contains
 
   subroutine make_neigh_list
 
-    integer :: at_i, i, dim, part
+    integer :: at_i, i, part
     integer :: ci, cj, ck, mi, mj, mk
     integer :: Si, Sj, Sk
     integer :: extent
@@ -252,10 +252,9 @@ contains
   subroutine compute_f
     implicit none
 
-    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1, i_neigh, neigh_idx
-    double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
-    double precision :: dist_min, d, at_dist_min
-    logical :: too_many_atoms
+    integer :: at_i, at_j, j, part, at_si, at_g, at_h, at_j_1
+    double precision :: x(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
+    double precision :: dist_min, at_dist_min
 
     so_f_temp => so_f
     so_f => so_f_old
@@ -337,7 +336,7 @@ contains
 
   subroutine MD_step1
 
-    integer :: at_i, part, i
+    integer :: at_i, i
 
     do i=1,so_sys%N(0)
        so_r(:,i) = so_r(:,i) + so_v(:,i) * DT + so_f(:,i) * DT**2 * 0.5d0 * so_sys % oo_mass(so_species(i))
@@ -350,7 +349,7 @@ contains
 
   subroutine MD_step2
 
-    integer :: at_i, j, i
+    integer :: at_i, i
 
     do i=1,so_sys%N(0)
        so_v(:,i) = so_v(:,i) + 0.5d0 * DT * (so_f(:,i) + so_f_old(:,i)) * so_sys % oo_mass( so_species(i) )
@@ -367,9 +366,9 @@ contains
     double precision, intent(out) :: at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v(3)
     double precision :: mom(3), at_mom(3), mass, at_mass
 
-    integer :: at_i, at_j, j, dim, part, at_si
+    integer :: at_i, at_j, j, part, at_si
     integer :: at_g, at_h, at_j_1
-    double precision :: LJcut_sqr, LJsig, x(3), y(3), dist_sqr
+    double precision :: LJcut_sqr, LJsig, x(3), dist_sqr
 
     at_sol_en = 0.d0 ; at_at_en = 0.d0 ; sol_kin = 0.d0 ; at_kin = 0.d0
     mom = 0.d0 ; at_mom = 0.d0 ; mass = 0.d0 ; at_mass = 0.d0
@@ -812,9 +811,9 @@ contains
   subroutine reac_loop
     implicit none
 
-    integer :: at_i, at_j, j, part, dim, at_si, at_g, at_h, at_j_1, i_neigh, neigh_idx
-    double precision :: x(3), y(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
-    double precision :: dist_min, d, at_dist_min
+    integer :: at_i, j, part, at_si, i_neigh, neigh_idx
+    double precision :: x(3), dist_sqr
+    double precision :: dist_min
     logical :: too_many_atoms
 
     do at_i=1,at_sys%N(0)

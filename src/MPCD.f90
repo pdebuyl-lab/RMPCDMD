@@ -277,11 +277,15 @@ contains
     
   end subroutine MPCD_stream
 
-  subroutine list_idx_from_x0(x0, radius, unit_len, list)
+  !> Returns a list of indices from solvent particles in cells that are close enough to
+  !! the position x0.
+  !! @param x0 the position around which we look for solvent particles.
+  !! @param radius the search radius.
+  !! @returns list a list of indices, that is allocated in this routine.
+  subroutine list_idx_from_x0(x0, radius, list)
     implicit none
     double precision, intent(in) :: x0(3)
     double precision, intent(in) :: radius
-    double precision, intent(in) :: unit_len
     integer, intent(inout), allocatable :: list(:)
 
     integer :: i0, j0, k0
