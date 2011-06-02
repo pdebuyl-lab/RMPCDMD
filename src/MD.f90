@@ -740,7 +740,7 @@ contains
     type(group_t), intent(in) :: g_var
 
     integer :: i, j, k, iter, at_si, at_sj
-    double precision :: eps=1d-9, max_err, lagrange, x_old(3), x(3), dist
+    double precision :: eps=1d-12, max_err, lagrange, x_old(3), x(3), dist
 
     do iter=1,50000
        max_err = 0.d0
@@ -777,7 +777,7 @@ contains
     type(group_t), intent(in) :: g_var
 
     integer :: i, j, k, iter, at_si, at_sj
-    double precision :: eps=2d-8, max_err, lagrange, x(3), dist, x_old(3)
+    double precision :: eps=1d-8, max_err, lagrange, x(3), dist, x_old(3)
 
     do iter=1,50000
        max_err = 0.d0

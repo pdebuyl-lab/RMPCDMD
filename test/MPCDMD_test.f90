@@ -492,6 +492,7 @@ program test
   i_time = i_time-1
   i_MD_time = i_MD_time-1
 
+  shift = 0.d0
   call correct_so
   call dump_solvent_species_h5md
 
