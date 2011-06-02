@@ -639,9 +639,10 @@ contains
        
        if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
           write(*,*) 'particle', i, 'out of bounds'
-       end if
-       if (so_species(i).eq.2) then
-          temp_list(ci,cj,ck) = temp_list(ci,cj,ck) + 1
+       else
+          if (so_species(i).eq.2) then
+             temp_list(ci,cj,ck) = temp_list(ci,cj,ck) + 1
+          end if
        end if
     end do
     
