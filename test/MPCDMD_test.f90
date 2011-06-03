@@ -401,17 +401,17 @@ program test
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
 
-        if ( mod(i_MD_time, collect_MD_steps) .eq. 0 ) then
+        if ( collect_MD_steps > 0 .and. mod(i_MD_time, collect_MD_steps) .eq. 0 ) then
            if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
               v_sub1 = com_v(group_list(1),1)
               v_sub2 = com_v(group_list(1),2)
               r_sub1 = com_r(group_list(1),1)
               r_sub2 = com_r(group_list(1),2)
+              colloid_f = com_f(group_list(1))
               call h5md_write_obs(vs1ID, v_sub1, i_MD_time, realtime)
               call h5md_write_obs(vs2ID, v_sub2, i_MD_time, realtime)
               call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
               call h5md_write_obs(rs2ID, r_sub2, i_MD_time, realtime)
-              colloid_f = sum( at_f(:, group_list(1)%istart:group_list(1)%istart+group_list(1)%N-1) , dim=1)
               call h5md_write_obs(colloid_forceID, colloid_f, i_MD_time, realtime)
            end if
         end if

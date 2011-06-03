@@ -730,8 +730,6 @@ contains
        com_f = com_f + at_f(:,i)
     end do
     
-    com_f = com_f
-
   end function com_f
 
 
