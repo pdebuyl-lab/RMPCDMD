@@ -28,6 +28,7 @@ contains
 
   !> Sets up a reaction variable.
   !!
+  !! @param CF A ParseText configuration file.
   !! @param reac_var The resulting reaction variable.
   !! @param at_i The atom index.
   !! @param so_i The solvent index.

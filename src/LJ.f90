@@ -140,7 +140,7 @@ contains
   !> @param sigma The LJ sigma parameter.
   !> @param rsq The squared distance between particles.
   !> @param rcut The cut-off radius.
-  !> @param The smoothing parameter.
+  !> @param h The smoothing parameter.
   ! returns the magnitude over r of the smoothed LJ force.
   ! The smoothed potential is V_LJ * x**4/(1.+x**4) where x = (r-rcut)/(sigma*h) 
   ! See P. H. Colberg & F. Hofling, Comp. Phys. Comm. 182, pp 1120-1129 (2011)
@@ -188,7 +188,7 @@ contains
   !> @param sigma The LJ sigma parameter.
   !> @param rsq The squared distance between particles.
   !> @param rcut The cut-off radius.
-  !> @param The smoothing parameter.
+  !> @param h The smoothing parameter.
   function LJ_V_smooth(eps, sigma, rsq, rcut, h)
     implicit none
     double precision :: LJ_V_smooth

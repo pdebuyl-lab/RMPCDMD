@@ -281,7 +281,7 @@ contains
   !! the position x0.
   !! @param x0 the position around which we look for solvent particles.
   !! @param radius the search radius.
-  !! @returns list a list of indices, that is allocated in this routine.
+  !! @param list a list of indices, that is allocated in this routine.
   subroutine list_idx_from_x0(x0, radius, list)
     implicit none
     double precision, intent(in) :: x0(3)
