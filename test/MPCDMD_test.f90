@@ -12,11 +12,11 @@ program test
   
   type(PTo) :: CF
 
-  integer :: i_time, i_in, i, istart, reneigh
+  integer :: i_time, i_in, i, istart, reneigh, N_MD_since_re
   integer :: i_MD_time
   integer :: N_MD_loop, N_loop, en_unit
   integer :: flush_unit
-  double precision :: max_d, realtime
+  double precision :: realtime
   character(len=16) :: init_mode
   character(len=2) :: g_string
   integer :: collect_atom, collect_MD_steps, collect_traj_steps
@@ -278,6 +278,7 @@ program test
   at_jumps = 0
 
   reneigh = 0
+  N_MD_since_re = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
 
@@ -378,9 +379,15 @@ program test
               call shake(group_list(i))
            end if
         end do
+        N_MD_since_re = N_MD_since_re + 1
 
         if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
-             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2)) then
+             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
+             (N_MD_since_re.ge.N_MD_max)) then
+
+           tau = N_MD_since_re*DT
+           call MPCD_stream
+           N_MD_since_re = 0
            reneigh = reneigh + 1
            call correct_so
            call place_in_cells
@@ -419,6 +426,18 @@ program test
      end do
 
      call correct_at
+
+     if (N_MD_since_re.gt.0) then
+        reneigh = reneigh + 1
+        tau = N_MD_since_re*DT
+        call MPCD_stream
+        N_MD_since_re = 0
+        call correct_so
+        call place_in_cells
+        call make_neigh_list
+        call compute_f
+     end if
+
      
      if (do_shifting) then
         shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a

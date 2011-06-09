@@ -40,7 +40,7 @@ module MD
   integer, allocatable :: reac_table(:,:)
   integer, allocatable :: reac_product(:,:)
   double precision, allocatable :: reac_rates(:,:)
-  double precision :: excess
+  double precision :: excess, max_d
   type(reac_t), allocatable :: at_so_reac(:,:)
   logical(kind=1), allocatable :: so_do_reac(:)
   
@@ -224,6 +224,14 @@ contains
     integer :: Si, Sj, Sk
     integer :: extent
     double precision :: dist_sqr, neigh_sqr, x(3)
+
+    is_MD = .false.
+
+    do i=1,so_sys%N(0)
+       N_MD(i) = max_d/(sqrt(sum(so_v(:,i)**2))*DT)
+    end do
+
+    N_MD_max = minval(N_MD(1:so_sys%N(0)))
     
     at_neigh_list = 0
     so_neigh_list = 0
@@ -254,6 +262,7 @@ contains
                       so_neigh_list(0,part) = so_neigh_list(0,part) + 1
                       if ( so_neigh_list(0,part) > 16 ) stop 'too many neighbours for solvent'
                       so_neigh_list(so_neigh_list(0,part),part) = at_i
+                      is_MD(par_list(i,mi,mj,mk)) = .true.
                    end if
                 end do
              end do
@@ -272,15 +281,15 @@ contains
     integer :: at_i, at_j, j, part, at_si, at_g, at_h, at_j_1
     double precision :: x(3), dist_sqr, LJcut_sqr, LJsig, f_var(3)
     double precision :: dist_min, at_dist_min
-
+    
     so_f_temp => so_f
     so_f => so_f_old
     so_f_old => so_f_temp
-
+    
     at_f_temp => at_f
     at_f => at_f_old
     at_f_old => at_f_temp
-    
+
     so_f = 0.d0
     at_f = 0.d0
 
@@ -356,7 +365,7 @@ contains
     integer :: at_i, i
 
     do i=1,so_sys%N(0)
-       so_r(:,i) = so_r(:,i) + so_v(:,i) * DT + so_f(:,i) * DT**2 * 0.5d0 * so_sys % oo_mass(so_species(i))
+       if (is_MD(i)) so_r(:,i) = so_r(:,i) + so_v(:,i) * DT + so_f(:,i) * DT**2 * 0.5d0 * so_sys % oo_mass(so_species(i))
     end do
     do at_i=1,at_sys%N(0)
        at_r(:,at_i) = at_r(:,at_i) + at_v(:,at_i) * DT + at_f(:,at_i) * DT**2 * 0.5d0 * at_sys % oo_mass( at_species(at_i) )
@@ -369,7 +378,7 @@ contains
     integer :: at_i, i
 
     do i=1,so_sys%N(0)
-       so_v(:,i) = so_v(:,i) + 0.5d0 * DT * (so_f(:,i) + so_f_old(:,i)) * so_sys % oo_mass( so_species(i) )
+       if (is_MD(i)) so_v(:,i) = so_v(:,i) + 0.5d0 * DT * (so_f(:,i) + so_f_old(:,i)) * so_sys % oo_mass( so_species(i) )
     end do
 
     do at_i=1, at_sys%N(0)

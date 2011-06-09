@@ -71,6 +71,7 @@ module MPCD
   logical(kind=1), allocatable :: is_MD(:)
   !> Number of MD steps that should be taken into account when performing a streaming.
   integer, allocatable :: N_MD(:)
+  integer :: N_MD_max
 
   !> Information on the solvent system, based on sys_t from the sys group.
   type(sys_t) :: so_sys
@@ -272,7 +273,7 @@ contains
     integer :: i
 
     do i=1,so_sys%N(0)
-       so_r(:,i) = so_r(:,i) + so_v(:,i) * tau
+       if (.not. is_MD(i)) so_r(:,i) = so_r(:,i) + so_v(:,i) * tau
     end do
     
   end subroutine MPCD_stream

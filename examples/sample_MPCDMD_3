@@ -34,6 +34,7 @@ LJskinfactor = 1.2d0
 
 N_cells = 20 20 20 
 cell_unit = 1.d0
+
 so_T = 0.4
 
 atinit = random 
