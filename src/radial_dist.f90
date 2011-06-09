@@ -24,6 +24,7 @@ module radial_dist
      double precision :: dr
   end type rad_dist_t
 
+contains
   !> Defines the parameters of a rad_dist_t variable and allocates the
   !! distribution array.
   !!

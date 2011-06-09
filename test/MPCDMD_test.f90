@@ -257,8 +257,8 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  call init_rad(so_dist,80,.1d0)
-  call init_rad(at_dist,80,.1d0)
+  call init_rad(so_dist,100,.1d0)
+  call init_rad(at_dist,100,.1d0)
 
   call begin_h5md
 
@@ -445,7 +445,7 @@ program test
      call update_rad(at_dist, com_g1, at_r, list)
      deallocate(list)
 
-     call list_idx_from_x0(com_g1, 8.d0, list)
+     call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
      call update_rad(so_dist, com_g1, so_r, list)
      deallocate(list)
 
@@ -466,10 +466,16 @@ program test
         do i=1,so_sys%N(0)
            if (so_species(i) .eq. 2) then
               call rel_pos( so_r(:,i), com_g1, L, x_temp)
-              if ( sqrt( sum(x_temp**2) ) > 10.d0 ) then
+              if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
                  so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) - 1
                  so_species(i) = 1
                  so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) + 1
+              end if
+           end if
+           if (so_do_reac(i)) then
+              call rel_pos( so_r(:,i), com_g1, L, x_temp)
+              if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
+                 so_do_reac = .false.
               end if
            end if
         end do

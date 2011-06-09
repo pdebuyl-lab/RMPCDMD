@@ -296,9 +296,9 @@ contains
     integer :: list_len
 
 
-    i0 = floor(x0(1)/a)
-    j0 = floor(x0(2)/a)
-    k0 = floor(x0(3)/a)
+    i0 = floor((x0(1)-shift(1))/a)
+    j0 = floor((x0(2)-shift(2))/a)
+    k0 = floor((x0(3)-shift(3))/a)
 
     il = i0 - ceiling( radius/a )
     jl = j0 - ceiling( radius/a )
