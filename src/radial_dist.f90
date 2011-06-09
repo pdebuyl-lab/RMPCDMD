@@ -1,14 +1,35 @@
+
+!> The module radial_dist provides the rad_dist_t type that is used to define
+!! the parameters and to store a radial distribution function.
+!!
+!! The following example illustrates the usage of the module.
+!! @code
+!!type(rad_dist_t) :: rd
+!!call init_rad(rd, 100, 0.1d0)
+!! !...
+!!call update_rad(rd, x_0, pos_array, list_of_neighbour_indices)
+!! !!...
+!! @endcode
 module radial_dist
   implicit none
 
+  !> A rad_dist_t variable contains the parameters to compute a radial
+  !! distribution function as well as the radial distribution function itself.
   type rad_dist_t
+     !> Data for the radial distribution function.
      integer, allocatable :: g(:)
+     !> Number of times that the binning has been performed.
      integer :: t_count
+     !> Radial size of the bins.
      double precision :: dr
   end type rad_dist_t
 
-contains
-
+  !> Defines the parameters of a rad_dist_t variable and allocates the
+  !! distribution array.
+  !!
+  !! @param gor The rad_dist_t variable.
+  !! @param N_gor The number of bins of the distribution.
+  !! @param dr The bin size.
   subroutine init_rad(gor, N_gor, dr)
     implicit none
     type(rad_dist_t), intent(out) :: gor
@@ -22,6 +43,13 @@ contains
 
   end subroutine init_rad
   
+  !> Bins the particles from the array positions with indices given by list,
+  !! taking x_0 as the center of the coordinates.
+  !! The counter t_count of the rad_dist_t variable is increased by 1.
+  !! @param gor The rad_dist_t variable.
+  !! @param x_0 The center of coordinates for the binning.
+  !! @param positions Array of positions.
+  !! @param list The indices of particles in positions to consider.
   subroutine update_rad(gor, x_0, positions, list)
     implicit none
     type(rad_dist_t), intent(inout) :: gor
@@ -42,6 +70,10 @@ contains
   
   end subroutine update_rad
   
+  !> Dumps the distribution in a HDF5 file, following the H5MD organization.
+  !! @param gor The rad_dist_t variable.
+  !! @param fileID The ID of the HDF5 file.
+  !! @param group_name The name of the trajectory group.
   subroutine write_rad(gor, fileID, group_name)
     use HDF5
     implicit none
