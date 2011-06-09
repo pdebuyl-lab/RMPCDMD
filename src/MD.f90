@@ -1,5 +1,7 @@
 
 !> This module holds the variable to embed molecular dynamics particles (called "atoms" in this program) in a MPCD solvent.
+!!
+!! A number of global variables are defined in this module.
 module MD
   use mtprng
   use group
@@ -10,11 +12,15 @@ module MD
   use HDF5
   implicit none
 
+  !> Maximum number of solvent neighbours to each atom.
   integer, parameter :: max_neigh=8192
 
+  !> Information about the "atoms" system (N, ...).
   type(sys_t) :: at_sys
 
+  !> Number of atomic groups in the system.
   integer :: N_groups
+  !> List of atomic groups in the system.
   type(group_t), allocatable :: group_list(:)
   
   double precision, allocatable :: at_r(:,:), at_r_old(:,:), at_v(:,:)
@@ -25,8 +31,10 @@ module MD
   integer, allocatable :: at_neigh_list(:,:)
   integer, allocatable :: at_species(:)
 
+  !> A reverse lookup list: for each solvent particle, a list of neighbouring atoms.
   integer, allocatable :: so_neigh_list(:,:)
 
+  !> The timestep for the molecular dynamics integrator.
   double precision :: DT
 
   integer, allocatable :: reac_table(:,:)
@@ -35,13 +43,15 @@ module MD
   double precision :: excess
   type(reac_t), allocatable :: at_so_reac(:,:)
   logical(kind=1), allocatable :: so_do_reac(:)
-
+  
   double precision :: h
 
 
 contains
 
 
+  !> Allocates arrays for the atom system.
+  !! Should be called after configuration of at_sys and so_sys.
   subroutine config_MD
     implicit none
 
@@ -70,6 +80,8 @@ contains
 
   end subroutine config_MD
 
+  !> Sets the species for an atom group.
+  !! @param g_var A group_t variable.
   subroutine config_atom_group(g_var)
     implicit none
     type(group_t), intent(in) :: g_var
@@ -82,6 +94,8 @@ contains
     
   end subroutine config_atom_group
 
+  !> Sets the species for a dimer group.
+  !! @param g_var A group_t variable.
   subroutine config_dimer_group(g_var)
     implicit none
     type(group_t), intent(in) :: g_var
@@ -91,6 +105,7 @@ contains
     
   end subroutine config_dimer_group
 
+  !> Places all atoms at random in the simulation box while avoiding overlapping.
   subroutine init_atoms_random
     
     double precision :: x(3), dsqr
@@ -126,6 +141,8 @@ contains
 
   end subroutine init_atoms_random
 
+  !> Fills a simulation box with the solvent at the given temperature, but with a flat velocity profile.
+  !! @param temperature The temperature for the solvent.
   subroutine fill_with_solvent(temperature)
     double precision, intent(in) :: temperature
     integer :: i, j, iter
@@ -733,6 +750,9 @@ contains
   end function com_f
 
 
+  !> Applies the shake algorithm to the particles in the group g_var.
+  !! The list of constraints should have been initialized.
+  !! @param g_var A group_t variable.
   subroutine shake(g_var)
     implicit none
     type(group_t), intent(in) :: g_var
@@ -770,6 +790,9 @@ contains
 
   end subroutine shake
 
+  !> Applies the rattle algorithm to the particles in the group g_var.
+  !! The list of constraints should have been initialized.
+  !! @param g_var A group_t variable.
   subroutine rattle(g_var)
     implicit none
     type(group_t), intent(in) :: g_var
