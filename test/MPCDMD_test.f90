@@ -115,6 +115,8 @@ program test
   end do
   call h5md_write_par(file_ID, 'group g_type', group_list(:) % g_type)
 
+  at_v = 0.d0
+
   do i=1,N_groups
      write(g_string,'(i02.2)') i
      init_mode = PTread_s(CF, 'group'//g_string//'init')
@@ -186,9 +188,6 @@ program test
   call h5md_write_par(file_id, 'collide', collide)
   switch = PTread_l(CF, 'switch')
   call h5md_write_par(file_id, 'switch', switch)
-
-  !call init_atoms(CF)
-  at_v = 0.d0
 
   write(*,*) so_sys%N_species
   write(*,*) so_sys%N_max
