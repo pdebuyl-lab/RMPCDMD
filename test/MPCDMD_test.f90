@@ -259,8 +259,8 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  call init_rad(so_dist,100,.1d0)
-  call init_rad(at_dist,100,.1d0)
+  call init_rad(so_dist,so_sys%N_species,100,.1d0)
+  call init_rad(at_dist,at_sys%N_species,100,.1d0)
   call init_polar(prod_polar_dist,so_sys%N_species,100,.1d0,40)
 
   call begin_h5md
@@ -484,13 +484,13 @@ program test
      
      allocate(list(group_list(1)%N))
      list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
-     call update_rad(at_dist, com_g1, at_r, list)
+     call update_rad(at_dist, modulo(com_g1,L), at_r, at_species, list)
      deallocate(list)
 
      call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
-     call update_rad(so_dist, com_g1, so_r, list)
+     call update_rad(so_dist, modulo(com_g1,L), so_r, so_species, list)
      call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
-     call update_polar(prod_polar_dist, com_g1, x_temp, so_r, so_species, list)
+     call update_polar(prod_polar_dist, modulo(com_g1,L), x_temp, so_r, so_species, list)
      deallocate(list)
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &

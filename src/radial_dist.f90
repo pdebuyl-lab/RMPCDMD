@@ -19,7 +19,7 @@ module radial_dist
   !! distribution function as well as the radial distribution function itself.
   type rad_dist_t
      !> Data for the radial distribution function.
-     integer, allocatable :: g(:)
+     integer, allocatable :: g(:,:)
      !> Number of times that the binning has been performed.
      integer :: t_count
      !> Radial size of the bins.
@@ -31,15 +31,16 @@ contains
   !! distribution array.
   !!
   !! @param gor The rad_dist_t variable.
+  !! @param N_s The number of species to take into account.
   !! @param N_gor The number of bins of the distribution.
   !! @param dr The bin size.
-  subroutine init_rad(gor, N_gor, dr)
+  subroutine init_rad(gor, N_s, N_gor, dr)
     implicit none
     type(rad_dist_t), intent(out) :: gor
-    integer, intent(in) :: N_gor
+    integer, intent(in) :: N_s, N_gor
     double precision, intent(in) :: dr
 
-    allocate(gor%g(N_gor))
+    allocate(gor%g(N_s,N_gor))
     gor % g = 0 
     gor % t_count = 0
     gor % dr = dr
@@ -52,23 +53,27 @@ contains
   !! @param gor The rad_dist_t variable.
   !! @param x_0 The center of coordinates for the binning.
   !! @param positions Array of positions.
+  !! @param species Array of species.
   !! @param list The indices of particles in positions to consider.
-  subroutine update_rad(gor, x_0, positions, list)
+  subroutine update_rad(gor, x_0, positions, species, list)
     implicit none
     type(rad_dist_t), intent(inout) :: gor
     double precision, intent(in) :: x_0(3)
     double precision, intent(in) :: positions(:,:)
+    integer, intent(in) :: species(:)
     integer, intent(in) :: list(:)
 
-    integer :: i, idx, N
+    integer :: i, idx, N, part
     double precision :: x(3)
     
     N = size(list)
 
     do i=1, N
-       call rel_pos(x_0, positions(:,list(i)), L, x)
+       part = list(i)
+       call rel_pos(x_0, positions(:,part), L, x)
        idx = floor(sqrt( sum( x**2 ) ) / gor % dr) + 1
-       if (idx .le. size(gor % g)) gor % g(idx) = gor % g(idx) + 1
+       if (idx .le. size(gor % g,dim=2)) &
+            gor % g(species(part),idx) = gor % g(species(part),idx) + 1
     end do
   
     gor % t_count = gor % t_count + 1
@@ -86,23 +91,24 @@ contains
     integer(HID_T), intent(inout) :: fileID
     character(len=*), intent(in), optional :: group_name
   
-    double precision, allocatable :: g_real(:)
+    double precision, allocatable :: g_real(:,:)
     integer :: i
     double precision :: r
     integer(HID_T) :: d_id, s_id, a_id
-    integer(HSIZE_T) :: dims(1)
+    integer(HSIZE_T) :: dims(2)
     character(len=128) :: path
     integer :: h5_error
   
-    allocate( g_real( size(gor % g) ) )
+    allocate( g_real( size(gor % g, dim=1) , size(gor % g, dim=2)) )
     g_real = dble(gor % g) / ( dble(gor % t_count) * 4.d0/3.d0 * 4.d0*atan(1.d0) )
-    do i=1,size(g_real)
+    do i=1,size(g_real,dim=2)
        r = dble(i-1) * gor % dr
-       g_real(i) = g_real(i) / ( (r+gor % dr)**3-r**3 )
+       g_real(:,i) = g_real(:,i) / ( (r+gor % dr)**3-r**3 )
     end do
     ! open dataset
-    dims(1) = size(g_real)
-    call h5screate_simple_f(1, dims, s_id, h5_error)
+    dims(1) = size(g_real,dim=1)
+    dims(2) = size(g_real,dim=2)
+    call h5screate_simple_f(2, dims, s_id, h5_error)
     if (present(group_name)) then
        path = 'trajectory/'//group_name//'/radial_distribution'
     else
