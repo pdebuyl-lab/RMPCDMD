@@ -11,6 +11,8 @@
 !! !!...
 !! @endcode
 module radial_dist
+  use MD, only: rel_pos
+  use MPCD, only: L
   implicit none
 
   !> A rad_dist_t variable contains the parameters to compute a radial
@@ -59,11 +61,13 @@ contains
     integer, intent(in) :: list(:)
 
     integer :: i, idx, N
+    double precision :: x(3)
     
     N = size(list)
 
     do i=1, N
-       idx = floor(sqrt( sum( (positions(:,list(i)) - x_0)**2 ) ) / gor % dr) + 1
+       call rel_pos(x_0, positions(:,list(i)), L, x)
+       idx = floor(sqrt( sum( x**2 ) ) / gor % dr) + 1
        if (idx .le. size(gor % g)) gor % g(idx) = gor % g(idx) + 1
     end do
   

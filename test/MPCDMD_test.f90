@@ -8,6 +8,7 @@ program test
   use MPCDMD
   use h5md
   use radial_dist
+  use polar_dist
   implicit none
   
   type(PTo) :: CF
@@ -45,6 +46,7 @@ program test
 
   double precision :: x_temp(3)
   type(rad_dist_t) :: so_dist, at_dist
+  type(polar_dist_t) :: prod_polar_dist
   integer, allocatable :: list(:)
   character(len=5) :: zone
   integer :: values(8)
@@ -259,6 +261,7 @@ program test
 
   call init_rad(so_dist,100,.1d0)
   call init_rad(at_dist,100,.1d0)
+  call init_polar(prod_polar_dist,100,.1d0,40)
 
   call begin_h5md
 
@@ -486,6 +489,8 @@ program test
 
      call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
      call update_rad(so_dist, com_g1, so_r, list)
+     call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
+     call update_polar(prod_polar_dist, com_g1, x_temp, so_r, list)
      deallocate(list)
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
@@ -543,6 +548,7 @@ program test
 
   call write_rad(at_dist,file_ID)
   call write_rad(so_dist,file_ID, group_name='solvent')
+  call write_polar(prod_polar_dist,file_ID, group_name='solvent')
 
   call end_h5md
 
