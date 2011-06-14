@@ -10,7 +10,7 @@ module polar_dist
   !! distribution function as well as the polar distribution function itself.
   type polar_dist_t
      !> Data for the polar distribution function.
-     integer, allocatable :: g(:,:)
+     integer, allocatable :: g(:,:,:)
      !> Number of times that the binning has been performed.
      integer :: t_count
      !> Radial size of the bins.
@@ -25,17 +25,18 @@ contains
   !! distribution array.
   !! 
   !! @param gor The polar_dist_t variable.
+  !! @param N_s The number of species to take into account.
   !! @param N_gor The number of bins of the distribution.
   !! @param dr The radial bin size.
   !! @param dtheta The angular bin size.
-  subroutine init_polar(gor, N_r, dr, N_theta)
+  subroutine init_polar(gor, N_s, N_r, dr, N_theta)
     implicit none
     type(polar_dist_t), intent(out) :: gor
-    integer, intent(in) :: N_r
+    integer, intent(in) :: N_s,N_r
     double precision, intent(in) :: dr
     integer, intent(in) :: N_theta
 
-    allocate(gor%g(N_theta,N_r))
+    allocate(gor%g(N_s,N_theta,N_r))
     gor % g = 0 
     gor % t_count = 0
     gor % dr = dr
@@ -50,15 +51,17 @@ contains
   !! @param x_0 The center of coordinates for the binning.
   !! @param dir The direction along which theta=0 for the binning.
   !! @param positions Array of positions.
+  !! @param species Array of species.
   !! @param list The indices of particles in positions to consider.
-  subroutine update_polar(gor, x_0, dir_in, positions, list)
+  subroutine update_polar(gor, x_0, dir_in, positions, species, list)
     implicit none
     type(polar_dist_t), intent(inout) :: gor
     double precision, intent(in) :: x_0(3), dir_in(3)
     double precision, intent(in) :: positions(:,:)
+    integer, intent(in) :: species(:)
     integer, intent(in) :: list(:)
 
-    integer :: i, r_idx, th_idx, N
+    integer :: i, r_idx, th_idx, N, part
     double precision :: x(3), r, dir(3)
     
     N = size(list)
@@ -66,12 +69,13 @@ contains
     dir = dir_in / sqrt( dir_in(1)**2 + dir_in(2)**2 + dir_in(3)**2 )
     
     do i=1, N
-       call rel_pos(x_0, positions(:,list(i)), L, x)
+       part = list(i)
+       call rel_pos(x_0, positions(:,part), L, x)
        r = sqrt( sum( x**2 ) )
        r_idx  = floor(r / gor % dr) + 1
        th_idx = floor(acos( sum(x*dir)/r )/gor % dtheta)+1
-       if (r_idx .le. size(gor % g, dim=2) .and. th_idx .le. size(gor % g, dim=1)) &
-            gor % g(th_idx, r_idx) = gor % g(th_idx, r_idx) + 1
+       if (r_idx .le. size(gor % g, dim=3) .and. th_idx .le. size(gor % g, dim=2)) &
+            gor % g(species(part),th_idx, r_idx) = gor % g(species(part),th_idx, r_idx) + 1
     end do
   
     gor % t_count = gor % t_count + 1
@@ -89,27 +93,28 @@ contains
     integer(HID_T), intent(inout) :: fileID
     character(len=*), intent(in), optional :: group_name
   
-    double precision, allocatable :: g_real(:,:)
+    double precision, allocatable :: g_real(:,:,:)
     integer :: i,j
     double precision :: r, theta
     integer(HID_T) :: d_id, s_id, a_id
-    integer(HSIZE_T) :: dims(2)
+    integer(HSIZE_T) :: dims(3)
     character(len=128) :: path
     integer :: h5_error
   
-    allocate( g_real( size(gor % g, dim=1), size(gor % g, dim=2) ) )
+    allocate( g_real( size(gor % g, dim=1), size(gor % g, dim=2), size(gor % g, dim=3) ) )
     g_real = dble(gor % g) / ( dble(gor % t_count) * 2.d0 * 4.d0*atan(1.d0) )
-    do i=1,size(g_real,dim=2)
-       do j=1,size(g_real,dim=1)
+    do i=1,size(g_real,dim=3)
+       do j=1,size(g_real,dim=2)
           r = (dble(i)-0.5d0) * gor % dr
           theta = (dble(j)-0.5d0) * gor % dtheta
-          g_real(j,i) = g_real(j,i) / ( r*gor % dtheta * gor % dr * r * sin(theta) )
+          g_real(:,j,i) = g_real(:,j,i) / ( r*gor % dtheta * gor % dr * r * sin(theta) )
        end do
     end do
     ! open dataset
     dims(1) = size(g_real, dim=1)
     dims(2) = size(g_real, dim=2)
-    call h5screate_simple_f(2, dims, s_id, h5_error)
+    dims(3) = size(g_real, dim=3)
+    call h5screate_simple_f(3, dims, s_id, h5_error)
     if (present(group_name)) then
        path = 'trajectory/'//group_name//'/polar_distribution'
     else
