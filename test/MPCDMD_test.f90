@@ -384,7 +384,7 @@ program test
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
 
-     call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
+     if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
   end do
 
   DT = MD_DT
@@ -523,7 +523,8 @@ program test
            end if
         end do
      end if
-     if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_trajectory_data_d(posID, at_r, i_MD_time, realtime)
+
+     if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
 
      if (mod(i_time, 100).eq.0) then
         call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
