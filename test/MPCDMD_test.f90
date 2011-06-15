@@ -32,9 +32,10 @@ program test
   double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
   integer :: N_th_loop
   logical :: reactive, collide, switch
+  integer :: checkpoint
 
   integer(HID_T) :: file_ID
-  type(h5md_t) :: posID
+  type(h5md_t) :: posID, velID, so_posID, so_velID, so_speciesID
   type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, tempID
   type(h5md_t) :: solvent_N_ID
   type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
@@ -43,6 +44,7 @@ program test
   double precision :: colloid_f(3)
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
+  type(h5md_t) :: other
 
   double precision :: x_temp(3)
   type(rad_dist_t) :: so_dist, at_dist
@@ -59,23 +61,29 @@ program test
 
   call h5open_f(h5_error)
 
-  call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
+  checkpoint = PTread_i(CF, 'checkpoint')
+
+  if (checkpoint>0) then
+     call h5md_open_file(file_ID, 'data.h5', rw=.true.)
+  else
+     call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
+  end if
 
   seed = PTread_i(CF,'seed')
   if (seed < 0) then
      seed = nint(100*secnds(0.))
   end if
-  call h5md_write_par(file_ID, 'seed', seed)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'seed', seed)
   call mtprng_init(seed, ran_state)
 
   call config_sys(so_sys,'so',CF)
-  call h5md_write_par(file_ID, 'so_Nmax', so_sys % N_max)
-  call h5md_write_par(file_ID, 'solvent_N', so_sys % N)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'so_Nmax', so_sys % N_max)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'solvent_N', so_sys % N)
   call config_sys(at_sys,'at',CF)
-  call h5md_write_par(file_ID, 'at_Nmax', at_sys % N_max)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'at_Nmax', at_sys % N_max)
 
   N_groups = PTread_i(CF, 'N_groups')
-  call h5md_write_par(file_ID, 'N_groups', N_groups)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'N_groups', N_groups)
 
   if (N_groups <= 0) stop 'Ngroups is not a positive integer'
   allocate(group_list(N_groups))
@@ -91,14 +99,14 @@ program test
 
   call config_LJdata(CF, at_sys%N_species, so_sys%N_species)
 
-  call h5md_write_par(file_ID, 'at_so_LJ_eps', at_so % eps)
-  call h5md_write_par(file_ID, 'at_so_LJ_sig', at_so % sig)
-  call h5md_write_par(file_ID, 'at_at_LJ_eps', at_at % eps)
-  call h5md_write_par(file_ID, 'at_at_LJ_sig', at_at % sig)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'at_so_LJ_eps', at_so % eps)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'at_so_LJ_sig', at_so % sig)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'at_at_LJ_eps', at_at % eps)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'at_at_LJ_sig', at_at % sig)
 
   call config_MPCD(CF)
-  call h5md_write_par(file_ID, 'N_cells', N_cells)
-  call h5md_write_par(file_ID, 'cell_unit', a)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'N_cells', N_cells)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'cell_unit', a)
 
   call config_MD
   
@@ -113,10 +121,21 @@ program test
         stop 'unknown group type'
      end if
   end do
-  call h5md_write_par(file_ID, 'group g_type', group_list(:) % g_type)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'group g_type', group_list(:) % g_type)
 
   at_v = 0.d0
 
+  if (checkpoint > 0) then
+     i_MD_time = checkpoint
+     call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/position')
+     call h5md_read_obs(other, at_r, i_MD_time, realtime)
+     call config_elast_group2(group_list(1))
+     write(*,*) 'group', 1, 'configured with', group_list(1)%elast_nlink, 'links'
+     call h5md_close_ID(other)
+     call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/velocity')
+     call h5md_read_obs(other, at_v, i_MD_time, realtime)
+     call h5md_close_ID(other)
+  else
   do i=1,N_groups
      write(g_string,'(i02.2)') i
      init_mode = PTread_s(CF, 'group'//g_string//'init')
@@ -166,9 +185,10 @@ program test
      end if
   
   end do
+  end if
 
   reactive = PTread_l(CF, 'reactive')
-  call h5md_write_par(file_ID, 'reactive', reactive)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'reactive', reactive)
   if (reactive) then
      do i=1,at_sys % N_species
         do j=1,so_sys % N_species
@@ -185,9 +205,9 @@ program test
   so_do_reac = .false.
 
   collide = PTread_l(CF, 'collide')
-  call h5md_write_par(file_id, 'collide', collide)
+  if (checkpoint <= 0) call h5md_write_par(file_id, 'collide', collide)
   switch = PTread_l(CF, 'switch')
-  call h5md_write_par(file_id, 'switch', switch)
+  if (checkpoint <= 0) call h5md_write_par(file_id, 'switch', switch)
 
   write(*,*) so_sys%N_species
   write(*,*) so_sys%N_max
@@ -210,19 +230,34 @@ program test
   write(*,*) at_at%smooth
 
   target_T = PTread_d(CF,'so_T')
-  call h5md_write_par(file_ID, 'solvent_temperature', target_T)
-  call fill_with_solvent( target_T )
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'solvent_temperature', target_T)
+  if (checkpoint <= 0) then
+     call fill_with_solvent( target_T )
+  else
+     call h5md_open_ID(file_ID, other, 'trajectory', 'solvent/position')
+     call h5md_read_obs(other, so_r, i_MD_time, realtime)
+     call h5md_close_ID(other)
+     call h5md_open_ID(file_ID, other, 'trajectory', 'solvent/velocity')
+     call h5md_read_obs(other, so_v, i_MD_time, realtime)
+     call h5md_close_ID(other)
+     call h5md_open_ID(file_ID, other, 'trajectory', 'solvent/species')
+     call h5md_read_obs(other, so_species, i_MD_time, realtime)
+     call h5md_close_ID(other)
+  end if
+  shift = 0.d0
+  call correct_so
   call place_in_cells
   call make_neigh_list
 
   N_loop = PTread_i(CF, 'N_loop')
-  call h5md_write_par(file_ID, 'N_outer_loop', N_loop)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'N_outer_loop', N_loop)
   N_MD_loop = PTread_i(CF, 'N_MD_loop')
-  call h5md_write_par(file_ID, 'N_MD_loop', N_MD_loop)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'N_MD_loop', N_MD_loop)
   N_th_loop = PTread_i(CF, 'N_th_loop')
+  if (checkpoint > 0) N_th_loop = 0
   MD_DT = PTread_d(CF, 'DT')
   DT = MD_DT
-  call h5md_write_par(file_ID, 'DT', DT)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'DT', DT)
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
   collect_MD_steps = PTread_i(CF,'collect_MD_steps')
@@ -244,9 +279,11 @@ program test
   flush_unit = 12
   open(flush_unit,file='flush_file')
   
-  i_time = 0
-  i_MD_time = 0
-  realtime = 0.d0
+  if (checkpoint <= 0) then
+     i_time = 0
+     i_MD_time = 0
+     realtime = 0.d0
+  end if
   call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
   if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
      v_sub1 = com_v(group_list(1),1)
@@ -258,24 +295,21 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  call init_rad(so_dist,so_sys%N_species,100,.1d0)
-  call init_rad(at_dist,at_sys%N_species,100,.1d0)
-  call init_polar(prod_polar_dist,so_sys%N_species,100,.1d0,40)
-
-  call begin_h5md
-
-  call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
-  if (allocated(group_list(1)%subgroup) ) then
-     call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
+  if (checkpoint <= 0) then
+     call init_rad(so_dist,so_sys%N_species,100,.1d0)
+     call init_rad(at_dist,at_sys%N_species,100,.1d0)
+     call init_polar(prod_polar_dist,so_sys%N_species,100,.1d0,40)
   end if
-  call h5md_write_obs(at_soID, at_sol_en, i_MD_time, realtime)
-  call h5md_write_obs(at_atID, at_at_en, i_MD_time, realtime)
-  call h5md_write_obs(at_kinID, at_kin, i_MD_time, realtime)
-  call h5md_write_obs(so_kinID, sol_kin, i_MD_time, realtime)
-  call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
-  call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
-  call h5md_write_obs(enID, energy, i_MD_time, realtime)
-  call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
+  
+  if (checkpoint > 0) then
+     call renew_h5md
+  else
+     call begin_h5md
+  end if
+  if (checkpoint <= 0) call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
+  if (allocated(group_list(1)%subgroup) ) then
+     if (checkpoint <=0) call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
+  end if
 
   at_jumps = 0
 
@@ -481,16 +515,18 @@ program test
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
-     allocate(list(group_list(1)%N))
-     list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
-     call update_rad(at_dist, modulo(com_g1,L), at_r, at_species, list)
-     deallocate(list)
-
-     call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
-     call update_rad(so_dist, modulo(com_g1,L), so_r, so_species, list)
-     call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
-     call update_polar(prod_polar_dist, modulo(com_g1,L), x_temp, so_r, so_species, list)
-     deallocate(list)
+     if (checkpoint <= 0) then
+        allocate(list(group_list(1)%N))
+        list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
+        call update_rad(at_dist, modulo(com_g1,L), at_r, at_species, list)
+        deallocate(list)
+        
+        call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
+        call update_rad(so_dist, modulo(com_g1,L), so_r, so_species, list)
+        call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
+        call update_polar(prod_polar_dist, modulo(com_g1,L), x_temp, so_r, so_species, list)
+        deallocate(list)
+     end if
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
           sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
@@ -540,15 +576,23 @@ program test
 
 
   i_time = i_time-1
-  i_MD_time = i_MD_time-1
 
-  shift = 0.d0
-  call correct_so
-  call dump_solvent_species_h5md
+  if (checkpoint >= 0) then
+     call h5md_write_obs(velID, at_v, i_MD_time, realtime)
+     call h5md_write_obs(so_posID, so_r, i_MD_time, realtime)
+     call h5md_write_obs(so_velID, so_v, i_MD_time, realtime)
+     call h5md_write_obs(so_speciesID, so_species, i_MD_time, realtime)
+  end if
 
-  call write_rad(at_dist,file_ID)
-  call write_rad(so_dist,file_ID, group_name='solvent')
-  call write_polar(prod_polar_dist,file_ID, group_name='solvent')
+  if (checkpoint <= 0) then
+     shift = 0.d0
+     call correct_so
+     call dump_solvent_species_h5md
+
+     call write_rad(at_dist,file_ID)
+     call write_rad(so_dist,file_ID, group_name='solvent')
+     call write_polar(prod_polar_dist,file_ID, group_name='solvent')
+  end if
 
   call end_h5md
 
@@ -608,7 +652,9 @@ contains
 
   subroutine begin_h5md
 
-    call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID)
+    call h5md_create_trajectory_group(file_ID, group_name='colloid')
+    call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID, group_name='colloid')
+    call h5md_add_trajectory_data(file_ID, 'velocity', at_sys% N_max, 3, velID, group_name='colloid')
     call h5md_create_obs(file_ID, 'energy', enID, energy)
     call h5md_create_obs(file_ID, 'temperature', tempID, actual_T, link_from='energy')
     call h5md_create_obs(file_ID, 'solvent_N', solvent_N_ID, so_sys % N, link_from='energy')
@@ -625,7 +671,36 @@ contains
        call h5md_create_obs(file_ID, 'colloid_force', colloid_forceID, colloid_f, link_from='v_com_1')
     end if
     call h5md_create_trajectory_group(file_ID, group_name='solvent')
+    call h5md_add_trajectory_data(file_ID, 'position', so_sys% N_max, 3, so_posID, group_name='solvent')
+    call h5md_add_trajectory_data(file_ID, 'velocity', so_sys% N_max, 3, so_velID, group_name='solvent')
+    call h5md_add_trajectory_data(file_ID, 'species', so_sys% N_max, 1, so_speciesID, group_name='solvent', species_react=.true.)
+
   end subroutine begin_h5md
+
+  subroutine renew_h5md
+
+    call h5md_open_ID(file_ID, posID, 'trajectory', 'colloid/position')
+    call h5md_open_ID(file_ID, velID, 'trajectory', 'colloid/velocity')
+    call h5md_open_ID(file_ID, so_posID, 'trajectory', 'solvent/position')
+    call h5md_open_ID(file_ID, so_velID, 'trajectory', 'solvent/velocity')
+    call h5md_open_ID(file_ID, so_speciesID, 'trajectory', 'solvent/species')
+    call h5md_open_ID(file_ID, enID, 'observables', 'energy')
+    call h5md_open_ID(file_ID, tempID, 'observables', 'temperature')
+    call h5md_open_ID(file_ID, solvent_N_ID, 'observables', 'solvent_N')
+    call h5md_open_ID(file_ID, at_atID, 'observables', 'at_at_int')
+    call h5md_open_ID(file_ID, at_soID, 'observables', 'at_so_int')
+    call h5md_open_ID(file_ID, so_kinID, 'observables', 'so_kin')
+    call h5md_open_ID(file_ID, at_kinID, 'observables', 'at_kin')
+    call h5md_open_ID(file_ID, total_vID, 'observables', 'total_v')
+    if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+       call h5md_open_ID(file_ID, vs1ID, 'observables', 'v_com_1')
+       call h5md_open_ID(file_ID, vs2ID, 'observables', 'v_com_2')
+       call h5md_open_ID(file_ID, rs1ID, 'observables', 'r_com_1')
+       call h5md_open_ID(file_ID, rs2ID, 'observables', 'r_com_2')
+       call h5md_open_ID(file_ID, colloid_forceID, 'observables', 'colloid_force')
+    end if
+  end subroutine renew_h5md
+
 
   subroutine end_h5md
     call h5md_close_ID(posID)
