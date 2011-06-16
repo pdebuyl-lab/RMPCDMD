@@ -35,7 +35,7 @@ program test
   integer :: checkpoint
 
   integer(HID_T) :: file_ID
-  type(h5md_t) :: posID, velID, so_posID, so_velID, so_speciesID
+  type(h5md_t) :: posID, velID, jumpID, so_posID, so_velID, so_speciesID, rngID, so_do_reacID
   type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, tempID
   type(h5md_t) :: solvent_N_ID
   type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
@@ -49,9 +49,10 @@ program test
   double precision :: x_temp(3)
   type(rad_dist_t) :: so_dist, at_dist
   type(polar_dist_t) :: prod_polar_dist
-  integer, allocatable :: list(:)
+  integer, allocatable :: list(:), so_do_reac_int(:)
   character(len=5) :: zone
   integer :: values(8)
+  integer, allocatable :: mtprng_container(:)
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -73,8 +74,10 @@ program test
   if (seed < 0) then
      seed = nint(100*secnds(0.))
   end if
-  if (checkpoint <= 0) call h5md_write_par(file_ID, 'seed', seed)
+  if (checkpoint <= 0) call h5md_write_par(file_ID, 'seed', seed)  
   call mtprng_init(seed, ran_state)
+  allocate(mtprng_container(mtprng_state_len()))
+  write(*,*) mtprng_state_len()
 
   call config_sys(so_sys,'so',CF)
   if (checkpoint <= 0) call h5md_write_par(file_ID, 'so_Nmax', so_sys % N_max)
@@ -123,6 +126,7 @@ program test
   end do
   if (checkpoint <= 0) call h5md_write_par(file_ID, 'group g_type', group_list(:) % g_type)
 
+  at_jumps = 0
   at_v = 0.d0
 
   if (checkpoint > 0) then
@@ -131,6 +135,7 @@ program test
      call h5md_read_obs(other, at_r, i_MD_time, realtime)
      call config_elast_group2(group_list(1))
      write(*,*) 'group', 1, 'configured with', group_list(1)%elast_nlink, 'links'
+     call h5md_read_par(file_ID, 'janus_r0', group_list(1)%elast_r0)
      call h5md_close_ID(other)
      call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/velocity')
      call h5md_read_obs(other, at_v, i_MD_time, realtime)
@@ -183,6 +188,7 @@ program test
         call config_elast_group2(group_list(i))
         write(*,*) 'group', i, 'configured with', group_list(i)%elast_nlink, 'links'
      end if
+     call h5md_write_par(file_ID, 'janus_r0', group_list(1)%elast_r0)
   
   end do
   end if
@@ -242,6 +248,19 @@ program test
      call h5md_close_ID(other)
      call h5md_open_ID(file_ID, other, 'trajectory', 'solvent/species')
      call h5md_read_obs(other, so_species, i_MD_time, realtime)
+     call h5md_close_ID(other)
+     call h5md_open_ID(file_ID, other, 'observables', 'so_do_reac')
+     allocate(so_do_reac_int(size(so_do_reac)))
+     call h5md_read_obs(other, so_do_reac_int, i_MD_time, realtime)
+     where (so_do_reac_int.eq.0)
+        so_do_reac = .false.
+     elsewhere
+        so_do_reac = .true.
+     end where
+     deallocate(so_do_reac_int)
+     call h5md_close_ID(other)
+     call h5md_open_ID(file_ID, other, 'observables', 'solvent_N')
+     call h5md_read_obs(other, so_sys%N, i_MD_time, realtime)
      call h5md_close_ID(other)
   end if
   shift = 0.d0
@@ -303,6 +322,10 @@ program test
   
   if (checkpoint > 0) then
      call renew_h5md
+     call h5md_read_obs(rngID, mtprng_container, i_MD_time, realtime)
+     call mtprng_from_int(ran_state, mtprng_container)
+     write(26,*) ran_state % mt
+     write(26,*) ran_state % mti     
   else
      call begin_h5md
   end if
@@ -311,14 +334,12 @@ program test
      if (checkpoint <=0) call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
   end if
 
-  at_jumps = 0
 
   reneigh = 0
   N_MD_since_re = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
 
-  shift = 0.d0
 
   DT = MD_DT
   do i_time = 1,N_th_loop
@@ -579,12 +600,25 @@ program test
 
   if (checkpoint >= 0) then
      call h5md_write_obs(velID, at_v, i_MD_time, realtime)
+     call h5md_write_obs(jumpID, at_jumps, i_MD_time, realtime)
      call h5md_write_obs(so_posID, so_r, i_MD_time, realtime)
      call h5md_write_obs(so_velID, so_v, i_MD_time, realtime)
      call h5md_write_obs(so_speciesID, so_species, i_MD_time, realtime)
+     allocate(so_do_reac_int(size(so_do_reac)))
+     where (so_do_reac)
+        so_do_reac_int = 1
+     elsewhere
+        so_do_reac_int = 0
+     end where
+     call h5md_write_obs(so_do_reacID, so_do_reac_int, i_MD_time, realtime)
+     deallocate(so_do_reac_int)
+     call mtprng_as_int(ran_state, mtprng_container)
+     call h5md_write_obs(rngID, mtprng_container, i_MD_time, realtime)
   end if
 
   if (checkpoint <= 0) then
+     write(25,*) ran_state % mt
+     write(25,*) ran_state % mti
      shift = 0.d0
      call correct_so
      call dump_solvent_species_h5md
@@ -655,6 +689,11 @@ contains
     call h5md_create_trajectory_group(file_ID, group_name='colloid')
     call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID, group_name='colloid')
     call h5md_add_trajectory_data(file_ID, 'velocity', at_sys% N_max, 3, velID, group_name='colloid')
+    call h5md_add_trajectory_data(file_ID, 'jumps', at_sys% N_max, 3, jumpID, group_name='colloid')
+    call h5md_create_obs(file_ID, 'mtprng_f90', rngID, mtprng_container)
+    allocate(so_do_reac_int(size(so_do_reac)))
+    call h5md_create_obs(file_ID, 'so_do_reac', so_do_reacID, so_do_reac_int)
+    deallocate(so_do_reac_int)
     call h5md_create_obs(file_ID, 'energy', enID, energy)
     call h5md_create_obs(file_ID, 'temperature', tempID, actual_T, link_from='energy')
     call h5md_create_obs(file_ID, 'solvent_N', solvent_N_ID, so_sys % N, link_from='energy')
@@ -671,9 +710,9 @@ contains
        call h5md_create_obs(file_ID, 'colloid_force', colloid_forceID, colloid_f, link_from='v_com_1')
     end if
     call h5md_create_trajectory_group(file_ID, group_name='solvent')
-    call h5md_add_trajectory_data(file_ID, 'position', so_sys% N_max, 3, so_posID, group_name='solvent')
-    call h5md_add_trajectory_data(file_ID, 'velocity', so_sys% N_max, 3, so_velID, group_name='solvent')
-    call h5md_add_trajectory_data(file_ID, 'species', so_sys% N_max, 1, so_speciesID, group_name='solvent', species_react=.true.)
+    call h5md_add_trajectory_data(file_ID, 'position', so_sys% N_max, 3, so_posID, group_name='solvent', compress=.true.)
+    call h5md_add_trajectory_data(file_ID, 'velocity', so_sys% N_max, 3, so_velID, group_name='solvent', compress=.true.)
+    call h5md_add_trajectory_data(file_ID, 'species', so_sys% N_max, 1, so_speciesID, group_name='solvent', species_react=.true., compress=.true.)
 
   end subroutine begin_h5md
 
@@ -681,9 +720,12 @@ contains
 
     call h5md_open_ID(file_ID, posID, 'trajectory', 'colloid/position')
     call h5md_open_ID(file_ID, velID, 'trajectory', 'colloid/velocity')
+    call h5md_open_ID(file_ID, jumpID, 'trajectory', 'colloid/jumps')
     call h5md_open_ID(file_ID, so_posID, 'trajectory', 'solvent/position')
     call h5md_open_ID(file_ID, so_velID, 'trajectory', 'solvent/velocity')
     call h5md_open_ID(file_ID, so_speciesID, 'trajectory', 'solvent/species')
+    call h5md_open_ID(file_ID, rngID, 'observables', 'mtprng_f90')
+    call h5md_open_ID(file_ID, so_do_reacID, 'observables', 'so_do_reac')
     call h5md_open_ID(file_ID, enID, 'observables', 'energy')
     call h5md_open_ID(file_ID, tempID, 'observables', 'temperature')
     call h5md_open_ID(file_ID, solvent_N_ID, 'observables', 'solvent_N')
@@ -704,6 +746,13 @@ contains
 
   subroutine end_h5md
     call h5md_close_ID(posID)
+    call h5md_close_ID(velID)
+    call h5md_close_ID(jumpID)
+    call h5md_close_ID(so_posID)
+    call h5md_close_ID(so_velID)
+    call h5md_close_ID(so_speciesID)
+    call h5md_close_ID(rngID)
+    call h5md_close_ID(so_do_reacID)
     call h5md_close_ID(enID)
     call h5md_close_ID(tempID)
     call h5md_close_ID(solvent_N_ID)
@@ -800,6 +849,40 @@ contains
     deallocate(temp_list)
 
   end subroutine dump_solvent_species_h5md
+
+  function mtprng_state_len
+    implicit none
+    integer :: mtprng_state_len
+
+    integer :: state_bit_size, int_bit_size
+    integer :: dummy
+
+    int_bit_size = bit_size(dummy)
+    state_bit_size = bit_size(ran_state % mti) + (bit_size(ran_state % mt)*size(ran_state % mt))
+    mtprng_state_len = 1+ ceiling( dble(state_bit_size)/dble(int_bit_size) )
+
+  end function mtprng_state_len
+  
+  subroutine mtprng_as_int(state, data)
+    type(mtprng_state), intent(in) :: state
+    integer, intent(out) :: data(:)
+
+    integer :: data_len
+    
+    data_len = mtprng_state_len()
+
+    data = transfer(state, data(1), data_len)
+
+  end subroutine mtprng_as_int
+
+  subroutine mtprng_from_int(state, data)
+    type(mtprng_state), intent(out) :: state
+    integer, intent(in) :: data(:)
+    
+    state = transfer(data, state)
+
+  end subroutine mtprng_from_int
+
 
 end program test
 
