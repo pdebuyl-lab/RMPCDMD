@@ -133,10 +133,16 @@ program test
      i_MD_time = checkpoint
      call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/position')
      call h5md_read_obs(other, at_r, i_MD_time, realtime)
-     call config_elast_group2(group_list(1))
-     write(*,*) 'group', 1, 'configured with', group_list(1)%elast_nlink, 'links'
-     call h5md_read_par(file_ID, 'janus_r0', group_list(1)%elast_r0)
      call h5md_close_ID(other)
+     call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/jumps')
+     call h5md_read_obs(other, at_jumps, i_MD_time, realtime)
+     call h5md_close_ID(other)
+     call h5md_read_par(file_ID, 'janus_nlink', group_list(1)%elast_nlink)
+     allocate(group_list(1)%elast_r0(group_list(1)%elast_nlink))
+     allocate(group_list(1)%elast_index(2,group_list(1)%elast_nlink))
+     call h5md_read_par(file_ID, 'janus_r0', group_list(1)%elast_r0)
+     call h5md_read_par(file_ID, 'janus_index', group_list(1)%elast_index)
+
      call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/velocity')
      call h5md_read_obs(other, at_v, i_MD_time, realtime)
      call h5md_close_ID(other)
@@ -189,6 +195,8 @@ program test
         write(*,*) 'group', i, 'configured with', group_list(i)%elast_nlink, 'links'
      end if
      call h5md_write_par(file_ID, 'janus_r0', group_list(1)%elast_r0)
+     call h5md_write_par(file_ID, 'janus_index', group_list(1)%elast_index)
+     call h5md_write_par(file_ID, 'janus_nlink', group_list(1)%elast_nlink)
   
   end do
   end if
