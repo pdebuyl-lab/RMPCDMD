@@ -13,7 +13,7 @@ module MD
   implicit none
 
   !> Maximum number of solvent neighbours to each atom.
-  integer, parameter :: max_neigh=8192
+  integer, parameter :: max_neigh=32768 !8192
 
   !> Information about the "atoms" system (N, ...).
   type(sys_t) :: at_sys
@@ -307,6 +307,7 @@ contains
              if (at_so%smooth(at_si,so_species(part))) then
                 f_var = LJ_force_smooth_or( &
                 at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), &
+                at_so%V_c( at_si,so_species(part) ), &
                 dist_sqr, at_so%cut(at_si,so_species(part)), h ) * x
              else
                 f_var = LJ_force_or(at_so%eps( at_si,so_species(part) ), at_so%sig(at_si,so_species(part)), dist_sqr) * x
@@ -345,7 +346,8 @@ contains
                 if ( dist_sqr .le. LJcut_sqr ) then
                    if (at_at%smooth(at_species(at_i), at_species(at_j))) then
                       f_var = LJ_force_smooth_or( &
-                           at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, dist_sqr, &
+                           at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, &
+                           at_at%V_c( at_species(at_i),at_species(at_j) ), dist_sqr, &
                            at_at%cut(at_species(at_i),at_species(at_j)), h) * x
                    else
                       f_var = LJ_force_or(at_at%eps( at_species(at_i),at_species(at_j) ) , LJsig, dist_sqr) * x
@@ -410,9 +412,11 @@ contains
              if (at_so%smooth(at_species(at_i),so_species(part))) then
                 at_sol_en = at_sol_en + LJ_V_smooth( &
                      at_so%eps( at_species(at_i), so_species(part)) , &
-                     LJsig, dist_sqr , at_so%cut( at_species(at_i), so_species(part) ), h)
+                     LJsig, &
+                     at_so%V_c( at_species(at_i), so_species(part)) , &
+                     dist_sqr , at_so%cut( at_species(at_i), so_species(part) ), h)
              else
-                at_sol_en = at_sol_en + LJ_V( at_so%eps( at_species(at_i), so_species(part)) , LJsig, dist_sqr )
+                at_sol_en = at_sol_en + LJ_V( at_so%eps( at_species(at_i), so_species(part)) , LJsig, at_so%V_c( at_species(at_i), so_species(part)), dist_sqr )
              end if
           end if
        end do
@@ -449,9 +453,10 @@ contains
                    if (at_at%smooth(at_species(at_i),at_species(at_j))) then
                       at_at_en = at_at_en + LJ_V_smooth( &
                            at_at%eps( at_species(at_i), at_species(at_j) ) , &
-                           LJsig, dist_sqr , at_at%cut( at_species(at_i),  at_species(at_j) ) , h)
+                           LJsig, at_at%V_c( at_species(at_i), at_species(at_j) ), &
+                           dist_sqr , at_at%cut( at_species(at_i),  at_species(at_j) ) , h)
                    else
-                      at_at_en = at_at_en + LJ_V(at_at%eps( at_species(at_i), at_species(at_j) ) , LJsig, dist_sqr )
+                      at_at_en = at_at_en + LJ_V(at_at%eps( at_species(at_i), at_species(at_j) ) , LJsig, at_at%V_c( at_species(at_i), at_species(at_j) ), dist_sqr )
                    end if
                 end if
              end do
@@ -846,6 +851,7 @@ contains
     double precision :: dist_min
     logical :: too_many_atoms
 
+    dist_min = sum(L)
     do at_i=1,at_sys%N(0)
        at_si = at_species(at_i)
 
