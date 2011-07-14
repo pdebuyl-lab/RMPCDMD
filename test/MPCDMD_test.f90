@@ -534,7 +534,7 @@ program test
         shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
      end if
 
-!     com_g1 = com_r(group_list(1))
+     com_g1 = com_r(group_list(1))
 
      call correct_so
      if (collide) then
@@ -862,7 +862,7 @@ contains
 
   end subroutine dump_solvent_species_h5md
 
-  function mtprng_state_len
+  function mtprng_state_len()
     implicit none
     integer :: mtprng_state_len
 
