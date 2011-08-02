@@ -155,8 +155,11 @@ program test
         init_mode = PTread_s(CF, 'group'//g_string//'file')
         call h5md_open_file(other_ID, init_mode)
         call h5md_open_trajectory(other_ID, 'position', dset_ID)
-        call h5md_load_trajectory_data_d(dset_ID, &
-             at_r(:, group_list(i)%istart:group_list(i)%istart + group_list(i)%N - 1), -1)
+!        call h5md_load_trajectory_data_d(dset_ID, &
+!             at_r(:, group_list(i)%istart:group_list(i)%istart + group_list(i)%N - 1), -1)
+        call h5md_read_obs(dset_ID, &
+             at_r(:, group_list(i)%istart:group_list(i)%istart + group_list(i)%N - 1), 0, x_temp(1))
+             
         call h5md_close_ID(dset_ID)
         call h5fclose_f(other_ID, h5_error)
      else if (init_mode .eq. 'random') then
