@@ -137,15 +137,20 @@ program test
      call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/jumps')
      call h5md_read_obs(other, at_jumps, i_MD_time, realtime)
      call h5md_close_ID(other)
-!     call h5md_read_par(file_ID, 'janus_nlink', group_list(1)%elast_nlink)
-!     allocate(group_list(1)%elast_r0(group_list(1)%elast_nlink))
-!     allocate(group_list(1)%elast_index(2,group_list(1)%elast_nlink))
-!     call h5md_read_par(file_ID, 'janus_r0', group_list(1)%elast_r0)
-!     call h5md_read_par(file_ID, 'janus_index', group_list(1)%elast_index)
-
      call h5md_open_ID(file_ID, other, 'trajectory', 'colloid/velocity')
      call h5md_read_obs(other, at_v, i_MD_time, realtime)
      call h5md_close_ID(other)
+     do i=1,N_groups
+        if ( group_list(i)%g_type.eq.SHAKE_G .or. group_list(i)%g_type.eq.ELAST_G ) then
+           write(g_string,'(i02.2)') i
+           call h5md_read_par(file_ID, 'group'//g_string//'/nlink', group_list(i)%nlink)
+           allocate(group_list(i)%r0(group_list(i)%nlink))
+           allocate(group_list(i)%index(2,group_list(i)%nlink))
+           call h5md_read_par(file_ID, 'group'//g_string//'/r0', group_list(i)%r0)
+           call h5md_read_par(file_ID, 'group'//g_string//'/index', group_list(i)%index)
+        end if
+     end do
+
   else
   do i=1,N_groups
      write(g_string,'(i02.2)') i
@@ -155,8 +160,6 @@ program test
         init_mode = PTread_s(CF, 'group'//g_string//'file')
         call h5md_open_file(other_ID, init_mode)
         call h5md_open_trajectory(other_ID, 'position', dset_ID)
-!        call h5md_load_trajectory_data_d(dset_ID, &
-!             at_r(:, group_list(i)%istart:group_list(i)%istart + group_list(i)%N - 1), -1)
         call h5md_read_obs(dset_ID, &
              at_r(:, group_list(i)%istart:group_list(i)%istart + group_list(i)%N - 1), 0, x_temp(1))
              
@@ -195,11 +198,13 @@ program test
   
      if (group_list(i)%g_type == ELAST_G .or. group_list(i)%g_type == SHAKE_G) then
         call config_elast_group2(group_list(i))
-        write(*,*) 'group', i, 'configured with', group_list(i)%elast_nlink, 'links'
+        write(*,*) 'group', i, 'configured with', group_list(i)%nlink, 'links'
+        call h5gcreate_f(file_ID,'parameters/group'//g_string,other_ID,h5_error)
+        call h5gclose_f(other_ID,h5_error)
+        call h5md_write_par(file_ID, 'group'//g_string//'/r0', group_list(i)%r0)
+        call h5md_write_par(file_ID, 'group'//g_string//'/index', group_list(i)%index)
+        call h5md_write_par(file_ID, 'group'//g_string//'/nlink', group_list(i)%nlink)
      end if
-!     call h5md_write_par(file_ID, 'janus_r0', group_list(1)%elast_r0)
-!     call h5md_write_par(file_ID, 'janus_index', group_list(1)%elast_index)
-!     call h5md_write_par(file_ID, 'janus_nlink', group_list(1)%elast_nlink)
   
   end do
   end if
@@ -343,11 +348,11 @@ program test
      write(26,*) ran_state % mti     
   else
      call begin_h5md
+     if (allocated(group_list(1)%subgroup) ) then
+        call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
+     end if
   end if
   if (checkpoint <= 0) call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
-!  if (allocated(group_list(1)%subgroup) ) then
-!     if (checkpoint <=0) call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
-!  end if
 
 
   reneigh = 0
@@ -501,18 +506,18 @@ program test
         i_MD_time = i_MD_time + 1
 
         if ( collect_MD_steps > 0 .and. mod(i_MD_time, collect_MD_steps) .eq. 0 ) then
-!           if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
-!              v_sub1 = com_v(group_list(1),1)
-!              v_sub2 = com_v(group_list(1),2)
-!              r_sub1 = com_r(group_list(1),1)
-!              r_sub2 = com_r(group_list(1),2)
-!              colloid_f = com_f(group_list(1))
-!              call h5md_write_obs(vs1ID, v_sub1, i_MD_time, realtime)
-!              call h5md_write_obs(vs2ID, v_sub2, i_MD_time, realtime)
-!              call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
-!              call h5md_write_obs(rs2ID, r_sub2, i_MD_time, realtime)
-!              call h5md_write_obs(colloid_forceID, colloid_f, i_MD_time, realtime)
-!           end if
+           if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+              v_sub1 = com_v(group_list(1),1)
+              v_sub2 = com_v(group_list(1),2)
+              r_sub1 = com_r(group_list(1),1)
+              r_sub2 = com_r(group_list(1),2)
+              colloid_f = com_f(group_list(1))
+              call h5md_write_obs(vs1ID, v_sub1, i_MD_time, realtime)
+              call h5md_write_obs(vs2ID, v_sub2, i_MD_time, realtime)
+              call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
+              call h5md_write_obs(rs2ID, r_sub2, i_MD_time, realtime)
+              call h5md_write_obs(colloid_forceID, colloid_f, i_MD_time, realtime)
+           end if
         end if
 
      end do
@@ -552,16 +557,18 @@ program test
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
      if (checkpoint <= 0) then
-!        allocate(list(group_list(1)%N))
-!        list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
-!        call update_rad(at_dist, modulo(com_g1,L), at_r, at_species, list)
-!        deallocate(list)
+        allocate(list(group_list(1)%N))
+        list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
+        call update_rad(at_dist, modulo(com_g1,L), at_r, at_species, list)
+        deallocate(list)
         
-!        call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
-!        call update_rad(so_dist, modulo(com_g1,L), so_r, so_species, list)
-!        call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
-!        call update_polar(prod_polar_dist, modulo(com_g1,L), x_temp, so_r, so_species, list)
-!        deallocate(list)
+        if (group_list(1) % N_sub .eq. 2) then
+           call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
+           call update_rad(so_dist, modulo(com_g1,L), so_r, so_species, list)
+           call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
+           call update_polar(prod_polar_dist, modulo(com_g1,L), x_temp, so_r, so_species, list)
+           deallocate(list)
+        end if
      end if
 
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
