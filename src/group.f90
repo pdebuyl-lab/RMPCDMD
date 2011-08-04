@@ -29,11 +29,11 @@ module group
      !> In the case of an elastic network, maximum separation between linked beads.
      double precision :: elast_rmax
      !> In the case of an elastic network, number of link
-     integer :: elast_nlink
-     !> In the case of an elastic network, index of the links. Dimensions (2,elast_nlink).
-     integer, allocatable :: elast_index(:,:)
-     !> In the case of an elastic network, rest distance of the spring. Dimension (elast_nlink).
-     double precision, allocatable :: elast_r0(:)
+     integer :: nlink
+     !> In the case of an elastic network, index of the links. Dimensions (2,nlink).
+     integer, allocatable :: index(:,:)
+     !> In the case of an elastic network, rest distance of the spring. Dimension (nlink).
+     double precision, allocatable :: r0(:)
   end type group_t
 
   !> g_type parameter for unbound LJ atoms.

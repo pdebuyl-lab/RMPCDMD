@@ -607,17 +607,17 @@ contains
        stop 'elast group with 0 links, stopping.'
     end if
 
-    g_var%elast_nlink = N_link
+    g_var%nlink = N_link
 
-    allocate(g_var%elast_index(2,N_link))
-    allocate(g_var%elast_r0(N_link))
+    allocate(g_var%index(2,N_link))
+    allocate(g_var%r0(N_link))
     i_link = 1
     do i=1,g_var%N
        do j=i+1,g_var%N
           if (dist_table(j,i) .le. g_var%elast_rmax) then
-             g_var%elast_index(1,i_link) = g_var%istart+i-1
-             g_var%elast_index(2,i_link) = g_var%istart+j-1
-             g_var%elast_r0(i_link) = dist_table(j,i)
+             g_var%index(1,i_link) = g_var%istart+i-1
+             g_var%index(2,i_link) = g_var%istart+j-1
+             g_var%r0(i_link) = dist_table(j,i)
              i_link = i_link + 1
           end if
        end do
@@ -633,16 +633,16 @@ contains
     integer :: i, part1, part2
     double precision :: r, f(3), x(3)
 
-    do i=1, group_list(g_i)%elast_nlink
+    do i=1, group_list(g_i)%nlink
 
-       part1 = group_list(g_i) % elast_index(1,i)
-       part2 = group_list(g_i) % elast_index(2,i)
+       part1 = group_list(g_i) % index(1,i)
+       part2 = group_list(g_i) % index(2,i)
 
        call rel_pos( at_r(:,part1) , at_r(:,part2) , L, x)
        
        r = sqrt( sum( x**2 ) )
 
-       f = - group_list(g_i) % elast_k * ( r - group_list(g_i) % elast_r0(i) ) * x / r
+       f = - group_list(g_i) % elast_k * ( r - group_list(g_i) % r0(i) ) * x / r
 
        at_f(:,part1) = at_f(:,part1) + f
        at_f(:,part2) = at_f(:,part2) - f
@@ -660,16 +660,16 @@ contains
 
     u = 0.d0
 
-    do i=1, group_list(g_i)%elast_nlink
+    do i=1, group_list(g_i)%nlink
 
-       part1 = group_list(g_i) % elast_index(1,i)
-       part2 = group_list(g_i) % elast_index(2,i)
+       part1 = group_list(g_i) % index(1,i)
+       part2 = group_list(g_i) % index(2,i)
 
        call rel_pos( at_r(:,part1) , at_r(:,part2) , L, x)
        
        r = sqrt( sum( x**2 ) )
 
-       u = u + 0.5d0 * group_list(g_i) % elast_k * ( r - group_list(g_i) % elast_r0(i) )**2
+       u = u + 0.5d0 * group_list(g_i) % elast_k * ( r - group_list(g_i) % r0(i) )**2
 
     end do
 
@@ -776,22 +776,22 @@ contains
 
     do iter=1,50000
        max_err = 0.d0
-       do k=1,g_var % elast_nlink
-          i = g_var % elast_index(1, k)
+       do k=1,g_var % nlink
+          i = g_var % index(1, k)
           at_si = at_species(i)
-          j = g_var % elast_index(2, k)
+          j = g_var % index(2, k)
           at_sj = at_species(j)
           call rel_pos(at_r_old(:,i),at_r_old(:,j), L, x_old)
           call rel_pos(at_r(:,i),at_r(:,j), L, x)
           lagrange = &
-               ( g_var % elast_r0(k)**2 - sum( x**2 ) ) &
+               ( g_var % r0(k)**2 - sum( x**2 ) ) &
                / (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj) ) &
                / 4.d0 &
                / sum( x*x_old )
           at_r(:,i) = at_r(:,i) + x_old * lagrange * (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj))
           at_r(:,j) = at_r(:,j) - x_old * lagrange * (at_sys % oo_mass(at_si) + at_sys % oo_mass(at_sj))
           call rel_pos(at_r(:,i),at_r(:,j), L, x)
-          dist = abs( sqrt(sum( x**2 )) - g_var % elast_r0(k) )
+          dist = abs( sqrt(sum( x**2 )) - g_var % r0(k) )
           if ( dist > max_err ) max_err = dist
        end do
        if ( max_err < eps ) exit
@@ -816,17 +816,17 @@ contains
 
     do iter=1,50000
        max_err = 0.d0
-       do k=1,g_var % elast_nlink
-          i = g_var % elast_index(1, k)
+       do k=1,g_var % nlink
+          i = g_var % index(1, k)
           at_si = at_species(i)
-          j = g_var % elast_index(2, k)
+          j = g_var % index(2, k)
           at_sj = at_species(j)
           call rel_pos(at_r(:,i),at_r(:,j),L,x)
           call rel_pos(at_r_old(:,i), at_r_old(:,j), L, x_old)
           x = (x+x_old)*0.5d0
           lagrange = &
                sum( x * ( at_v(:,i) - at_v(:,j) )) / &
-               ( g_var % elast_r0(k)**2 * &
+               ( g_var % r0(k)**2 * &
                (at_sys%oo_mass(at_si) + at_sys%oo_mass(at_sj)) )
           at_v(:,i) = at_v(:,i) - x * lagrange * at_sys % oo_mass(at_si)
           at_v(:,j) = at_v(:,j) + x * lagrange * at_sys % oo_mass(at_sj)
