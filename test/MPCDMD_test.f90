@@ -269,7 +269,7 @@ program test
      call h5md_open_ID(file_ID, other, 'trajectory', 'solvent/species')
      call h5md_read_obs(other, so_species, i_MD_time, realtime)
      call h5md_close_ID(other)
-     call h5md_open_ID(file_ID, other, 'observables', 'so_do_reac')
+     call h5md_open_ID(file_ID, other, 'trajectory', 'solvent/so_do_reac')
      allocate(so_do_reac_int(size(so_do_reac)))
      call h5md_read_obs(other, so_do_reac_int, i_MD_time, realtime)
      where (so_do_reac_int.eq.0)
@@ -713,9 +713,6 @@ contains
     call h5md_add_trajectory_data(file_ID, 'velocity', at_sys% N_max, 3, velID, group_name='colloid')
     call h5md_add_trajectory_data(file_ID, 'jumps', at_sys% N_max, 3, jumpID, group_name='colloid')
     call h5md_create_obs(file_ID, 'mtprng_f90', rngID, mtprng_container)
-    allocate(so_do_reac_int(size(so_do_reac)))
-    call h5md_create_obs(file_ID, 'so_do_reac', so_do_reacID, so_do_reac_int)
-    deallocate(so_do_reac_int)
     call h5md_create_obs(file_ID, 'energy', enID, energy)
     call h5md_create_obs(file_ID, 'temperature', tempID, actual_T, link_from='energy')
     call h5md_create_obs(file_ID, 'solvent_N', solvent_N_ID, so_sys % N, link_from='energy')
@@ -735,6 +732,7 @@ contains
     call h5md_add_trajectory_data(file_ID, 'position', so_sys% N_max, 3, so_posID, group_name='solvent', compress=.true.)
     call h5md_add_trajectory_data(file_ID, 'velocity', so_sys% N_max, 3, so_velID, group_name='solvent', compress=.true.)
     call h5md_add_trajectory_data(file_ID, 'species', so_sys% N_max, 1, so_speciesID, group_name='solvent', species_react=.true., compress=.true.)
+    call h5md_add_trajectory_data(file_ID, 'so_do_reac', so_sys% N_max, 1, so_do_reacID, group_name='solvent', force_kind='integer', force_rank=2, compress=.true.)
 
   end subroutine begin_h5md
 
@@ -747,7 +745,7 @@ contains
     call h5md_open_ID(file_ID, so_velID, 'trajectory', 'solvent/velocity')
     call h5md_open_ID(file_ID, so_speciesID, 'trajectory', 'solvent/species')
     call h5md_open_ID(file_ID, rngID, 'observables', 'mtprng_f90')
-    call h5md_open_ID(file_ID, so_do_reacID, 'observables', 'so_do_reac')
+    call h5md_open_ID(file_ID, so_do_reacID, 'trajectory', 'solvent/so_do_reac')
     call h5md_open_ID(file_ID, enID, 'observables', 'energy')
     call h5md_open_ID(file_ID, tempID, 'observables', 'temperature')
     call h5md_open_ID(file_ID, solvent_N_ID, 'observables', 'solvent_N')
