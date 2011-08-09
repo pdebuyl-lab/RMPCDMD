@@ -34,6 +34,14 @@ module group
      integer, allocatable :: index(:,:)
      !> In the case of an elastic network, rest distance of the spring. Dimension (nlink).
      double precision, allocatable :: r0(:)
+     !> Total mass of the group
+     double precision :: mass
+     !> Center of mass of the group.
+     double precision :: r(3)
+     !> Center of mass velocity of the group.
+     double precision :: v(3)
+     !> Total force on the group.
+     double precision :: f(3)
   end type group_t
 
   !> g_type parameter for unbound LJ atoms.

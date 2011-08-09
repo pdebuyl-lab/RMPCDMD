@@ -123,6 +123,10 @@ program test
      else
         stop 'unknown group type'
      end if
+     group_list(i)%mass = 0.d0
+     do j=group_list(i)%istart,group_list(i)%istart+group_list(i)%N-1
+        group_list(i)%mass = group_list(i)%mass + at_sys % mass(at_species(j))
+     end do
   end do
   if (checkpoint <= 0) call h5md_write_par(file_ID, 'group g_type', group_list(:) % g_type)
 
@@ -399,6 +403,12 @@ program test
            end if
         end do
 
+        do i=1,N_groups
+           group_list(i) % r = com_r(group_list(i))
+           group_list(i) % v = com_v(group_list(i))
+           group_list(i) % f = com_f(group_list(i))
+        end do
+
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
 
@@ -500,6 +510,12 @@ program test
            end if
         end do
 
+        do i=1,N_groups
+           group_list(i) % r = com_r(group_list(i))
+           group_list(i) % v = com_v(group_list(i))
+           group_list(i) % f = com_f(group_list(i))
+        end do
+
         if (reactive) call reac_loop
 
         realtime=realtime+DT
@@ -542,7 +558,7 @@ program test
         shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
      end if
 
-     com_g1 = com_r(group_list(1))
+     com_g1 = modulo(group_list(1) % r, L)
 
      call correct_so
      if (collide) then
