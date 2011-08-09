@@ -882,7 +882,7 @@ contains
                       neigh_idx = so_neigh_list(i_neigh,part)
                       !if (neigh_idx.eq.at_i) cycle
                       call rel_pos(so_r(:,part),at_r(:,neigh_idx),L,x)
-                      if ( sum(x**2) <= 1.d0*at_so % cut(at_species(neigh_idx), so_species(part))**2 ) then
+                      if ( sum(x**2) <= 1.1d0**2*at_so % cut(at_species(neigh_idx), so_species(part))**2 ) then
                          too_many_atoms = .true.
                          exit
                       end if
