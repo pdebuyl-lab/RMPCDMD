@@ -16,6 +16,8 @@ module reaction
      !> If set to .true. , the reaction will produce two products, else only
      !! one product is created.
      logical(kind=1) :: two_products
+     !>  If set to .true., the difference in u_int is taken into account when reacting.
+     logical(kind=1) :: thermal
      !> Species of the first product.
      integer :: product1
      !> Species of the second product (only used when two_products==.true.).
@@ -50,6 +52,7 @@ contains
 
        reac_var % at_exit = PTread_l(CF, 'reac'//at_so_s//'_at_exit')
        reac_var % two_products = PTread_l(CF, 'reac'//at_so_s//'_two_products')
+       reac_var % thermal = PTread_l(CF, 'reac'//at_so_s//'_thermal')
        
        reac_var % product1 = PTread_i(CF, 'reac'//at_so_s//'_product1')
        if (reac_var % two_products) reac_var % product2 = PTread_i(CF, 'reac'//at_so_s//'_product2')

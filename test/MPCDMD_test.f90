@@ -600,7 +600,7 @@ program test
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
 
-     if (mod(i_time,10).eq.0 .and. reactive) then
+     if (mod(i_time,10).eq.0 .and. reactive .and. .false.) then
         do i=1,so_sys%N(0)
            if (so_species(i) .eq. 2) then
               call rel_pos( so_r(:,i), com_g1, L, x_temp)
