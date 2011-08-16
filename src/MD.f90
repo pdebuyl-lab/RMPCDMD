@@ -904,7 +904,7 @@ contains
                             so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
                             delta_u = delta_u - u_int(so_species(part))
                             if (thermal) then
-                               call add_kin_g_so(group_list(g_i), at_i, part, delta_u)
+                               call add_kin_kick_g_so(group_list(g_i), at_i, part, delta_u)
                             end if
                             so_do_reac(part) = .false.
                          end if
@@ -970,5 +970,50 @@ contains
     so_v(:,so_i) = v_com + vr_so
 
   end subroutine add_kin_g_so
+
+  !> Add the kinetic energy kin_add to a solvent particle and a group of atoms or a single atom while
+  !! preserving the center of mass velocity.
+  !!
+  !! @param g_var Group considered.
+  !! @param at_i Index of the atom considered.
+  !! @param so_i Index of the solvent particle considered.
+  !! @param kin_add Amount of kinetic energy to add.
+  subroutine add_kin_kick_g_so(g_var, at_i, so_i, kin_add)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in) :: at_i, so_i
+    double precision, intent(in) :: kin_add
+
+    double precision :: waj(3), tot_mass, reduced_mass, raj(3), old_g_v(3)
+    double precision :: kin_0, kin_r, delta
+    integer :: i
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       waj = so_v(:,so_i) - g_var % v
+       tot_mass = g_var % mass + so_sys% mass(so_species(so_i))
+       reduced_mass = g_var % mass * so_sys% mass(so_species(so_i)) / tot_mass
+       call rel_pos(so_r(:,so_i),g_var% r,L,raj)
+    else
+       waj = so_v(:,so_i) - at_v(:,at_i)
+       tot_mass = at_sys% mass(at_species(at_i)) + so_sys% mass(so_species(so_i))
+       reduced_mass = at_sys% mass(at_species(at_i)) * so_sys% mass(so_species(so_i)) / tot_mass
+       call rel_pos(so_r(:,so_i),at_r(:,at_i),L,raj)
+    end if
+    raj = raj/sqrt(sum(raj**2))
+    
+    delta = - sum(waj*raj) + sqrt( (sum(waj*raj))**2+ 2.d0*kin_add/reduced_mass )
+    write(27,'(6e15.7)') delta, reduced_mass, tot_mass, raj
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       g_var % v = g_var% v - so_sys% mass(so_species(so_i))*delta*raj/tot_mass
+       do i=g_var % istart,g_var % istart + g_var % N - 1
+          at_v(:,i) = at_v(:,i) - so_sys% mass(so_species(so_i))*delta*raj/tot_mass
+       end do
+       so_v(:,so_i) = so_v(:,so_i) + g_var% mass*delta*raj/tot_mass
+    else
+       at_v(:,at_i) = at_v(:,at_i) - so_sys% mass(so_species(so_i))*delta*raj/tot_mass
+       so_v(:,so_i) = so_v(:,so_i) + at_sys% mass(at_species(at_i))*delta*raj/tot_mass
+    end if
+
+  end subroutine add_kin_kick_g_so
 
 end module MD
