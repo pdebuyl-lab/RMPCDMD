@@ -847,59 +847,62 @@ contains
     implicit none
 
     integer :: at_i, j, part, at_si, i_neigh, neigh_idx
+    integer :: g_i
     double precision :: x(3), dist_sqr
     double precision :: dist_min
     logical :: too_many_atoms
 
     dist_min = sum(L)
-    do at_i=1,at_sys%N(0)
-       at_si = at_species(at_i)
+    do g_i=1,N_groups
+       do at_i=group_list(g_i)%istart, group_list(g_i)%istart + group_list(g_i)%N - 1
+          at_si = at_species(at_i)
 
-       do j=1, at_neigh_list(0,at_i)
-          part = at_neigh_list(j, at_i)
-          call rel_pos(so_r(:,part), at_r(:,at_i), L, x)
-          dist_sqr = sum( x**2 )
-          if (dist_sqr < dist_min) dist_min=dist_sqr
-          if ( dist_sqr .le. at_so%cut(at_si, so_species(part))**2 ) then
-             if (at_so_reac(at_si,so_species(part)) % on) then
-                if (.not. so_do_reac(part) ) then
-                   !eval rate
-                   if ( at_so_reac(at_si, so_species(part)) % rate * DT > mtprng_rand_real1(ran_state) ) then
-                      if (at_so_reac(at_si, so_species(part)) % at_exit) then
-                         so_do_reac(part) = .true.
+          do j=1, at_neigh_list(0,at_i)
+             part = at_neigh_list(j, at_i)
+             call rel_pos(so_r(:,part), at_r(:,at_i), L, x)
+             dist_sqr = sum( x**2 )
+             if (dist_sqr < dist_min) dist_min=dist_sqr
+             if ( dist_sqr .le. at_so%cut(at_si, so_species(part))**2 ) then
+                if (at_so_reac(at_si,so_species(part)) % on) then
+                   if (.not. so_do_reac(part) ) then
+                      !eval rate
+                      if ( at_so_reac(at_si, so_species(part)) % rate * DT > mtprng_rand_real1(ran_state) ) then
+                         if (at_so_reac(at_si, so_species(part)) % at_exit) then
+                            so_do_reac(part) = .true.
+                         else
+                            stop 'immediate reaction not implemented yet'
+                         end if
+                      end if
+                   end if
+                end if ! (enable_reaction)
+             else
+                if (at_so_reac(at_si,so_species(part)) % on) then
+                   if (so_do_reac(part)) then
+                      !check for neighbours!
+                      too_many_atoms = .false.
+                      do i_neigh = 1, so_neigh_list(0,part)
+                         neigh_idx = so_neigh_list(i_neigh,part)
+                         !if (neigh_idx.eq.at_i) cycle
+                         call rel_pos(so_r(:,part),at_r(:,neigh_idx),L,x)
+                         if ( sum(x**2) <= 1.1d0**2*at_so % cut(at_species(neigh_idx), so_species(part))**2 ) then
+                            too_many_atoms = .true.
+                            exit
+                         end if
+                      end do
+                      if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
+                         if (.not. too_many_atoms) then
+                            so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
+                            so_species(part) = at_so_reac(at_si, so_species(part)) % product1
+                            so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
+                            so_do_reac(part) = .false.
+                         end if
                       else
-                         stop 'immediate reaction not implemented yet'
+                         stop 'two products reaction not implemented yet'
                       end if
                    end if
                 end if
-             end if ! (enable_reaction)
-          else
-             if (at_so_reac(at_si,so_species(part)) % on) then
-                if (so_do_reac(part)) then
-                   !check for neighbours!
-                   too_many_atoms = .false.
-                   do i_neigh = 1, so_neigh_list(0,part)
-                      neigh_idx = so_neigh_list(i_neigh,part)
-                      !if (neigh_idx.eq.at_i) cycle
-                      call rel_pos(so_r(:,part),at_r(:,neigh_idx),L,x)
-                      if ( sum(x**2) <= 1.1d0**2*at_so % cut(at_species(neigh_idx), so_species(part))**2 ) then
-                         too_many_atoms = .true.
-                         exit
-                      end if
-                   end do
-                   if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
-                      if (.not. too_many_atoms) then
-                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
-                         so_species(part) = at_so_reac(at_si, so_species(part)) % product1
-                         so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
-                         so_do_reac(part) = .false.
-                      end if
-                   else
-                      stop 'two products reaction not implemented yet'
-                   end if
-                end if
-             end if ! (enable_reaction)
-          end if
+             end if
+          end do
        end do
     end do
 
