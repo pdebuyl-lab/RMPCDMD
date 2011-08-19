@@ -473,6 +473,11 @@ contains
        at_mom = at_mom + at_sys%mass( at_si ) * at_v(:,at_i)
     end do
 
+    excess = 0.d0
+    do j=1, so_sys % N_species
+       excess = excess + u_int(j)*so_sys % N(j)
+    end do
+    
     if (file_unit > 0) write(file_unit,'(7e30.20)') at_sol_en, at_at_en, sol_kin, at_kin, &
          excess, at_sol_en+at_at_en+sol_kin+at_kin, at_sol_en+at_at_en+sol_kin+at_kin+excess
     energy = at_sol_en+at_at_en+sol_kin+at_kin+excess
@@ -850,7 +855,8 @@ contains
     integer :: g_i
     double precision :: x(3), dist_sqr
     double precision :: dist_min
-    logical :: too_many_atoms
+    double precision :: delta_u
+    logical :: too_many_atoms, thermal
 
     dist_min = sum(L)
     do g_i=1,N_groups
@@ -880,20 +886,18 @@ contains
                    if (so_do_reac(part)) then
                       !check for neighbours!
                       too_many_atoms = .false.
-                      do i_neigh = 1, so_neigh_list(0,part)
-                         neigh_idx = so_neigh_list(i_neigh,part)
-                         !if (neigh_idx.eq.at_i) cycle
-                         call rel_pos(so_r(:,part),at_r(:,neigh_idx),L,x)
-                         if ( sum(x**2) <= 1.1d0**2*at_so % cut(at_species(neigh_idx), so_species(part))**2 ) then
-                            too_many_atoms = .true.
-                            exit
-                         end if
-                      end do
+                      if (count_atom_neighbours(part,.true.)>0) too_many_atoms = .true.
                       if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
                          if (.not. too_many_atoms) then
                             so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
+                            delta_u = u_int(so_species(part))
+                            thermal = at_so_reac(at_si, so_species(part)) % thermal
                             so_species(part) = at_so_reac(at_si, so_species(part)) % product1
                             so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
+                            delta_u = delta_u - u_int(so_species(part))
+                            if (thermal) then
+                               call add_kin_kick_g_so(group_list(g_i), at_i, part, delta_u)
+                            end if
                             so_do_reac(part) = .false.
                          end if
                       else
@@ -908,5 +912,140 @@ contains
 
 
   end subroutine reac_loop
+
+  !> Add the kinetic energy kin_add to a solvent particle and a group of atoms or a single atom while
+  !! preserving the center of mass velocity.
+  !!
+  !! @param g_var Group considered.
+  !! @param at_i Index of the atom considered.
+  !! @param so_i Index of the solvent particle considered.
+  !! @param kin_add Amount of kinetic energy to add.
+  subroutine add_kin_g_so(g_var, at_i, so_i, kin_add)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in) :: at_i, so_i
+    double precision, intent(in) :: kin_add
+
+    double precision :: v_com(3), vr_at(3), vr_so(3), old_g_v(3)
+    double precision :: kin_0, kin_r, scale
+    integer :: i
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       v_com = ( g_var % v * g_var % mass + so_v(:,so_i) * so_sys % mass(so_species(so_i)) ) / &
+            ( g_var % mass + so_sys % mass(so_species(so_i)) )
+       vr_at = g_var % v - v_com
+       old_g_v = g_var % v
+       kin_0 = g_var % mass * sum(g_var % v**2)
+       kin_r = g_var % mass * sum(vr_at**2) * 0.5d0
+    else
+       v_com = ( at_v(:,at_i) * at_sys % mass(at_species(at_i)) + so_v(:,so_i) * so_sys % mass(so_species(so_i)) ) / &
+            ( at_sys % mass(at_species(at_i)) + so_sys % mass(so_species(so_i)) )
+       vr_at = at_v(:,at_i) - v_com
+       kin_0 = at_sys % mass(at_species(at_i)) * sum(at_v(:,at_i)**2)
+       kin_r = at_sys % mass(at_species(at_i)) * sum(vr_at**2) * 0.5d0
+    end if
+    vr_so = so_v(:,so_i) - v_com
+    kin_0 = 0.5d0 * (kin_0 +  so_sys % mass(so_species(so_i)) * sum(so_v(:,so_i)**2) )
+    kin_r = kin_r + so_sys % mass(so_species(so_i)) * sum(vr_so**2) * 0.5d0
+
+    scale = sqrt( 1.d0 + kin_add/kin_r )
+    write(27,*) kin_add,kin_r,scale
+    vr_at = scale*vr_at
+    vr_so = scale*vr_so
+    if (g_var % g_type .eq. SHAKE_G) then
+       g_var % v = v_com + vr_at
+       do i=g_var % istart,g_var % istart + g_var % N - 1
+          at_v(:,i) = at_v(:,i) + g_var % v - old_g_v
+       end do
+    else
+       at_v(:,at_i) = v_com + vr_at
+    end if
+    so_v(:,so_i) = v_com + vr_so
+
+  end subroutine add_kin_g_so
+
+  !> Add the kinetic energy kin_add to a solvent particle and a group of atoms or a single atom while
+  !! preserving the center of mass velocity.
+  !!
+  !! @param g_var Group considered.
+  !! @param at_i Index of the atom considered.
+  !! @param so_i Index of the solvent particle considered.
+  !! @param kin_add Amount of kinetic energy to add.
+  subroutine add_kin_kick_g_so(g_var, at_i, so_i, kin_add)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in) :: at_i, so_i
+    double precision, intent(in) :: kin_add
+
+    double precision :: waj(3), tot_mass, reduced_mass, raj(3), old_g_v(3)
+    double precision :: kin_0, kin_r, delta
+    integer :: i
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       waj = so_v(:,so_i) - g_var % v
+       tot_mass = g_var % mass + so_sys% mass(so_species(so_i))
+       reduced_mass = g_var % mass * so_sys% mass(so_species(so_i)) / tot_mass
+       call rel_pos(so_r(:,so_i),g_var% r,L,raj)
+    else
+       waj = so_v(:,so_i) - at_v(:,at_i)
+       tot_mass = at_sys% mass(at_species(at_i)) + so_sys% mass(so_species(so_i))
+       reduced_mass = at_sys% mass(at_species(at_i)) * so_sys% mass(so_species(so_i)) / tot_mass
+       call rel_pos(so_r(:,so_i),at_r(:,at_i),L,raj)
+    end if
+    raj = raj/sqrt(sum(raj**2))
+    
+    delta = - sum(waj*raj) + sqrt( (sum(waj*raj))**2+ 2.d0*kin_add/reduced_mass )
+    write(27,'(6e15.7)') delta, reduced_mass, tot_mass, raj
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       g_var % v = g_var% v - so_sys% mass(so_species(so_i))*delta*raj/tot_mass
+       do i=g_var % istart,g_var % istart + g_var % N - 1
+          at_v(:,i) = at_v(:,i) - so_sys% mass(so_species(so_i))*delta*raj/tot_mass
+       end do
+       so_v(:,so_i) = so_v(:,so_i) + g_var% mass*delta*raj/tot_mass
+    else
+       at_v(:,at_i) = at_v(:,at_i) - so_sys% mass(so_species(so_i))*delta*raj/tot_mass
+       so_v(:,so_i) = so_v(:,so_i) + at_sys% mass(at_species(at_i))*delta*raj/tot_mass
+    end if
+
+  end subroutine add_kin_kick_g_so
+
+  !> This function counts the neighbours of a given solvent particle.
+  !!
+  !! It takes the neighbour candidates from so_neigh_list and compares the distance with the
+  !! cut-off of the appropriate LJ interaction parameter.
+  !! @param so_i The solvent particle to consider.
+  !! @param one_is_enough If set to .true., the count stop whenever the first neighbouring atom
+  !! is found.
+  function count_atom_neighbours(so_i, one_is_enough)
+    implicit none
+    integer :: count_atom_neighbours
+    integer, intent(in) :: so_i
+    logical, optional, intent(in) :: one_is_enough
+    
+    integer :: at_i, i
+    double precision :: x(3), d_sqr
+    logical :: flag
+
+    if (present(one_is_enough)) then
+       flag = one_is_enough
+    else
+       flag = .false.
+    end if
+
+    count_atom_neighbours = 0
+    do i=1,so_neigh_list(0,so_i)
+       at_i = so_neigh_list(i,so_i)
+       call rel_pos(so_r(:,so_i), at_r(:,at_i), L, x)
+       d_sqr = sum(x**2)
+       if ( d_sqr <= 1.1d0*at_so % cut(at_species(at_i), so_species(so_i))**2 ) then
+          if (flag) then
+             count_atom_neighbours = 1
+             return
+          else
+             count_atom_neighbours = count_atom_neighbours + 1
+          end if
+       end if
+    end do
+
+  end function count_atom_neighbours
 
 end module MD
