@@ -533,6 +533,11 @@ program test
               call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
               call h5md_write_obs(rs2ID, r_sub2, i_MD_time, realtime)
               call h5md_write_obs(colloid_forceID, colloid_f, i_MD_time, realtime)
+           else if (group_list(1)%N.eq.1) then
+              r_sub1 = com_r(group_list(1))
+              call h5md_write_obs(vs1ID, at_v(:,1), i_MD_time, realtime)
+              call h5md_write_obs(rs1ID, r_sub1, i_MD_time, realtime)
+              call h5md_write_obs(colloid_forceID, at_f(:,1), i_MD_time, realtime)
            end if
         end if
 
@@ -743,6 +748,10 @@ contains
        call h5md_create_obs(file_ID, 'r_com_1', rs1ID, r_sub1, link_from='v_com_1')
        call h5md_create_obs(file_ID, 'r_com_2', rs2ID, r_sub2, link_from='v_com_1')
        call h5md_create_obs(file_ID, 'colloid_force', colloid_forceID, colloid_f, link_from='v_com_1')
+    else if (group_list(1)%N.eq.1) then
+       call h5md_create_obs(file_ID, 'v_com', vs1ID, v_sub1)
+       call h5md_create_obs(file_ID, 'r_com', rs1ID, r_sub1, link_from='v_com')
+       call h5md_create_obs(file_ID, 'colloid_force', colloid_forceID, colloid_f, link_from='v_com')
     end if
     call h5md_create_trajectory_group(file_ID, group_name='solvent')
     call h5md_add_trajectory_data(file_ID, 'position', so_sys% N_max, 3, so_posID, group_name='solvent', compress=.true.)
@@ -776,6 +785,10 @@ contains
        call h5md_open_ID(file_ID, rs1ID, 'observables', 'r_com_1')
        call h5md_open_ID(file_ID, rs2ID, 'observables', 'r_com_2')
        call h5md_open_ID(file_ID, colloid_forceID, 'observables', 'colloid_force')
+    else if (group_list(1)%N.eq.1) then
+       call h5md_open_ID(file_ID, vs1ID, 'observables', 'v_com')
+       call h5md_open_ID(file_ID, rs1ID, 'observables', 'r_com')
+       call h5md_open_ID(file_ID, colloid_forceID, 'observables', 'colloid_force')
     end if
   end subroutine renew_h5md
 
@@ -802,6 +815,10 @@ contains
        call h5md_close_ID(vs2ID)
        call h5md_close_ID(rs1ID)
        call h5md_close_ID(rs2ID)
+       call h5md_close_ID(colloid_forceID)
+    else if (group_list(1)%N.eq.1) then
+       call h5md_close_ID(vs1ID)
+       call h5md_close_ID(rs1ID)
        call h5md_close_ID(colloid_forceID)
     end if
 
