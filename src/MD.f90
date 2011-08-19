@@ -1016,4 +1016,44 @@ contains
 
   end subroutine add_kin_kick_g_so
 
+  !> This function counts the neighbours of a given solvent particle.
+  !!
+  !! It takes the neighbour candidates from so_neigh_list and compares the distance with the
+  !! cut-off of the appropriate LJ interaction parameter.
+  !! @param so_i The solvent particle to consider.
+  !! @param one_is_enough If set to .true., the count stop whenever the first neighbouring atom
+  !! is found.
+  function count_atom_neighbours(so_i, one_is_enough)
+    implicit none
+    integer :: count_atom_neighbours
+    integer, intent(in) :: so_i
+    logical, optional, intent(in) :: one_is_enough
+    
+    integer :: at_i, i
+    double precision :: x(3), d_sqr
+    logical :: flag
+
+    if (present(one_is_enough)) then
+       flag = one_is_enough
+    else
+       flag = .false.
+    end if
+
+    count_atom_neighbours = 0
+    do i=1,so_neigh_list(0,so_i)
+       at_i = so_neigh_list(i,so_i)
+       call rel_pos(so_r(:,so_i), at_r(:,at_i), L, x)
+       d_sqr = sum(x**2)
+       if ( d_sqr <= sum(x**2) <= 1.d0*at_so % cut(at_species(at_i), so_species(so_i))**2 ) then
+          if (flag) then
+             count_atom_neighbours = 1
+             return
+          else
+             count_atom_neighbours = count_atom_neighbours + 1
+          end if
+       end if
+    end do
+
+  end function count_atom_neighbours
+
 end module MD
