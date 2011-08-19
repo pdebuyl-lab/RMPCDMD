@@ -886,15 +886,7 @@ contains
                    if (so_do_reac(part)) then
                       !check for neighbours!
                       too_many_atoms = .false.
-                      do i_neigh = 1, so_neigh_list(0,part)
-                         neigh_idx = so_neigh_list(i_neigh,part)
-                         !if (neigh_idx.eq.at_i) cycle
-                         call rel_pos(so_r(:,part),at_r(:,neigh_idx),L,x)
-                         if ( sum(x**2) <= 1.d0*at_so % cut(at_species(neigh_idx), so_species(part))**2 ) then
-                            too_many_atoms = .true.
-                            exit
-                         end if
-                      end do
+                      if (count_atom_neighbours(part,.true.)>0) too_many_atoms = .true.
                       if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
                          if (.not. too_many_atoms) then
                             so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
