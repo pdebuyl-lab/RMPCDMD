@@ -71,6 +71,7 @@ module MPCD
   logical(kind=1), allocatable :: is_MD(:)
   !> Number of MD steps that should be taken into account when performing a streaming.
   integer, allocatable :: N_MD(:)
+  !> Stores the maximum number of MD steps that can be done before streaming the non-MD MPCD particles.
   integer :: N_MD_max
 
   !> Information on the solvent system, based on sys_t from the sys group.
