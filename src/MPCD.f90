@@ -156,6 +156,21 @@ contains
 
   end subroutine homogeneous_solvent
 
+  !> Computes the cell indices for a given position.
+  !!
+  !! The indices are 1-based. The routine returns a 3 elements vector of indices.
+  !!
+  !! @param x Position for which one wants to locate a cell.
+  !! @param x_index The 3 indices for the cell.
+  subroutine indices(x,x_index)
+    implicit none
+    double precision, intent(in) :: x(3)
+    integer, intent(out) :: x_index(3)
+
+    x_index = floor( (x - shift)* oo_a ) + 1
+
+  end subroutine indices
+
   !> Builds "par_list" by filling for each cell the list of solvent particles
   !! that are explicitly found in that cell.
   subroutine place_in_cells
@@ -166,7 +181,7 @@ contains
     par_list = 0
 
     do i=1,so_sys%N(0)
-       cc = floor((so_r(:,i)-shift) * oo_a) + 1
+       call indices(so_r(:,i), cc)
        ci = cc(1) ; cj = cc(2) ; ck = cc(3)
        
        if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
@@ -289,25 +304,22 @@ contains
     double precision, intent(in) :: radius
     integer, intent(inout), allocatable :: list(:)
 
-    integer :: i0, j0, k0
+    integer :: cc(3)
     integer :: il, jl, kl, iu, ju, ku, mi, mj, mk
     integer :: i, j, k
     integer :: in_cell, part, idx
 
     integer :: list_len
 
+    call indices(x0,cc)
 
-    i0 = floor((x0(1)-shift(1))/a)
-    j0 = floor((x0(2)-shift(2))/a)
-    k0 = floor((x0(3)-shift(3))/a)
+    il = cc(1) - ceiling( radius/a ) - 1
+    jl = cc(2) - ceiling( radius/a ) - 1
+    kl = cc(3) - ceiling( radius/a ) - 1
 
-    il = i0 - ceiling( radius/a )
-    jl = j0 - ceiling( radius/a )
-    kl = k0 - ceiling( radius/a )
-
-    iu = i0 + ceiling( radius/a )
-    ju = j0 + ceiling( radius/a )
-    ku = k0 + ceiling( radius/a )
+    iu = cc(1) + ceiling( radius/a ) - 1
+    ju = cc(2) + ceiling( radius/a ) - 1
+    ku = cc(3) + ceiling( radius/a ) - 1
     
     list_len = 0    
     do k = kl, ku
