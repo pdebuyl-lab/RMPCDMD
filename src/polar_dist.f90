@@ -1,5 +1,6 @@
 
-!> The module polar_dist XXX
+!> The module polar_dist defines a type for the storage of symmetric polar
+!! distributions and the associated subroutines.
 
 module polar_dist
   use MD, only: rel_pos
@@ -26,9 +27,9 @@ contains
   !! 
   !! @param gor The polar_dist_t variable.
   !! @param N_s The number of species to take into account.
-  !! @param N_gor The number of bins of the distribution.
+  !! @param N_r The number of bins of the distribution.
   !! @param dr The radial bin size.
-  !! @param dtheta The angular bin size.
+  !! @param N_theta The number of angular bins.
   subroutine init_polar(gor, N_s, N_r, dr, N_theta)
     implicit none
     type(polar_dist_t), intent(out) :: gor
@@ -45,11 +46,11 @@ contains
   end subroutine init_polar
 
   !> Bins the particles from the array positions with indices given by list,
-  !! taking x_0 as the center of the coordinates and dir as the axis.
+  !! taking x_0 as the center of the coordinates and dir_in as the axis.
   !! The counter t_count of the polar_dist_t variable is increased by 1.
   !! @param gor The polar_dist_t variable.
   !! @param x_0 The center of coordinates for the binning.
-  !! @param dir The direction along which theta=0 for the binning.
+  !! @param dir_in The direction along which theta=0 for the binning.
   !! @param positions Array of positions.
   !! @param species Array of species.
   !! @param list The indices of particles in positions to consider.
