@@ -71,7 +71,7 @@ contains
     
     do i=1, N
        part = list(i)
-       call rel_pos(x_0, positions(:,part), L, x)
+       call rel_pos(positions(:,part), x_0, L, x)
        r = sqrt( sum( x**2 ) )
        r_idx  = floor(r / gor % dr) + 1
        th_idx = floor(acos( sum(x*dir)/r )/gor % dtheta)+1
