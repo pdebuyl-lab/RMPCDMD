@@ -31,6 +31,7 @@ program test
   double precision :: total_v(3)
   double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
   integer :: N_th_loop
+  integer :: N_reset_fuel
   logical :: reactive, collide, switch
   integer :: checkpoint
 
@@ -229,6 +230,7 @@ program test
      end do
   end if
   so_do_reac = .false.
+  N_reset_fuel = PTread_i(CF, 'N_reset_fuel')
 
   collide = PTread_l(CF, 'collide')
   if (checkpoint <= 0) call h5md_write_par(file_id, 'collide', collide)
@@ -605,23 +607,25 @@ program test
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
 
-     if (mod(i_time,10).eq.0 .and. reactive .and. .false.) then
-        do i=1,so_sys%N(0)
-           if (so_species(i) .eq. 2) then
-              call rel_pos( so_r(:,i), com_g1, L, x_temp)
-              if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
-                 so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) - 1
-                 so_species(i) = 1
-                 so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) + 1
+     if (reactive .and. N_reset_fuel > 0) then
+        if (mod(i_time,N_reset_fuel).eq.0) then
+           do i=1,so_sys%N(0)
+              if (so_species(i) .eq. 2) then
+                 call rel_pos( so_r(:,i), com_g1, L, x_temp)
+                 if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
+                    so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) - 1
+                    so_species(i) = 1
+                    so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) + 1
+                 end if
               end if
-           end if
-           if (so_do_reac(i)) then
-              call rel_pos( so_r(:,i), com_g1, L, x_temp)
-              if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
-                 so_do_reac = .false.
+              if (so_do_reac(i)) then
+                 call rel_pos( so_r(:,i), com_g1, L, x_temp)
+                 if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
+                    so_do_reac = .false.
+                 end if
               end if
-           end if
-        end do
+           end do
+        end if
      end if
 
      if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
