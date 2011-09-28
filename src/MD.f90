@@ -904,7 +904,7 @@ contains
                          stop 'two products reaction not implemented yet'
                       end if
                    end if
-                end if
+                end if ! (enable_reaction)
              end if
           end do
        end do
