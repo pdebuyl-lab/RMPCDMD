@@ -853,6 +853,7 @@ contains
 
     integer :: at_i, j, part, at_si, i_neigh, neigh_idx
     integer :: g_i
+    integer :: p1si, p2si
     double precision :: x(3), dist_sqr
     double precision :: dist_min
     double precision :: delta_u
@@ -901,7 +902,20 @@ contains
                             so_do_reac(part) = .false.
                          end if
                       else
-                         stop 'two products reaction not implemented yet'
+                         if (.not. too_many_atoms) then
+                            if (so_sys % N(0) .ge. so_sys % N_max) then
+                               write(*,*) 'particle number exceeded in reac_loop'
+                               stop
+                            end if
+                            p1si = at_so_reac(at_si, so_species(part))%product1
+                            p2si = at_so_reac(at_si, so_species(part))%product2
+                            so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
+                            so_sys % N(0) = so_sys % N(0) + 1
+                            so_sys % N(p1si) = so_sys % N(p1si) + 1
+                            so_sys % N(p2si) = so_sys % N(p2si) + 1
+                            call reac_A_C_to_B1_B2_C(group_list(g_i), at_i, part, so_sys%N(0), p1si, p2si)
+
+                         end if
                       end if
                    end if
                 end if ! (enable_reaction)
@@ -1047,5 +1061,61 @@ contains
     end do
 
   end function count_atom_neighbours
+
+  !> Converts a A solvent particle to two (B1 and B2) solvent particles upon activation by
+  !! a catalytic compound C.
+  !!
+  !! @param g_var The group to which C belongs.
+  !! @param at_i The index of the catalytic atom.
+  !! @param so_1 The first solvent particle (corresponds to A and B1).
+  !! @param so_2 The second solvent particle (corresponds to B2).
+  !! @param so_s1 The species of the first product solvent particle B1.
+  !! @param so_s2 The species of the second product solvent particle B2.
+  subroutine reac_A_C_to_B1_B2_C(g_var, at_i, so_1, so_2, so_s1, so_s2)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in) :: at_i, so_1, so_2, so_s1, so_s2
+
+    double precision :: vel(3), rel_v, x(3)
+    double precision :: A_mass, C_mass, B1_mass, B2_mass
+    integer :: i
+
+    A_mass = so_sys % mass(so_species(so_1))
+    B1_mass = so_sys % mass(so_s1)
+    B2_mass = so_sys % mass(so_s2)
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       C_mass = g_var % mass
+       vel = ( C_mass * g_var % v + A_mass * so_v(:,so_1)) / &
+            (C_mass + A_mass)
+       rel_v = sqrt( &
+            A_mass*C_mass/(A_mass+C_mass)*(B1_mass+B2_mass)/(B1_mass*B2_mass) * &
+            sum( (g_var % v - so_v(:,so_1))**2 ) )
+    else
+       C_mass = at_sys%mass(at_species(at_i))
+       vel = (C_mass * at_v(:,at_i) + A_mass * so_v(:,so_1)) / &
+            ( C_mass + A_mass )
+       rel_v = sqrt( &
+            A_mass*C_mass/(A_mass+C_mass)*(B1_mass+B2_mass)/(B1_mass*B2_mass) * &
+            sum( (at_v(:,at_i) - so_v(:,so_1))**2 ) )
+    end if
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       do i=g_var % istart,g_var % istart + g_var % N - 1
+          at_v(:,i) = at_v(:,i) - g_var % v + vel
+       end do
+       g_var % v = vel
+    else
+       at_v(:,at_i) = vel
+    end if
+    x = rand_sphere()
+    so_v(:,so_1) = vel + rel_v * B2_mass/(B1_mass+B2_mass) * x
+    so_v(:,so_2) = vel - rel_v * B1_mass/(B1_mass+B2_mass) * x
+    so_r(:,so_2) = so_r(:,so_1)
+
+    so_species(so_1) = so_s1
+    so_species(so_2) = so_s2
+
+  end subroutine reac_A_C_to_B1_B2_C
+
 
 end module MD
