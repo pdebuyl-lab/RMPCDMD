@@ -229,23 +229,12 @@ contains
   subroutine generate_omega
     
     integer :: ci,cj,ck
-    double precision :: alpha, n(3), s
-    logical :: s_lt_one
+    double precision :: n(3)
 
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
-             s_lt_one = .false.
-             do while (.not. s_lt_one)
-                n(1) = mtprng_rand_real1(ran_state)
-                n(2) = mtprng_rand_real1(ran_state)
-                s = n(1)**2 + n(2)**2
-                if ( s<1.d0 ) s_lt_one = .true.
-             end do
-             alpha = 2.d0 * sqrt(1.d0 - s)
-             n(1) = n(1)*alpha
-             n(2) = n(2)*alpha
-             n(3) = 1.d0 - 2.d0*s
+             n = rand_sphere()
              omega(:,:,ci,cj,ck) = &
                   reshape( (/ &
                   n(1)**2, n(1)*n(2) + n(3), n(1)*n(3) - n(2) ,&
@@ -349,5 +338,29 @@ contains
     end do
 
   end subroutine list_idx_from_x0
+
+  !> Returns a unit vector whose direction is randomly chosen on a sphere.
+  !!
+  !! @todo add refs for algo.
+  !!
+  !! @return rand_sphere A 3-d random vector.
+  function rand_sphere() result(n)
+    double precision :: n(3)
+
+    logical :: s_lt_one
+    double precision :: s, alpha
+
+    s_lt_one = .false.
+    do while (.not. s_lt_one)
+       n(1) = mtprng_rand_real1(ran_state)
+       n(2) = mtprng_rand_real1(ran_state)
+       s = n(1)**2 + n(2)**2
+       if ( s<1.d0 ) s_lt_one = .true.
+    end do
+    alpha = 2.d0 * sqrt(1.d0 - s)
+    n(1) = n(1)*alpha
+    n(2) = n(2)*alpha
+    n(3) = 1.d0 - 2.d0*s
+  end function rand_sphere
 
 end module MPCD
