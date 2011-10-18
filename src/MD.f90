@@ -14,6 +14,8 @@ module MD
 
   !> Maximum number of solvent neighbours to each atom.
   integer, parameter :: max_neigh=32768 !8192
+  !> Maximum number of atom neighbours to each solvent particle.
+  integer, parameter :: max_so_neigh=16
 
   !> Information about the "atoms" system (N, ...).
   type(sys_t) :: at_sys
@@ -68,7 +70,7 @@ contains
 
     allocate(at_neigh_list(0:max_neigh, at_sys%N_max))
 
-    allocate(so_neigh_list(0:16, so_sys%N_max) )
+    allocate(so_neigh_list(0:max_so_neigh, so_sys%N_max) )
     allocate(so_do_reac( so_sys % N_max ) )
     allocate(at_so_reac( at_sys % N_species , so_sys % N_species ) )
 
@@ -260,7 +262,7 @@ contains
                       at_neigh_list(at_neigh_list(0,at_i),at_i) = par_list(i,mi,mj,mk)
                       part = par_list(i,mi,mj,mk)
                       so_neigh_list(0,part) = so_neigh_list(0,part) + 1
-                      if ( so_neigh_list(0,part) > 16 ) stop 'too many neighbours for solvent'
+                      if ( so_neigh_list(0,part) > max_so_neigh ) stop 'too many neighbours for solvent'
                       so_neigh_list(so_neigh_list(0,part),part) = at_i
                       is_MD(par_list(i,mi,mj,mk)) = .true.
                    end if
@@ -854,10 +856,14 @@ contains
     integer :: at_i, j, part, at_si, i_neigh, neigh_idx
     integer :: g_i
     integer :: p1si, p2si
-    double precision :: x(3), dist_sqr
+    double precision :: x(3)
     double precision :: dist_min
     double precision :: delta_u
     logical :: too_many_atoms, thermal
+    double precision :: dist_sqr, neigh_sqr
+    integer :: total_N, ci, cj, ck, cc(3)
+
+    total_N = so_sys % N(0)
 
     dist_min = sum(L)
     do g_i=1,N_groups
@@ -914,7 +920,8 @@ contains
                             so_sys % N(p1si) = so_sys % N(p1si) + 1
                             so_sys % N(p2si) = so_sys % N(p2si) + 1
                             call reac_A_C_to_B1_B2_C(group_list(g_i), at_i, part, so_sys%N(0), p1si, p2si)
-
+                            ! The solvent particle needs to be included in the neighbour
+                            ! list
                          end if
                       end if
                    end if
@@ -923,7 +930,50 @@ contains
           end do
        end do
     end do
+    
+    if (so_sys % N(0) > total_N) then
+       ! add new particles to cell lists
+       do part = total_N + 1, so_sys%N(0)
+          call indices(so_r(:,part), cc)
+          if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
+             write(*,*) 'particle', part, 'out of bounds'
+          end if
+          ci = cc(1) ; cj = cc(2) ; ck = cc(3)
+          par_list(0,ci,cj,ck) = par_list(0,ci,cj,ck) + 1
+          if (par_list(0,ci,cj,ck) .ge. max_per_cell) then
+             write(*,*) 'too many particles in cell', cc, 'particle', part
+             stop
+          end if
+          par_list(par_list(0,ci,cj,ck), ci, cj, ck) = part
+       end do
+       ! end add new particles to cell lists
 
+       ! add new particles to the neighbour list
+       do g_i = 1, N_groups
+          do at_i = group_list(g_i) % istart , group_list(g_i) % istart + group_list(g_i) % N - 1
+             do part = total_N + 1, so_sys%N(0)
+                call rel_pos(so_r(:,part), at_r(:,at_i), L, x)
+                dist_sqr = sum(x**2)
+                neigh_sqr = at_so%neigh(at_species(at_i),so_species(part))**2
+                if (dist_sqr < neigh_sqr) then
+                   at_neigh_list(0,at_i) = at_neigh_list(0,at_i) + 1
+                   if (at_neigh_list(0,at_i) > max_neigh) then
+                      write(*,*) 'too many neighbours for atom',at_i, 'in reac_loop'
+                      stop
+                   end if
+                   at_neigh_list(at_neigh_list(0,at_i),at_i) = part
+                   so_neigh_list(0,part) = so_neigh_list(0,part) + 1
+                   if (so_neigh_list(0,part) > max_so_neigh) &
+                        stop 'too many neighbours for solvent in reac_loop'
+                   so_neigh_list(so_neigh_list(0,part),part) = at_i
+                   is_MD(part) = .true.
+                end if
+             end do
+          end do
+       end do
+       ! end add new particles to the neighbour list
+
+    end if
 
   end subroutine reac_loop
 
