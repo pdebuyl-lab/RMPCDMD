@@ -934,16 +934,16 @@ contains
     if (so_sys % N(0) > total_N) then
        ! add new particles to cell lists
        do part = total_N + 1, so_sys%N(0)
-          call indices(so_r(:,part), cc)
           do j=1,3
              if (so_r(j,part) < shift(j)) so_r(j,part) = so_r(j,part) + L(j)
              if (so_r(j,part) >= L(j)+shift(j)) so_r(j,part) = so_r(j,part) - L(j)
           end do
+          call indices(so_r(:,part), cc)
+          ci = cc(1) ; cj = cc(2) ; ck = cc(3)
           if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
              write(*,*) 'particle', part, 'out of bounds'
              stop
           end if
-          ci = cc(1) ; cj = cc(2) ; ck = cc(3)
           par_list(0,ci,cj,ck) = par_list(0,ci,cj,ck) + 1
           if (par_list(0,ci,cj,ck) .ge. max_per_cell) then
              write(*,*) 'too many particles in cell', cc, 'particle', part
