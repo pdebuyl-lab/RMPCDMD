@@ -940,7 +940,7 @@ contains
           end do
           call indices(so_r(:,part), cc)
           ci = cc(1) ; cj = cc(2) ; ck = cc(3)
-          if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
+          if ( ( maxval( cc - N_cells ) .gt. 0) .or. ( minval( cc ) .le. 0) ) then
              write(*,*) 'particle', part, 'out of bounds'
              stop
           end if
