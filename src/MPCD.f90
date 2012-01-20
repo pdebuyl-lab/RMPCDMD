@@ -172,6 +172,21 @@ contains
 
   end subroutine indices
 
+  !> Returns the geometric center of a cell.
+  !!
+  !! @param ci x-index
+  !! @param cj y-index
+  !! @param ck z-index
+  !! @return cell_center The center of the cell.
+  function cell_center(ci,cj,ck)
+    implicit none
+    integer, intent(in) :: ci,cj,ck
+    double precision :: cell_center(3)
+
+    cell_center = shift + dble( (/ ci, cj, ck /) ) * a
+
+  end function cell_center
+
   !> Builds "par_list" by filling for each cell the list of solvent particles
   !! that are explicitly found in that cell.
   subroutine place_in_cells

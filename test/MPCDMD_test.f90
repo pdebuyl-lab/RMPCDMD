@@ -9,6 +9,7 @@ program test
   use h5md
   use radial_dist
   use polar_dist
+  use polar_fields
   implicit none
   
   type(PTo) :: CF
@@ -50,6 +51,8 @@ program test
   double precision :: x_temp(3)
   type(rad_dist_t) :: so_dist, at_dist
   type(polar_dist_t) :: prod_polar_dist
+  type(polar_fields_t) :: pf1
+  logical :: do_pf
   integer, allocatable :: list(:), so_do_reac_int(:)
   character(len=5) :: zone
   integer :: values(8)
@@ -357,6 +360,12 @@ program test
      if (allocated(group_list(1)%subgroup) ) then
         call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
      end if
+     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
+        do_pf = .true.
+        call init_polar_fields(pf1, so_sys%N_species, 100, 0.1d0, 32, file_id, 'colloid1')
+     else
+        do_pf = .false.
+     end if
   end if
   if (checkpoint <= 0) call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
 
@@ -573,6 +582,15 @@ program test
         call compute_v_com
         call generate_omega
         if (switch) call switch_off(com_g1, 7.d0)
+        !call simple_MPCD_step
+     end if
+
+     if (do_pf) then
+        call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
+        call update_polar_fields(pf1, com_g1, x_temp)
+     end if
+
+     if (collide) then
         call simple_MPCD_step
      end if
 
@@ -631,6 +649,7 @@ program test
      if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
 
      if (mod(i_time, 100).eq.0) then
+        if (do_pf) call write_polar_fields(pf1, i_MD_time, realtime)
         call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
         write(flush_unit, *) 'flushed at i_time ', i_time
         call date_and_time(zone=zone)
@@ -673,6 +692,11 @@ program test
      call write_rad(at_dist,file_ID)
      call write_rad(so_dist,file_ID, group_name='solvent')
      call write_polar(prod_polar_dist,file_ID, group_name='solvent')
+  end if
+  if (do_pf) then
+     call h5md_close_ID(pf1 % c_ID)
+     call h5md_close_ID(pf1 % v_ID)
+     call h5md_close_ID(pf1 % t_ID)
   end if
 
   call end_h5md
