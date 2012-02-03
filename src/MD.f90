@@ -1172,5 +1172,59 @@ contains
 
   end subroutine reac_A_C_to_B1_B2_C
 
+  !> Removes a particle from the system.
+  !!
+  !! This subroutine removes particle del_i from the system. It replaces its data by the data
+  !! of the last particle in the system, then decreases the number of particles by one unit.
+  !! @param del_i The index of the particle to remove.
+  !! @param cc The three indices of the cell to which the particle belongs.
+  subroutine del_particle(del_i,cc)
+    integer, intent(in) :: del_i, cc(3)
+
+    integer :: i, j, nlast, at_i, at_neigh
+
+    nlast = so_sys%N(0)
+
+    so_r(:,del_i) = so_r(:,nlast)
+    so_v(:,del_i) = so_v(:,nlast)
+    so_f1(:,del_i) = so_f1(:,nlast)
+    so_f2(:,del_i) = so_f2(:,nlast)
+    so_r_neigh(:,del_i) = so_r_neigh(:,nlast)
+    so_species(del_i) = so_species(nlast)
+    is_MD(del_i) = is_MD(nlast)
+    N_MD(del_i) = N_MD(nlast)
+
+    so_neigh_list(:,del_i) = so_neigh_list(:,nlast)
+
+    ! loop over atoms that are close to del_i
+    do at_neigh = 1,at_neigh_list(0,del_i)
+       at_i = at_neigh_list(at_neigh,del_i)
+       ! loop over the neighbours of those atoms
+       do i=1,at_neigh_list(0,del_i)
+          j = at_neigh_list(i,del_i)
+          ! if our particle to delete is found, remove it
+          if (j.eq.del_i) then
+             ! replace "j" by the last neighbour of the atom
+             at_neigh_list(i,del_i) = at_neigh_list(at_neigh_list(0,del_i),del_i)
+             at_neigh_list(0,del_i) = at_neigh_list(0,del_i) - 1
+          end if
+          exit
+       end do
+    end do
+
+    ! remove del_i from the particle list, and replace nlast by del_i when found.
+    ! cell indices should be provided.
+    do i=1,par_list(0,cc(1),cc(2),cc(3))
+       if (par_list(i,cc(1),cc(2),cc(3)).eq.del_i) then
+          ! remove del_i from list and decrease count by 1
+          par_list(i,cc(1),cc(2),cc(3)) = &
+               par_list(par_list(0,cc(1),cc(2),cc(3)),cc(1),cc(2),cc(3))
+          par_list(0,cc(1),cc(2),cc(3)) = par_list(0,cc(1),cc(2),cc(3)) - 1
+          ! get out of loop
+          exit
+       end if
+    end do
+
+  end subroutine del_particle
 
 end module MD
