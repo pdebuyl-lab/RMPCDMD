@@ -378,4 +378,33 @@ contains
     n(3) = 1.d0 - 2.d0*s
   end function rand_sphere
 
+  !> Adds a specified amount of kinetic energy in a cell.
+  !!
+  !! @param cc The cell indices.
+  !! @param kin_add The amount of energy to add.
+  subroutine add_energy(cc, kin_add)
+    implicit none
+    integer, intent(in) :: cc(3)
+    double precision, intent(in) :: kin_add
+
+    double precision :: gamma, kin, v(3)
+    integer :: i,j
+
+    v = Vcom(1:3,cc(1),cc(2),cc(3)) / Vcom(4,cc(1),cc(2),cc(3))
+
+    kin = 0.d0
+    do i=1,par_list(0,cc(1),cc(2),cc(3))
+       j = par_list(i,cc(1),cc(2),cc(3))
+       kin = kin + so_sys%mass(so_species(j))*sum( (so_v(:,j) - v)**2 )
+    end do
+
+    gamma = sqrt( 1.d0 + ( 2.d0*kin_add/kin ) )
+
+    do i=1,par_list(0,cc(1),cc(2),cc(3))
+       j = par_list(i,cc(1),cc(2),cc(3))
+       so_v(:,j) = gamma*(so_v(:,j) - v) + v
+    end do
+
+  end subroutine add_energy
+
 end module MPCD
