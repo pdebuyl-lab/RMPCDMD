@@ -172,6 +172,21 @@ contains
 
   end subroutine indices
 
+  !> Returns the geometric center of a cell.
+  !!
+  !! @param ci x-index
+  !! @param cj y-index
+  !! @param ck z-index
+  !! @return cell_center The center of the cell.
+  function cell_center(ci,cj,ck)
+    implicit none
+    integer, intent(in) :: ci,cj,ck
+    double precision :: cell_center(3)
+
+    cell_center = shift + dble( (/ ci, cj, ck /) ) * a
+
+  end function cell_center
+
   !> Builds "par_list" by filling for each cell the list of solvent particles
   !! that are explicitly found in that cell.
   subroutine place_in_cells
@@ -229,23 +244,12 @@ contains
   subroutine generate_omega
     
     integer :: ci,cj,ck
-    double precision :: alpha, n(3), s
-    logical :: s_lt_one
+    double precision :: n(3)
 
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
-             s_lt_one = .false.
-             do while (.not. s_lt_one)
-                n(1) = mtprng_rand_real1(ran_state)
-                n(2) = mtprng_rand_real1(ran_state)
-                s = n(1)**2 + n(2)**2
-                if ( s<1.d0 ) s_lt_one = .true.
-             end do
-             alpha = 2.d0 * sqrt(1.d0 - s)
-             n(1) = n(1)*alpha
-             n(2) = n(2)*alpha
-             n(3) = 1.d0 - 2.d0*s
+             n = rand_sphere()
              omega(:,:,ci,cj,ck) = &
                   reshape( (/ &
                   n(1)**2, n(1)*n(2) + n(3), n(1)*n(3) - n(2) ,&
@@ -349,5 +353,58 @@ contains
     end do
 
   end subroutine list_idx_from_x0
+
+  !> Returns a unit vector whose direction is randomly chosen on a sphere.
+  !!
+  !! @todo add refs for algo.
+  !!
+  !! @return rand_sphere A 3-d random vector.
+  function rand_sphere() result(n)
+    double precision :: n(3)
+
+    logical :: s_lt_one
+    double precision :: s, alpha
+
+    s_lt_one = .false.
+    do while (.not. s_lt_one)
+       n(1) = mtprng_rand_real1(ran_state)
+       n(2) = mtprng_rand_real1(ran_state)
+       s = n(1)**2 + n(2)**2
+       if ( s<1.d0 ) s_lt_one = .true.
+    end do
+    alpha = 2.d0 * sqrt(1.d0 - s)
+    n(1) = n(1)*alpha
+    n(2) = n(2)*alpha
+    n(3) = 1.d0 - 2.d0*s
+  end function rand_sphere
+
+  !> Adds a specified amount of kinetic energy in a cell.
+  !!
+  !! @param cc The cell indices.
+  !! @param kin_add The amount of energy to add.
+  subroutine add_energy(cc, kin_add)
+    implicit none
+    integer, intent(in) :: cc(3)
+    double precision, intent(in) :: kin_add
+
+    double precision :: gamma, kin, v(3)
+    integer :: i,j
+
+    v = Vcom(1:3,cc(1),cc(2),cc(3)) / Vcom(4,cc(1),cc(2),cc(3))
+
+    kin = 0.d0
+    do i=1,par_list(0,cc(1),cc(2),cc(3))
+       j = par_list(i,cc(1),cc(2),cc(3))
+       kin = kin + so_sys%mass(so_species(j))*sum( (so_v(:,j) - v)**2 )
+    end do
+
+    gamma = sqrt( 1.d0 + ( 2.d0*kin_add/kin ) )
+
+    do i=1,par_list(0,cc(1),cc(2),cc(3))
+       j = par_list(i,cc(1),cc(2),cc(3))
+       so_v(:,j) = gamma*(so_v(:,j) - v) + v
+    end do
+
+  end subroutine add_energy
 
 end module MPCD

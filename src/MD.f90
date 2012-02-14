@@ -14,6 +14,8 @@ module MD
 
   !> Maximum number of solvent neighbours to each atom.
   integer, parameter :: max_neigh=32768 !8192
+  !> Maximum number of atom neighbours to each solvent particle.
+  integer, parameter :: max_so_neigh=16
 
   !> Information about the "atoms" system (N, ...).
   type(sys_t) :: at_sys
@@ -68,7 +70,7 @@ contains
 
     allocate(at_neigh_list(0:max_neigh, at_sys%N_max))
 
-    allocate(so_neigh_list(0:16, so_sys%N_max) )
+    allocate(so_neigh_list(0:max_so_neigh, so_sys%N_max) )
     allocate(so_do_reac( so_sys % N_max ) )
     allocate(at_so_reac( at_sys % N_species , so_sys % N_species ) )
 
@@ -260,7 +262,7 @@ contains
                       at_neigh_list(at_neigh_list(0,at_i),at_i) = par_list(i,mi,mj,mk)
                       part = par_list(i,mi,mj,mk)
                       so_neigh_list(0,part) = so_neigh_list(0,part) + 1
-                      if ( so_neigh_list(0,part) > 16 ) stop 'too many neighbours for solvent'
+                      if ( so_neigh_list(0,part) > max_so_neigh ) stop 'too many neighbours for solvent'
                       so_neigh_list(so_neigh_list(0,part),part) = at_i
                       is_MD(par_list(i,mi,mj,mk)) = .true.
                    end if
@@ -853,10 +855,15 @@ contains
 
     integer :: at_i, j, part, at_si, i_neigh, neigh_idx
     integer :: g_i
-    double precision :: x(3), dist_sqr
+    integer :: p1si, p2si
+    double precision :: x(3)
     double precision :: dist_min
     double precision :: delta_u
     logical :: too_many_atoms, thermal
+    double precision :: dist_sqr, neigh_sqr
+    integer :: total_N, ci, cj, ck, cc(3)
+
+    total_N = so_sys % N(0)
 
     dist_min = sum(L)
     do g_i=1,N_groups
@@ -901,7 +908,21 @@ contains
                             so_do_reac(part) = .false.
                          end if
                       else
-                         stop 'two products reaction not implemented yet'
+                         if (.not. too_many_atoms) then
+                            if (so_sys % N(0) .ge. so_sys % N_max) then
+                               write(*,*) 'particle number exceeded in reac_loop'
+                               stop
+                            end if
+                            p1si = at_so_reac(at_si, so_species(part))%product1
+                            p2si = at_so_reac(at_si, so_species(part))%product2
+                            so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
+                            so_sys % N(0) = so_sys % N(0) + 1
+                            so_sys % N(p1si) = so_sys % N(p1si) + 1
+                            so_sys % N(p2si) = so_sys % N(p2si) + 1
+                            call reac_A_C_to_B1_B2_C(group_list(g_i), at_i, part, so_sys%N(0), p1si, p2si)
+                            ! The solvent particle needs to be included in the neighbour
+                            ! list
+                         end if
                       end if
                    end if
                 end if ! (enable_reaction)
@@ -909,7 +930,55 @@ contains
           end do
        end do
     end do
+    
+    if (so_sys % N(0) > total_N) then
+       ! add new particles to cell lists
+       do part = total_N + 1, so_sys%N(0)
+          do j=1,3
+             if (so_r(j,part) < shift(j)) so_r(j,part) = so_r(j,part) + L(j)
+             if (so_r(j,part) >= L(j)+shift(j)) so_r(j,part) = so_r(j,part) - L(j)
+          end do
+          call indices(so_r(:,part), cc)
+          ci = cc(1) ; cj = cc(2) ; ck = cc(3)
+          if ( ( maxval( cc - N_cells ) .gt. 0) .or. ( minval( cc ) .le. 0) ) then
+             write(*,*) 'particle', part, 'out of bounds'
+             stop
+          end if
+          par_list(0,ci,cj,ck) = par_list(0,ci,cj,ck) + 1
+          if (par_list(0,ci,cj,ck) .ge. max_per_cell) then
+             write(*,*) 'too many particles in cell', cc, 'particle', part
+             stop
+          end if
+          par_list(par_list(0,ci,cj,ck), ci, cj, ck) = part
+       end do
+       ! end add new particles to cell lists
 
+       ! add new particles to the neighbour list
+       do g_i = 1, N_groups
+          do at_i = group_list(g_i) % istart , group_list(g_i) % istart + group_list(g_i) % N - 1
+             do part = total_N + 1, so_sys%N(0)
+                call rel_pos(so_r(:,part), at_r(:,at_i), L, x)
+                dist_sqr = sum(x**2)
+                neigh_sqr = at_so%neigh(at_species(at_i),so_species(part))**2
+                if (dist_sqr < neigh_sqr) then
+                   at_neigh_list(0,at_i) = at_neigh_list(0,at_i) + 1
+                   if (at_neigh_list(0,at_i) > max_neigh) then
+                      write(*,*) 'too many neighbours for atom',at_i, 'in reac_loop'
+                      stop
+                   end if
+                   at_neigh_list(at_neigh_list(0,at_i),at_i) = part
+                   so_neigh_list(0,part) = so_neigh_list(0,part) + 1
+                   if (so_neigh_list(0,part) > max_so_neigh) &
+                        stop 'too many neighbours for solvent in reac_loop'
+                   so_neigh_list(so_neigh_list(0,part),part) = at_i
+                   is_MD(part) = .true.
+                end if
+             end do
+          end do
+       end do
+       ! end add new particles to the neighbour list
+
+    end if
 
   end subroutine reac_loop
 
@@ -1047,5 +1116,141 @@ contains
     end do
 
   end function count_atom_neighbours
+
+  !> Converts a A solvent particle to two (B1 and B2) solvent particles upon activation by
+  !! a catalytic compound C.
+  !!
+  !! @param g_var The group to which C belongs.
+  !! @param at_i The index of the catalytic atom.
+  !! @param so_1 The first solvent particle (corresponds to A and B1).
+  !! @param so_2 The second solvent particle (corresponds to B2).
+  !! @param so_s1 The species of the first product solvent particle B1.
+  !! @param so_s2 The species of the second product solvent particle B2.
+  subroutine reac_A_C_to_B1_B2_C(g_var, at_i, so_1, so_2, so_s1, so_s2)
+    type(group_t), intent(inout) :: g_var
+    integer, intent(in) :: at_i, so_1, so_2, so_s1, so_s2
+
+    double precision :: vel(3), rel_v, x(3)
+    double precision :: A_mass, C_mass, B1_mass, B2_mass
+    integer :: i
+
+    A_mass = so_sys % mass(so_species(so_1))
+    B1_mass = so_sys % mass(so_s1)
+    B2_mass = so_sys % mass(so_s2)
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       C_mass = g_var % mass
+       vel = ( C_mass * g_var % v + A_mass * so_v(:,so_1)) / &
+            (C_mass + A_mass)
+       rel_v = sqrt( &
+            A_mass*C_mass/(A_mass+C_mass)*(B1_mass+B2_mass)/(B1_mass*B2_mass) * &
+            sum( (g_var % v - so_v(:,so_1))**2 ) )
+    else
+       C_mass = at_sys%mass(at_species(at_i))
+       vel = (C_mass * at_v(:,at_i) + A_mass * so_v(:,so_1)) / &
+            ( C_mass + A_mass )
+       rel_v = sqrt( &
+            A_mass*C_mass/(A_mass+C_mass)*(B1_mass+B2_mass)/(B1_mass*B2_mass) * &
+            sum( (at_v(:,at_i) - so_v(:,so_1))**2 ) )
+    end if
+
+    if (g_var % g_type .eq. SHAKE_G) then
+       do i=g_var % istart,g_var % istart + g_var % N - 1
+          at_v(:,i) = at_v(:,i) - g_var % v + vel
+       end do
+       g_var % v = vel
+    else
+       at_v(:,at_i) = vel
+    end if
+    x = rand_sphere()
+    so_v(:,so_1) = vel + rel_v * B2_mass/(B1_mass+B2_mass) * x
+    so_v(:,so_2) = vel - rel_v * B1_mass/(B1_mass+B2_mass) * x
+    so_r(:,so_2) = so_r(:,so_1)
+
+    so_species(so_1) = so_s1
+    so_species(so_2) = so_s2
+
+  end subroutine reac_A_C_to_B1_B2_C
+
+  !> Converts 2 B particles to a single A particle in the reaction \f$ 2B \to A \f$.
+  !!
+  !! @param so1 Indice de la première particule B.
+  !! @param so2 Indice de la deuxième particule B.
+  !! @param s_product Species to convert so1 and so2 into.
+  !! @param deltak The excess kinetic energy from the recombination.
+  subroutine reac_2B_to_A(so1,so2,s_product,deltak)
+    implicit none
+    integer, intent(in) :: so1, so2, s_product
+    double precision, intent(out) :: deltak
+
+    double precision :: wbb(3), mubb
+    double precision :: m1, m2
+
+    wbb = so_v(:,so1) - so_v(:,so2)
+    m1 = so_sys%mass(so_species(so1))
+    m2 = so_sys%mass(so_species(so2))
+    mubb = m1*m2/(m1+m2)
+    deltak = 0.5d0 * mubb * sum(wbb**2)
+
+    so_v(:,so1) = ( m1*so_v(:,so1) + m2*so_v(:,so2) ) / (m1+m2)
+    so_species(so1) = s_product
+    so_r(:,so1) = (m1*so_r(:,so1)+m2*so_r(:,so2)) / (m1+m2)
+
+  end subroutine reac_2B_to_A
+
+  !> Removes a particle from the system.
+  !!
+  !! This subroutine removes particle del_i from the system. It replaces its data by the data
+  !! of the last particle in the system, then decreases the number of particles by one unit.
+  !! @param del_i The index of the particle to remove.
+  !! @param cc The three indices of the cell to which the particle belongs.
+  subroutine del_particle(del_i,cc)
+    integer, intent(in) :: del_i, cc(3)
+
+    integer :: i, j, nlast, at_i, at_neigh
+
+    nlast = so_sys%N(0)
+
+    so_r(:,del_i) = so_r(:,nlast)
+    so_v(:,del_i) = so_v(:,nlast)
+    so_f1(:,del_i) = so_f1(:,nlast)
+    so_f2(:,del_i) = so_f2(:,nlast)
+    so_r_neigh(:,del_i) = so_r_neigh(:,nlast)
+    so_species(del_i) = so_species(nlast)
+    is_MD(del_i) = is_MD(nlast)
+    N_MD(del_i) = N_MD(nlast)
+
+    so_neigh_list(:,del_i) = so_neigh_list(:,nlast)
+
+    ! loop over atoms that are close to del_i
+    do at_neigh = 1,so_neigh_list(0,del_i)
+       at_i = so_neigh_list(at_neigh,del_i)
+       ! loop over the neighbours of those atoms
+       do i=1,at_neigh_list(0,at_i)
+          j = at_neigh_list(i,at_i)
+          ! if our particle to delete is found, remove it
+          if (j.eq.del_i) then
+             ! replace "j" by the last neighbour of the atom
+             at_neigh_list(i,del_i) = at_neigh_list(at_neigh_list(0,del_i),del_i)
+             at_neigh_list(0,del_i) = at_neigh_list(0,del_i) - 1
+          end if
+          exit
+       end do
+    end do
+
+    ! remove del_i from the particle list, and replace nlast by del_i when found.
+    ! cell indices should be provided.
+    do i=1,par_list(0,cc(1),cc(2),cc(3))
+       if (par_list(i,cc(1),cc(2),cc(3)).eq.del_i) then
+          ! remove del_i from list and decrease count by 1
+          par_list(i,cc(1),cc(2),cc(3)) = &
+               par_list(par_list(0,cc(1),cc(2),cc(3)),cc(1),cc(2),cc(3))
+          par_list(0,cc(1),cc(2),cc(3)) = par_list(0,cc(1),cc(2),cc(3)) - 1
+          ! get out of loop
+          exit
+       end if
+    end do
+
+  end subroutine del_particle
 
 end module MD
