@@ -26,13 +26,14 @@ program test
   double precision :: at_sol_en, at_at_en, sol_kin, at_kin, energy
   double precision :: lat_0(3), lat_d(3)
   integer :: lat_idx(3), lat_n(3)
-  integer :: j
+  integer :: j, idx1, idx2
   double precision :: v_sub1(3), v_sub2(3), r_sub1(3), r_sub2(3)
   double precision :: com_g1(3)
   double precision :: total_v(3)
   double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
   integer :: N_th_loop
   integer :: N_reset_fuel
+  character(len=16) :: reset_reac
   logical :: reactive, collide, switch
   integer :: checkpoint
 
@@ -47,6 +48,9 @@ program test
   integer(HID_T) :: other_ID
   type(h5md_t) :: dset_ID
   type(h5md_t) :: other
+
+  double precision :: deltak
+  integer :: ci,cj,ck,cc(3), number_b
 
   double precision :: x_temp(3)
   type(rad_dist_t) :: so_dist, at_dist
@@ -234,6 +238,7 @@ program test
   end if
   so_do_reac = .false.
   N_reset_fuel = PTread_i(CF, 'N_reset_fuel')
+  reset_reac = PTread_s(CF, 'reset_reac')
 
   collide = PTread_l(CF, 'collide')
   if (checkpoint <= 0) call h5md_write_par(file_id, 'collide', collide)
@@ -482,7 +487,7 @@ program test
 
      if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
   end do
-
+  
   DT = MD_DT
   do i_time = N_th_loop+1,N_loop+N_th_loop
      
@@ -627,6 +632,8 @@ program test
 
      if (reactive .and. N_reset_fuel > 0) then
         if (mod(i_time,N_reset_fuel).eq.0) then
+           if (reset_reac.eq.'BtoA') then
+           ! doing straight B->A
            do i=1,so_sys%N(0)
               if (so_species(i) .eq. 2) then
                  call rel_pos( so_r(:,i), com_g1, L, x_temp)
@@ -643,6 +650,45 @@ program test
                  end if
               end if
            end do
+           else if (reset_reac.eq.'2BtoA') then
+           ! doing 2B->A
+           write(*,*) 'doing 2BtoA reset loop'
+           do ck=1,N_cells(3)
+              cc(3) = ck
+              do cj=1,N_cells(2)
+                 cc(2) = cj
+                 inner_cell: do ci=1,N_cells(1)
+                    cc(1) = ci
+                    call rel_pos( cell_center(ci,cj,ck) , com_g1, L, x_temp)
+                    if ( par_list(0,ci,cj,ck) < 4 ) cycle inner_cell
+                    if ( sum(x_temp**2) .le. 10.d0**2 ) cycle inner_cell
+                    number_b = 0
+                    cell_loop: do i=1,par_list(0,ci,cj,ck)
+                       j = par_list(i,ci,cj,ck)
+                       if (so_species(j) .eq. 2) then
+                          if (number_b.eq.0) then
+                             idx1=j
+                             number_b = number_b + 1
+                          else if (number_b.eq.1) then
+                             idx2=j
+                             number_b = number_b + 1
+                             exit cell_loop
+                          end if
+                       end if
+                    end do cell_loop
+                    if (number_b.lt.2) cycle inner_cell
+                    ! assign "A" to idx1 and remove idx2
+                    call reac_2B_to_A(idx1,idx2,1,deltak)
+                    call del_particle(idx2, cc)
+                    so_sys % N(0) = so_sys % N(0) - 1
+                    so_sys % N(1) = so_sys % N(1) + 1
+                    so_sys % N(2) = so_sys % N(2) - 2
+                    ! deposit excess kinetic energy in the cell
+                    call add_energy(cc,deltak)
+                 end do inner_cell
+              end do
+           end do
+           end if
         end if
      end if
 
