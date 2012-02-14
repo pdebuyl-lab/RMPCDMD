@@ -1172,6 +1172,32 @@ contains
 
   end subroutine reac_A_C_to_B1_B2_C
 
+  !> Converts 2 B particles to a single A particle in the reaction \f$ 2B \to A \f$.
+  !!
+  !! @param so1 Indice de la première particule B.
+  !! @param so2 Indice de la deuxième particule B.
+  !! @param s_product Species to convert so1 and so2 into.
+  !! @param deltak The excess kinetic energy from the recombination.
+  subroutine reac_2B_to_A(so1,so2,s_product,deltak)
+    implicit none
+    integer, intent(in) :: so1, so2, s_product
+    double precision, intent(out) :: deltak
+
+    double precision :: wbb(3), mubb
+    double precision :: m1, m2
+
+    wbb = so_v(:,so1) - so_v(:,so2)
+    m1 = so_sys%mass(so_species(so1))
+    m2 = so_sys%mass(so_species(so2))
+    mubb = m1*m2/(m1+m2)
+    deltak = 0.5d0 * mubb * sum(wbb**2)
+
+    so_v(:,so1) = ( m1*so_v(:,so1) + m2*so_v(:,so2) ) / (m1+m2)
+    so_species(so1) = s_product
+    so_r(:,so1) = (m1*so_r(:,so1)+m2*so_r(:,so2)) / (m1+m2)
+
+  end subroutine reac_2B_to_A
+
   !> Removes a particle from the system.
   !!
   !! This subroutine removes particle del_i from the system. It replaces its data by the data
@@ -1197,11 +1223,11 @@ contains
     so_neigh_list(:,del_i) = so_neigh_list(:,nlast)
 
     ! loop over atoms that are close to del_i
-    do at_neigh = 1,at_neigh_list(0,del_i)
-       at_i = at_neigh_list(at_neigh,del_i)
+    do at_neigh = 1,so_neigh_list(0,del_i)
+       at_i = so_neigh_list(at_neigh,del_i)
        ! loop over the neighbours of those atoms
-       do i=1,at_neigh_list(0,del_i)
-          j = at_neigh_list(i,del_i)
+       do i=1,at_neigh_list(0,at_i)
+          j = at_neigh_list(i,at_i)
           ! if our particle to delete is found, remove it
           if (j.eq.del_i) then
              ! replace "j" by the last neighbour of the atom
