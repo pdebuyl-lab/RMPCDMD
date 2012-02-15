@@ -688,6 +688,9 @@ program test
                  end do inner_cell
               end do
            end do
+           call correct_so
+           call place_in_cells
+           call make_neigh_list
            end if
         end if
      end if
