@@ -803,7 +803,6 @@ contains
        end do
        if ( max_err < eps ) exit
     end do
-    write(21,'(i5.5,a)', advance='NO') iter, ' '
     if ( max_err > eps ) then
        write(*,*) max_err, dist, iter
        stop 'shake fails'
@@ -842,7 +841,6 @@ contains
        end do
        if ( max_err < eps ) exit
     end do
-    write(21,'(i5.5,a)') iter, ' '
     if ( max_err > eps ) then
        write(*,*) max_err, dist, iter
        stop 'rattle fails'
