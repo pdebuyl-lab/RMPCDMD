@@ -1248,12 +1248,12 @@ contains
     end do
 
     ! seek nlast in at_neigh_list and replace it by del_i
-    at_loop: do i=1,so_neig_list(0,del_i)
+    at_loop: do i=1,so_neigh_list(0,del_i)
        ! at_i is an atom that is neighbour to del_i (actually, nlast before the change)
-       at_i = so_neig_list(i,del_i)
-       at_neigh_loop: do j=1,at_neig_list(0,at_i)
-          if (at_neig_list(j,at_i).eq.nlast) then
-             at_neig_list(j,at_i) = del_i
+       at_i = so_neigh_list(i,del_i)
+       at_neigh_loop: do j=1,at_neigh_list(0,at_i)
+          if (at_neigh_list(j,at_i).eq.nlast) then
+             at_neigh_list(j,at_i) = del_i
              cycle at_loop
           end if
        end do at_neigh_loop
