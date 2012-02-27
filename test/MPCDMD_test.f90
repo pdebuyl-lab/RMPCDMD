@@ -651,21 +651,24 @@ program test
               end if
            end do
            else if (reset_reac.eq.'2BtoA') then
+           if (.not. collide) then
+              call place_in_cells
+              call compute_v_com
+           end if
            ! doing 2B->A
-           write(*,*) 'doing 2BtoA reset loop'
            do ck=1,N_cells(3)
               cc(3) = ck
               do cj=1,N_cells(2)
                  cc(2) = cj
                  inner_cell: do ci=1,N_cells(1)
                     cc(1) = ci
-                    call rel_pos( cell_center(ci,cj,ck) , com_g1, L, x_temp)
                     if ( par_list(0,ci,cj,ck) < 4 ) cycle inner_cell
+                    call rel_pos( cell_center(ci,cj,ck) , com_g1, L, x_temp)
                     if ( sum(x_temp**2) .le. 10.d0**2 ) cycle inner_cell
                     number_b = 0
                     cell_loop: do i=1,par_list(0,ci,cj,ck)
                        j = par_list(i,ci,cj,ck)
-                       if (so_species(j) .eq. 2) then
+                       if ((so_species(j) .eq. 2) .and. .not.is_MD(j)) then
                           if (number_b.eq.0) then
                              idx1=j
                              number_b = number_b + 1
@@ -688,9 +691,6 @@ program test
                  end do inner_cell
               end do
            end do
-           call correct_so
-           call place_in_cells
-           call make_neigh_list
            end if
         end if
      end if
