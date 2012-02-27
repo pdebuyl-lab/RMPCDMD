@@ -918,6 +918,8 @@ contains
                             so_sys % N(p1si) = so_sys % N(p1si) + 1
                             so_sys % N(p2si) = so_sys % N(p2si) + 1
                             call reac_A_C_to_B1_B2_C(group_list(g_i), at_i, part, so_sys%N(0), p1si, p2si)
+                            so_do_reac(part) = .false.
+                            so_do_reac(so_sys%N(0)) = .false.
                             ! The solvent particle needs to be included in the neighbour
                             ! list
                          end if
@@ -1192,7 +1194,7 @@ contains
 
     so_v(:,so1) = ( m1*so_v(:,so1) + m2*so_v(:,so2) ) / (m1+m2)
     so_species(so1) = s_product
-    so_r(:,so1) = (m1*so_r(:,so1)+m2*so_r(:,so2)) / (m1+m2)
+    !so_r(:,so1) = (m1*so_r(:,so1)+m2*so_r(:,so2)) / (m1+m2)
 
   end subroutine reac_2B_to_A
 
@@ -1206,6 +1208,7 @@ contains
     integer, intent(in) :: del_i, cc(3)
 
     integer :: i, j, nlast, at_i, at_neigh
+    integer :: lastcc(3)
 
     nlast = so_sys%N(0)
 
@@ -1217,27 +1220,11 @@ contains
     so_species(del_i) = so_species(nlast)
     is_MD(del_i) = is_MD(nlast)
     N_MD(del_i) = N_MD(nlast)
+    so_do_reac(del_i) = so_do_reac(nlast)
 
     so_neigh_list(:,del_i) = so_neigh_list(:,nlast)
 
-    ! loop over atoms that are close to del_i
-    do at_neigh = 1,so_neigh_list(0,del_i)
-       at_i = so_neigh_list(at_neigh,del_i)
-       ! loop over the neighbours of those atoms
-       do i=1,at_neigh_list(0,at_i)
-          j = at_neigh_list(i,at_i)
-          ! if our particle to delete is found, remove it
-          if (j.eq.del_i) then
-             ! replace "j" by the last neighbour of the atom
-             at_neigh_list(i,del_i) = at_neigh_list(at_neigh_list(0,del_i),del_i)
-             at_neigh_list(0,del_i) = at_neigh_list(0,del_i) - 1
-          end if
-          exit
-       end do
-    end do
-
-    ! remove del_i from the particle list, and replace nlast by del_i when found.
-    ! cell indices should be provided.
+    ! remove del_i from the particle list
     do i=1,par_list(0,cc(1),cc(2),cc(3))
        if (par_list(i,cc(1),cc(2),cc(3)).eq.del_i) then
           ! remove del_i from list and decrease count by 1
@@ -1248,6 +1235,29 @@ contains
           exit
        end if
     end do
+
+    ! seek nlast in par_list and replace by del_i
+    call indices(so_r(:,nlast),lastcc)
+    do i=1,par_list(0,lastcc(1),lastcc(2),lastcc(3))
+       if (par_list(i,lastcc(1),lastcc(2),lastcc(3)).eq.nlast) then
+          ! remove nlast from list and decrease count by 1
+          par_list(i,lastcc(1),lastcc(2),lastcc(3)) = del_i 
+          ! get out of loop
+          exit
+       end if
+    end do
+
+    ! seek nlast in at_neigh_list and replace it by del_i
+    at_loop: do i=1,so_neig_list(0,del_i)
+       ! at_i is an atom that is neighbour to del_i (actually, nlast before the change)
+       at_i = so_neig_list(i,del_i)
+       at_neigh_loop: do j=1,at_neig_list(0,at_i)
+          if (at_neig_list(j,at_i).eq.nlast) then
+             at_neig_list(j,at_i) = del_i
+             cycle at_loop
+          end if
+       end do at_neigh_loop
+    end do at_loop
 
   end subroutine del_particle
 
