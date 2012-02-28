@@ -344,7 +344,9 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
+  do_pf=.false.
   if (checkpoint > 0) then
+     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) do_pf=.true.
      call renew_h5md
      call h5md_read_obs(rngID, mtprng_container, i_MD_time, realtime)
      call mtprng_from_int(ran_state, mtprng_container)
@@ -694,6 +696,7 @@ program test
      call h5md_write_obs(so_posID, so_r, i_MD_time, realtime)
      call h5md_write_obs(so_velID, so_v, i_MD_time, realtime)
      call h5md_write_obs(so_speciesID, so_species, i_MD_time, realtime)
+     if (do_pf) call write_polar_fields(pf1, i_MD_time, realtime)
      allocate(so_do_reac_int(size(so_do_reac)))
      where (so_do_reac)
         so_do_reac_int = 1
@@ -838,6 +841,7 @@ contains
        call h5md_open_ID(file_ID, rs1ID, 'observables', 'r_com')
        call h5md_open_ID(file_ID, colloid_forceID, 'observables', 'colloid_force')
     end if
+    if (do_pf) call reload_polar_fields(pf1, so_sys%N_species, 100, 0.1d0, 32, file_id, 'colloid1')
   end subroutine renew_h5md
 
 
