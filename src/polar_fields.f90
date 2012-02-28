@@ -244,5 +244,42 @@ contains
 
   end function cross_product
 
+  subroutine reload_polar_fields(pft, Ns, Nr, dr, Nth, file_id, name)
+    implicit none
+    type(polar_fields_t), intent(out) :: pft
+    integer, intent(in) :: Ns, Nr, Nth
+    double precision, intent(in) :: dr
+    integer(HID_T), intent(inout) :: file_id
+    character(len=*), intent(in) :: name
+
+    integer(HID_T) :: g_id
+
+    pft % Nr = Nr
+    pft % Nth = Nth
+    pft % Ns = Ns
+
+    pft % dr = dr
+    pft % dtheta = 4.d0*atan(1.d0) / dble(Nth)
+
+    ! allocate fields
+    allocate(pft % c(Ns, Nth, Nr))
+    allocate(pft % t(Nth, Nr))
+    allocate(pft % t_count(Nth, Nr))
+    allocate(pft % v(3, Ns, Nth, Nr))
+    allocate(pft % v_count(Ns, Nth, Nr))
+    ! reset fields and counters
+    pft % c = 0.d0
+    pft % v = 0.d0
+    pft % v_count = 0
+    pft % t = 0.d0
+    pft % t_count = 0
+    pft % count = 0
+
+    call h5md_open_ID(file_id, pft % c_ID, 'observables', name//'/concentration')
+    call h5md_open_ID(file_id, pft % v_ID, 'observables', name//'/velocity')
+    call h5md_open_ID(file_id, pft % t_ID, 'observables', name//'/temperature')
+
+  end subroutine reload_polar_fields
+
 end module polar_fields
   
