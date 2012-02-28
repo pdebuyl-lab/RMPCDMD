@@ -7,8 +7,6 @@ program test
   use ParseText
   use MPCDMD
   use h5md
-  use radial_dist
-  use polar_dist
   use polar_fields
   implicit none
   
@@ -53,8 +51,6 @@ program test
   integer :: ci,cj,ck,cc(3), number_b
 
   double precision :: x_temp(3)
-  type(rad_dist_t) :: so_dist, at_dist
-  type(polar_dist_t) :: prod_polar_dist
   type(polar_fields_t) :: pf1
   logical :: do_pf
   integer, allocatable :: list(:), so_do_reac_int(:)
@@ -348,12 +344,6 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  if (checkpoint <= 0) then
-     call init_rad(so_dist,so_sys%N_species,100,.1d0)
-     call init_rad(at_dist,at_sys%N_species,100,.1d0)
-     call init_polar(prod_polar_dist,so_sys%N_species,100,.1d0,40)
-  end if
-  
   if (checkpoint > 0) then
      call renew_h5md
      call h5md_read_obs(rngID, mtprng_container, i_MD_time, realtime)
@@ -602,21 +592,6 @@ program test
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
-     if (checkpoint <= 0) then
-        allocate(list(group_list(1)%N))
-        list = (/ ( i, i=group_list(1) % istart, group_list(1) % istart + group_list(1) % N - 1 ) /)
-        call update_rad(at_dist, modulo(com_g1,L), at_r, at_species, list)
-        deallocate(list)
-        
-        if (group_list(1) % N_sub .eq. 2) then
-           call list_idx_from_x0(com_g1, size(so_dist%g)*so_dist%dr, list)
-           call update_rad(so_dist, modulo(com_g1,L), so_r, so_species, list)
-           call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
-           call update_polar(prod_polar_dist, modulo(com_g1,L), x_temp, so_r, so_species, list)
-           deallocate(list)
-        end if
-     end if
-
      total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
           sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
      actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
@@ -737,10 +712,6 @@ program test
      shift = 0.d0
      call correct_so
      call dump_solvent_species_h5md
-
-     call write_rad(at_dist,file_ID)
-     call write_rad(so_dist,file_ID, group_name='solvent')
-     call write_polar(prod_polar_dist,file_ID, group_name='solvent')
   end if
   if (do_pf) then
      call h5md_close_ID(pf1 % c_ID)
