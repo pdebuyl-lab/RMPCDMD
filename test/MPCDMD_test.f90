@@ -598,15 +598,6 @@ program test
           sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
      actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-     call h5md_write_obs(at_soID, at_sol_en, i_MD_time, realtime)
-     call h5md_write_obs(at_atID, at_at_en, i_MD_time, realtime)
-     call h5md_write_obs(at_kinID, at_kin, i_MD_time, realtime)
-     call h5md_write_obs(so_kinID, sol_kin, i_MD_time, realtime)
-     call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
-     call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
-     call h5md_write_obs(enID, energy, i_MD_time, realtime)
-     call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
-
      if (reactive .and. N_reset_fuel > 0) then
         if (mod(i_time,N_reset_fuel).eq.0) then
            if (reset_reac.eq.'BtoA') then
@@ -671,6 +662,15 @@ program test
            end if
         end if
      end if
+
+     call h5md_write_obs(at_soID, at_sol_en, i_MD_time, realtime)
+     call h5md_write_obs(at_atID, at_at_en, i_MD_time, realtime)
+     call h5md_write_obs(at_kinID, at_kin, i_MD_time, realtime)
+     call h5md_write_obs(so_kinID, sol_kin, i_MD_time, realtime)
+     call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
+     call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
+     call h5md_write_obs(enID, energy, i_MD_time, realtime)
+     call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
 
      if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
 
