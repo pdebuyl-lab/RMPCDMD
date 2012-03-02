@@ -696,7 +696,6 @@ program test
      call h5md_write_obs(so_posID, so_r, i_MD_time, realtime)
      call h5md_write_obs(so_velID, so_v, i_MD_time, realtime)
      call h5md_write_obs(so_speciesID, so_species, i_MD_time, realtime)
-     if (do_pf) call write_polar_fields(pf1, i_MD_time, realtime)
      allocate(so_do_reac_int(size(so_do_reac)))
      where (so_do_reac)
         so_do_reac_int = 1
