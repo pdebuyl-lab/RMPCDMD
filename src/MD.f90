@@ -1105,7 +1105,7 @@ contains
        at_i = so_neigh_list(i,so_i)
        call rel_pos(so_r(:,so_i), at_r(:,at_i), L, x)
        d_sqr = sum(x**2)
-       if ( d_sqr <= 1.1d0*at_so % cut(at_species(at_i), so_species(so_i))**2 ) then
+       if ( d_sqr <= 1.2d0*at_so % cut(at_species(at_i), so_species(so_i))**2 ) then
           if (flag) then
              count_atom_neighbours = 1
              return
