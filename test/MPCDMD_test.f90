@@ -37,7 +37,7 @@ program test
 
   integer(HID_T) :: file_ID
   type(h5md_t) :: posID, velID, jumpID, so_posID, so_velID, so_speciesID, rngID, so_do_reacID
-  type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, tempID
+  type(h5md_t) :: enID, so_kinID, at_kinID, at_soID, at_atID, tempID, vmemID
   type(h5md_t) :: solvent_N_ID
   type(h5md_t) :: vs1ID, vs2ID, rs1ID, rs2ID
   type(h5md_t) :: total_vID
@@ -51,8 +51,9 @@ program test
   integer :: ci,cj,ck,cc(3), number_b
 
   double precision :: x_temp(3)
+  double precision :: vmem(3)
   type(polar_fields_t) :: pf1
-  logical :: do_pf
+  logical :: is_janus
   integer, allocatable :: list(:), so_do_reac_int(:)
   character(len=5) :: zone
   integer :: values(8)
@@ -344,24 +345,25 @@ program test
        sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
   actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
 
-  do_pf=.false.
+  is_janus = .false.
   if (checkpoint > 0) then
-     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) do_pf=.true.
+     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) is_janus=.true.
      call renew_h5md
      call h5md_read_obs(rngID, mtprng_container, i_MD_time, realtime)
      call mtprng_from_int(ran_state, mtprng_container)
      write(26,*) ran_state % mt
      write(26,*) ran_state % mti     
+     call h5md_read_obs(vmemID, vmem, i_MD_time, realtime)
   else
      call begin_h5md
      if (allocated(group_list(1)%subgroup) ) then
         call attr_subgroup_h5md(posID, 'subgroups_01', group_list(1)%subgroup)
      end if
      if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
-        do_pf = .true.
+        is_janus = .true.
         call init_polar_fields(pf1, so_sys%N_species, 100, 0.1d0, 32, file_id, 'colloid1')
      else
-        do_pf = .false.
+        call init_polar_fields(pf1, so_sys%N_species, 70, 0.1d0, 32, file_id, 'colloid1')
      end if
   end if
   if (checkpoint <= 0) call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
@@ -371,6 +373,8 @@ program test
   N_MD_since_re = 0
   max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
   write(*,*) 'max_d = ', max_d
+
+  vmem = 0.d0
 
 
   DT = MD_DT
@@ -420,6 +424,7 @@ program test
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
 
+        vmem = (1.d0 - DT/10.d0) * vmem + DT/10.d0 * at_v(:,1)
 
      end do
 
@@ -476,6 +481,7 @@ program test
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
+     call h5md_write_obs(vmemID, vmem, i_MD_time, realtime)
 
      if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
   end do
@@ -525,6 +531,8 @@ program test
         end do
 
         if (reactive) call reac_loop
+
+        vmem = (1.d0 - DT/10.d0) * vmem + DT/10.d0 * at_v(:,1)
 
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
@@ -582,10 +590,12 @@ program test
         !call simple_MPCD_step
      end if
 
-     if (do_pf) then
+     if (is_janus) then
         call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
-        call update_polar_fields(pf1, com_g1, x_temp)
+     else
+        x_temp = vmem
      end if
+     call update_polar_fields(pf1, com_g1, x_temp)
 
      if (collide) then
         call simple_MPCD_step
@@ -671,11 +681,12 @@ program test
      call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
      call h5md_write_obs(enID, energy, i_MD_time, realtime)
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
+     call h5md_write_obs(vmemID, vmem, i_MD_time, realtime)
 
      if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
 
      if (mod(i_time, 100).eq.0) then
-        if (do_pf) call write_polar_fields(pf1, i_MD_time, realtime)
+        call write_polar_fields(pf1, i_MD_time, realtime)
         call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
         write(flush_unit, *) 'flushed at i_time ', i_time
         call date_and_time(zone=zone)
@@ -715,11 +726,10 @@ program test
      call correct_so
      call dump_solvent_species_h5md
   end if
-  if (do_pf) then
-     call h5md_close_ID(pf1 % c_ID)
-     call h5md_close_ID(pf1 % v_ID)
-     call h5md_close_ID(pf1 % t_ID)
-  end if
+
+  call h5md_close_ID(pf1 % c_ID)
+  call h5md_close_ID(pf1 % v_ID)
+  call h5md_close_ID(pf1 % t_ID)
 
   call end_h5md
 
@@ -792,6 +802,7 @@ contains
     call h5md_create_obs(file_ID, 'so_kin', so_kinID, sol_kin, link_from='energy')
     call h5md_create_obs(file_ID, 'at_kin', at_kinID, at_kin, link_from='energy')
     call h5md_create_obs(file_ID, 'total_v', total_vID, total_v, link_from='energy')
+    call h5md_create_obs(file_ID, 'vmem', vmemID, vmem, link_from='energy')
     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
        call h5md_create_obs(file_ID, 'v_com_1', vs1ID, v_sub1)
        call h5md_create_obs(file_ID, 'v_com_2', vs2ID, v_sub2, link_from='v_com_1')
@@ -829,6 +840,7 @@ contains
     call h5md_open_ID(file_ID, so_kinID, 'observables', 'so_kin')
     call h5md_open_ID(file_ID, at_kinID, 'observables', 'at_kin')
     call h5md_open_ID(file_ID, total_vID, 'observables', 'total_v')
+    call h5md_open_ID(file_ID, vmemID, 'observables', 'vmem')
     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
        call h5md_open_ID(file_ID, vs1ID, 'observables', 'v_com_1')
        call h5md_open_ID(file_ID, vs2ID, 'observables', 'v_com_2')
@@ -840,7 +852,11 @@ contains
        call h5md_open_ID(file_ID, rs1ID, 'observables', 'r_com')
        call h5md_open_ID(file_ID, colloid_forceID, 'observables', 'colloid_force')
     end if
-    if (do_pf) call reload_polar_fields(pf1, so_sys%N_species, 100, 0.1d0, 32, file_id, 'colloid1')
+    if (is_janus) then
+       call reload_polar_fields(pf1, so_sys%N_species, 100, 0.1d0, 32, file_id, 'colloid1')
+    else
+       call reload_polar_fields(pf1, so_sys%N_species, 70, 0.1d0, 32, file_id, 'colloid1')
+    end if
   end subroutine renew_h5md
 
 
@@ -861,6 +877,7 @@ contains
     call h5md_close_ID(so_kinID)
     call h5md_close_ID(at_kinID)
     call h5md_close_ID(total_vID)
+    call h5md_close_ID(vmemID)
     if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
        call h5md_close_ID(vs1ID)
        call h5md_close_ID(vs2ID)
