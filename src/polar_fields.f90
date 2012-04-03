@@ -111,7 +111,7 @@ contains
     norm = sqrt( sum( dir**2 ) )
     unit_r = dir / norm
     
-    extent = ceiling( (pft % dr * pft % Nr) * oo_a  )
+    extent = ceiling( (pft % dr * pft % Nr) * oo_a  )+1
 
     call indices(x0, cc)
     do ck= cc(3) - extent, cc(3) + extent
