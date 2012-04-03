@@ -366,27 +366,36 @@ contains
 
   subroutine MD_step1
 
-    integer :: at_i, i
+    integer :: at_i, i, at_g
 
     do i=1,so_sys%N(0)
        if (is_MD(i)) so_r(:,i) = so_r(:,i) + so_v(:,i) * DT + so_f(:,i) * DT**2 * 0.5d0 * so_sys % oo_mass(so_species(i))
     end do
-    do at_i=1,at_sys%N(0)
-       at_r(:,at_i) = at_r(:,at_i) + at_v(:,at_i) * DT + at_f(:,at_i) * DT**2 * 0.5d0 * at_sys % oo_mass( at_species(at_i) )
+
+    do at_g = 1, N_groups
+       if (group_list(at_g)%g_type.eq.FIXED_G) cycle
+       do at_i = group_list(at_g) % istart, group_list(at_g) % istart + group_list(at_g) % N - 1
+          at_r(:,at_i) = at_r(:,at_i) + &
+               at_v(:,at_i) * DT + at_f(:,at_i) * DT**2 * 0.5d0 * at_sys % oo_mass( at_species(at_i) )
+       end do
     end do
     
   end subroutine MD_step1
 
   subroutine MD_step2
 
-    integer :: at_i, i
+    integer :: at_i, i, at_g
 
     do i=1,so_sys%N(0)
        if (is_MD(i)) so_v(:,i) = so_v(:,i) + 0.5d0 * DT * (so_f(:,i) + so_f_old(:,i)) * so_sys % oo_mass( so_species(i) )
     end do
 
-    do at_i=1, at_sys%N(0)
-       at_v(:,at_i) = at_v(:,at_i) + 0.5d0 * DT * (at_f(:,at_i) + at_f_old(:,at_i) ) * at_sys % oo_mass( at_species(at_i) )
+    do at_g = 1, N_groups
+       if (group_list(at_g)%g_type.eq.FIXED_G) cycle
+       do at_i = group_list(at_g) % istart, group_list(at_g) % istart + group_list(at_g) % N - 1
+          at_v(:,at_i) = at_v(:,at_i) + &
+               0.5d0 * DT * (at_f(:,at_i) + at_f_old(:,at_i) ) * at_sys % oo_mass( at_species(at_i) )
+       end do
     end do
 
   end subroutine MD_step2
@@ -468,11 +477,14 @@ contains
        
     end do
 
-    do at_i = 1,at_sys%N(0)
-       at_si = at_species(at_i)
-       at_kin = at_kin + 0.5d0 * at_sys%mass( at_si ) * sum( at_v(:,at_i)**2 )
-       at_mass = at_mass + at_sys%mass( at_si )
-       at_mom = at_mom + at_sys%mass( at_si ) * at_v(:,at_i)
+    do at_g = 1, N_groups
+       if (group_list(at_g)%g_type.eq.FIXED_G) cycle
+       do at_i = group_list(at_g) % istart, group_list(at_g) % istart + group_list(at_g) % N - 1
+          at_si = at_species(at_i)
+          at_kin = at_kin + 0.5d0 * at_sys%mass( at_si ) * sum( at_v(:,at_i)**2 )
+          at_mass = at_mass + at_sys%mass( at_si )
+          at_mom = at_mom + at_sys%mass( at_si ) * at_v(:,at_i)
+       end do
     end do
 
     excess = 0.d0

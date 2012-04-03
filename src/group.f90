@@ -52,6 +52,8 @@ module group
   integer, parameter :: ELAST_G=3
   !> g_type parameter for an shake/rattle compound.
   integer, parameter :: SHAKE_G=4
+  !> g_type parameter for a fixed compound.
+  integer, parameter :: FIXED_G=5
 
 contains
 
@@ -103,6 +105,10 @@ contains
        s = PTread_ivec(CF,'group'//group_index//'species',2)
        group_var % species1 = s(1)
        group_var % species2 = s(2)
+    case('fixed')
+       group_var % g_type = FIXED_G
+       group_var % N = PTread_i(CF,'group'//group_index//'N')
+       group_var % species1 = PTread_i(CF,'group'//group_index//'species')
     case default
        write(*,*) 'unknown type for', g_string
        stop
