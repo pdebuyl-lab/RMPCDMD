@@ -119,7 +119,7 @@ program test
   call config_MD
   
   do i=1,N_groups
-     if (group_list(i)%g_type == ATOM_G) then
+     if ((group_list(i)%g_type == ATOM_G) .or. (group_list(i)%g_type == FIXED_G)) then
         call config_atom_group(group_list(i))
      else if (group_list(i)%g_type == DIMER_G) then
         call config_dimer_group(group_list(i))
@@ -424,7 +424,11 @@ program test
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
 
-        vmem = (1.d0 - DT/10.d0) * vmem + DT/10.d0 * at_v(:,1)
+        if (group_list(1)%g_type.eq.FIXED_G) then
+           vmem = (/ 1.d0, 0.d0, 0.d0 /)
+        else
+           vmem = (1.d0 - DT/10.d0) * vmem + DT/10.d0 * at_v(:,1)
+        end if
 
      end do
 
@@ -532,7 +536,11 @@ program test
 
         if (reactive) call reac_loop
 
-        vmem = (1.d0 - DT/10.d0) * vmem + DT/10.d0 * at_v(:,1)
+        if (group_list(1)%g_type.eq.FIXED_G) then
+           vmem = (/ 1.d0, 0.d0, 0.d0 /)
+        else
+           vmem = (1.d0 - DT/10.d0) * vmem + DT/10.d0 * at_v(:,1)
+        end if
 
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
