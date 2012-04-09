@@ -223,7 +223,7 @@ contains
 
     integer :: at_i, i, part
     integer :: ci, cj, ck, mi, mj, mk
-    integer :: Si, Sj, Sk
+    integer :: cc(3)
     integer :: extent
     double precision :: dist_sqr, neigh_sqr, x(3)
 
@@ -240,14 +240,12 @@ contains
 
     do at_i=1,at_sys%N(0)
        
-       extent = ceiling( maxval(at_so%neigh(at_species(at_i),:) ) * oo_a )
+       extent = ceiling( maxval(at_so%neigh(at_species(at_i),:) ) * oo_a )+1
 
-       Si = floor( (at_r(1,at_i)-shift(1)) * oo_a ) + 1
-       Sj = floor( (at_r(2,at_i)-shift(2)) * oo_a ) + 1
-       Sk = floor( (at_r(3,at_i)-shift(3)) * oo_a ) + 1
-       do ck= Sk - extent, Sk + extent
-          do cj = Sj - extent, Sj + extent
-             do ci = Si - extent, Si + extent
+       call indices(at_r(:,at_i), cc)
+       do ck= cc(3) - extent, cc(3) + extent
+          do cj = cc(2) - extent, cc(2) + extent
+             do ci = cc(1) - extent, cc(1) + extent
                 mi = modulo(ci-1,N_cells(1)) + 1 ; mj = modulo(cj-1,N_cells(2)) + 1 ; mk = modulo(ck-1,N_cells(3)) + 1 ; 
                 do i=1,par_list(0,mi,mj,mk)
                    call rel_pos(so_r(:,par_list(i,mi,mj,mk)) , at_r(:,at_i) , L, x)
