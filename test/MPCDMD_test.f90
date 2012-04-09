@@ -580,23 +580,7 @@ program test
         call compute_f
      end if
 
-     
-     if (do_shifting) then
-        shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-        shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-        shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-     end if
-
      com_g1 = modulo(group_list(1) % r, L)
-
-     call correct_so
-     if (collide) then
-        call place_in_cells
-        call compute_v_com
-        call generate_omega
-        if (switch) call switch_off(com_g1, 7.d0)
-        !call simple_MPCD_step
-     end if
 
      if (is_janus) then
         call rel_pos(com_r(group_list(1),1),com_r(group_list(1),2),L,x_temp)
@@ -604,9 +588,22 @@ program test
         x_temp = vmem
      end if
      call update_polar_fields(pf1, com_g1, x_temp)
+     
 
+
+     call correct_so
      if (collide) then
+        call place_in_cells
+        call compute_v_com
+        call generate_omega
+        if (switch) call switch_off(com_g1, 7.d0)
         call simple_MPCD_step
+     end if
+
+     if (do_shifting) then
+        shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
      end if
 
 
@@ -632,7 +629,7 @@ program test
               if (so_do_reac(i)) then
                  call rel_pos( so_r(:,i), com_g1, L, x_temp)
                  if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
-                    so_do_reac = .false.
+                    so_do_reac(i) = .false.
                  end if
               end if
            end do
@@ -938,7 +935,7 @@ contains
     temp_list = 0
 
     do i=1,so_sys%N(0)
-       cc = floor(so_r(:,i) * oo_a) + 1
+       call indices(so_r(:,i),cc)
        ci = cc(1) ; cj = cc(2) ; ck = cc(3)
        
        if ( ( maxval( (cc-1)/N_cells ) .ge. 1) .or. ( minval( (cc-1)/N_cells ) .lt. 0) ) then
