@@ -111,7 +111,7 @@ contains
     norm = sqrt( sum( dir**2 ) )
     unit_r = dir / norm
     
-    extent = ceiling( (pft % dr * pft % Nr) * oo_a  )+1
+    extent = ceiling( (pft % dr * pft % Nr) * oo_a  ) + 1
 
     call indices(x0, cc)
     do ck= cc(3) - extent, cc(3) + extent
@@ -128,7 +128,12 @@ contains
                    t = 0.d0
                 end if
 
-                v = Vcom(1:3,mi,mj,mk)/Vcom(4,mi,mj,mk)
+                if (Vcom(4,mi,mj,mk)>0.d0) then
+                   v = Vcom(1:3,mi,mj,mk)/Vcom(4,mi,mj,mk)
+                else
+                   v = 0.d0
+                end if
+
                 do i=1,par_list(0,mi,mj,mk)
                    part = par_list(i,mi,mj,mk)
                    part_s = so_species(part)
@@ -161,7 +166,7 @@ contains
                       end if
                    end if
                 end do
-                if (par_list(0,mi,mj,mk) > 1) then
+                if (do_t .and. (par_list(0,mi,mj,mk) .gt. 1)) then
                    x_cell = cell_center(mi,mj,mk)
                    call rel_pos(x_cell, x0, L, x)
                    r = sqrt(sum(x**2))
