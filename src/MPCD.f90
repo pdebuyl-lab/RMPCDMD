@@ -183,7 +183,7 @@ contains
     integer, intent(in) :: ci,cj,ck
     double precision :: cell_center(3)
 
-    cell_center = shift + dble( (/ ci, cj, ck /) ) * a
+    cell_center = shift + (dble( (/ ci, cj, ck /) ) -0.5d0) * a
 
   end function cell_center
 
@@ -367,8 +367,8 @@ contains
 
     s_lt_one = .false.
     do while (.not. s_lt_one)
-       n(1) = mtprng_rand_real1(ran_state)
-       n(2) = mtprng_rand_real1(ran_state)
+       n(1) = 2.d0*mtprng_rand_real1(ran_state)-1.d0
+       n(2) = 2.d0*mtprng_rand_real1(ran_state)-1.d0
        s = n(1)**2 + n(2)**2
        if ( s<1.d0 ) s_lt_one = .true.
     end do
