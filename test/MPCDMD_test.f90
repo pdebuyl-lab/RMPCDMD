@@ -371,7 +371,7 @@ program test
 
   reneigh = 0
   N_MD_since_re = 0
-  max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.5d0
+  max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.4d0
   write(*,*) 'max_d = ', max_d
 
   vmem = 0.d0
