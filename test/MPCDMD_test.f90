@@ -371,7 +371,7 @@ program test
 
   reneigh = 0
   N_MD_since_re = 0
-  max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.4d0
+  max_d = min( minval( at_at%neigh - at_at%cut ) , minval( at_so%neigh - at_so%cut ) ) * 0.48d0
   write(*,*) 'max_d = ', max_d
 
   vmem = 0.d0
@@ -596,7 +596,7 @@ program test
         call place_in_cells
         call compute_v_com
         call generate_omega
-        if (switch) call switch_off(com_g1, 7.d0)
+        if (switch) call switch_off(com_g1, maxval(at_so % cut(1,:))+a*sqrt(3.d0)/2.d0 )
         call simple_MPCD_step
      end if
 
@@ -780,9 +780,9 @@ contains
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
 
-             call rel_pos(x0-shift, (/ (ci-0.5d0)*a, (cj-0.5d0)*a, (ck-0.5d0)*a /), L, x)
-             
-             if (sqrt(sum(x**2)) < rcut) par_list(0,ci,cj,ck)=0
+             call rel_pos( cell_center(ci,cj,ck) , x0, L, x)
+             if (sum(x**2) < rcut**2) omega(:,:,ci,cj,ck) = reshape( &
+(/ 1.d0, 0.d0, 0.d0, 0.d0, 1.d0, 0.d0, 0.d0, 0.d0, 1.d0 /), (/ 3, 3 /) )
 
           end do
        end do
