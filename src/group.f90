@@ -42,6 +42,8 @@ module group
      double precision :: v(3)
      !> Total force on the group.
      double precision :: f(3)
+     !> Number of radial points for polar_field.
+     integer :: N_radial
   end type group_t
 
   !> g_type parameter for unbound LJ atoms.
@@ -113,6 +115,8 @@ contains
        write(*,*) 'unknown type for', g_string
        stop
     end select
+
+    group_var % N_radial = PTread_i(CF,'group'//group_index//'N_radial')
 
     group_var % N_sub = PTread_i(CF,'group'//group_index//'Nsub')
     if (group_var % N_sub > 0) then

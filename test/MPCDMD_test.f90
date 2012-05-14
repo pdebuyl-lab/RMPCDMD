@@ -361,10 +361,8 @@ program test
      end if
      if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
         is_janus = .true.
-        call init_polar_fields(pf1, so_sys%N_species, 100, 0.1d0, 32, file_id, 'colloid1')
-     else
-        call init_polar_fields(pf1, so_sys%N_species, 70, 0.1d0, 32, file_id, 'colloid1')
      end if
+     if (group_list(1) % N_radial > 0) call init_polar_fields(pf1, so_sys%N_species, group_list(1) % N_radial, 0.1d0, 32, file_id, 'colloid1')
   end if
   if (checkpoint <= 0) call h5md_set_box_size(posID, (/ 0.d0, 0.d0, 0.d0 /) , L)
 
@@ -587,7 +585,7 @@ program test
      else
         x_temp = vmem
      end if
-     call update_polar_fields(pf1, com_g1, x_temp)
+     if (group_list(1) % N_radial > 0) call update_polar_fields(pf1, com_g1, x_temp)
      
 
 
@@ -698,7 +696,7 @@ program test
      if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
 
      if (mod(i_time, 100).eq.0) then
-        call write_polar_fields(pf1, i_MD_time, realtime)
+        if (group_list(1) % N_radial > 0) call write_polar_fields(pf1, i_MD_time, realtime)
         call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
         write(flush_unit, *) 'flushed at i_time ', i_time
         call date_and_time(zone=zone)
@@ -739,9 +737,11 @@ program test
      call dump_solvent_species_h5md
   end if
 
-  call h5md_close_ID(pf1 % c_ID)
-  call h5md_close_ID(pf1 % v_ID)
-  call h5md_close_ID(pf1 % t_ID)
+  if (group_list(1) % N_radial > 0) then
+     call h5md_close_ID(pf1 % c_ID)
+     call h5md_close_ID(pf1 % v_ID)
+     call h5md_close_ID(pf1 % t_ID)
+  end if
 
   call end_h5md
 
@@ -864,11 +864,7 @@ contains
        call h5md_open_ID(file_ID, rs1ID, 'observables', 'r_com')
        call h5md_open_ID(file_ID, colloid_forceID, 'observables', 'colloid_force')
     end if
-    if (is_janus) then
-       call reload_polar_fields(pf1, so_sys%N_species, 100, 0.1d0, 32, file_id, 'colloid1')
-    else
-       call reload_polar_fields(pf1, so_sys%N_species, 70, 0.1d0, 32, file_id, 'colloid1')
-    end if
+    if (group_list(1) % N_radial > 0) call reload_polar_fields(pf1, so_sys%N_species, group_list(1) % N_radial, 0.1d0, 32, file_id, 'colloid1')
   end subroutine renew_h5md
 
 
