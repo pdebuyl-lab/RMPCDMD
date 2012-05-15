@@ -32,6 +32,7 @@ program test
   integer :: N_th_loop
   integer :: N_reset_fuel
   character(len=16) :: reset_reac
+  double precision :: reset_radius
   logical :: reactive, collide, switch
   integer :: checkpoint
 
@@ -235,6 +236,7 @@ program test
   end if
   so_do_reac = .false.
   N_reset_fuel = PTread_i(CF, 'N_reset_fuel')
+  reset_radius = PTread_d(CF, 'reset_radius')
   reset_reac = PTread_s(CF, 'reset_reac')
 
   collide = PTread_l(CF, 'collide')
@@ -625,7 +627,7 @@ program test
            do i=1,so_sys%N(0)
               if (so_species(i) .eq. 2) then
                  call rel_pos( so_r(:,i), com_g1, L, x_temp)
-                 if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
+                 if ( sqrt( sum(x_temp**2) ) > reset_radius ) then
                     so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) - 1
                     so_species(i) = 1
                     so_sys % N( so_species(i) ) = so_sys % N( so_species(i) ) + 1
@@ -633,7 +635,7 @@ program test
               end if
               if (so_do_reac(i)) then
                  call rel_pos( so_r(:,i), com_g1, L, x_temp)
-                 if ( sqrt( sum(x_temp**2) ) > 12.d0 ) then
+                 if ( sqrt( sum(x_temp**2) ) > reset_radius ) then
                     so_do_reac(i) = .false.
                  end if
               end if
@@ -652,7 +654,7 @@ program test
                     cc(1) = ci
                     if ( par_list(0,ci,cj,ck) < 4 ) cycle inner_cell
                     call rel_pos( cell_center(ci,cj,ck) , com_g1, L, x_temp)
-                    if ( sum(x_temp**2) .le. 10.d0**2 ) cycle inner_cell
+                    if ( sum(x_temp**2) .le. reset_radius**2 ) cycle inner_cell
                     number_b = 0
                     cell_loop: do i=1,par_list(0,ci,cj,ck)
                        j = par_list(i,ci,cj,ck)
