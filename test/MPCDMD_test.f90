@@ -600,7 +600,7 @@ program test
            do i=1,N_groups
               do j=1,group_list(i) % N
                  idx1 = group_list(i) % istart + j - 1
-                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:)) )
+                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:))+a)
               end do
            end do
         end if
