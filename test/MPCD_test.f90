@@ -3,6 +3,7 @@ program test
   use MPCD
   use ParseText
   use MPCDMD
+  use volume_reaction
   implicit none
   
   type(PTo) :: CF
@@ -10,6 +11,8 @@ program test
   integer :: i_time, i_in, N_outer, N_loop
   double precision :: MPCD_kin, MPCD_kin_0, MPCD_mom(3), MPCD_mom_0(3)
   integer :: seed
+  type(vol_reac_t), allocatable :: reaction_list(:)
+  integer :: N_reactions, i
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -26,6 +29,15 @@ program test
   call config_sys(so_sys,'so',CF)
 
   call config_MPCD(CF)
+
+  N_reactions = PTread_i(CF,'N_reactions')
+  if (N_reactions > 0) allocate(reaction_list(N_reactions))
+
+  if (N_reactions > 0) then
+     do i=1,N_reactions
+        call add_vol_reac(CF, reaction_list(i), i, so_sys % N_species)
+     end do
+  end if
 
   call homogeneous_solvent(PTread_d(CF,'so_T'))
 
@@ -94,6 +106,20 @@ contains
        end do
     end do
   end subroutine correct_so
+
+  subroutine reac_loop
+    implicit none
+    integer :: ci,cj,ck
+
+    do ck=1,N_cells(3)
+       do cj=1,N_cells(2)
+          do ci=1,N_cells(1)
+             call cell_reaction(ci,cj,ck,N_reactions,reaction_list,tau)
+          end do
+       end do
+    end do
+
+  end subroutine reac_loop
 
 end program test
 

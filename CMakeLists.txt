@@ -30,7 +30,7 @@ target_link_libraries(MPCDMD_test ParseText mtprng ${HDF5FORTRANLIB} ${HDF5LIB} 
 add_dependencies(MPCDMD_test MPCDMD_version)
 
 add_executable(MPCD_test src/MPCDMD.f90 src/MPCD.f90 src/group.f90
-src/sys.f90 test/MPCD_test.f90)
+src/sys.f90 src/volume_reaction.f90 test/MPCD_test.f90)
 target_link_libraries(MPCD_test ParseText mtprng ${HDF5FORTRANLIB} ${HDF5LIB} ${ZLIB} ${SZLIB})
 add_dependencies(MPCD_test MPCDMD_version)
 
