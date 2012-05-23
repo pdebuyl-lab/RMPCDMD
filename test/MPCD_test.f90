@@ -41,6 +41,7 @@ program test
   call homogeneous_solvent(PTread_d(CF,'so_T'))
 
   tau=PTread_d(CF,'tau')
+  MPCD_tau = tau
   do_shifting = PTread_l(CF, 'shifting')
   N_outer = PTread_i(CF,'N_outer')
   N_loop = PTread_i(CF,'N_loop')

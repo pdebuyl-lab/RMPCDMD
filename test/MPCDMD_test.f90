@@ -3,6 +3,7 @@ program test
   use group
   use LJ
   use MPCD
+  use volume_reaction
   use MD
   use ParseText
   use MPCDMD
@@ -117,8 +118,17 @@ program test
   if (checkpoint <= 0) call h5md_write_par(file_ID, 'N_cells', N_cells)
   if (checkpoint <= 0) call h5md_write_par(file_ID, 'cell_unit', a)
 
+  N_reactions = PTread_i(CF,'N_reactions')
+  if (N_reactions > 0) allocate(reaction_list(N_reactions))
+
+  if (N_reactions > 0) then
+     do i=1,N_reactions
+        call add_vol_reac(CF, reaction_list(i), i, so_sys % N_species)
+     end do
+  end if
+
   call config_MD
-  
+
   do i=1,N_groups
      if ((group_list(i)%g_type == ATOM_G) .or. (group_list(i)%g_type == FIXED_G)) then
         call config_atom_group(group_list(i))
@@ -309,6 +319,8 @@ program test
   if (checkpoint > 0) N_th_loop = 0
   MD_DT = PTread_d(CF, 'DT')
   DT = MD_DT
+  MPCD_tau = DT*dble(N_MD_loop)
+
   if (checkpoint <= 0) call h5md_write_par(file_ID, 'DT', DT)
   h = PTread_d(CF, 'h')
   collect_atom = PTread_i(CF,'collect_atom')
@@ -604,7 +616,7 @@ program test
               end do
            end do
         end if
-        call simple_MPCD_step
+        call chem_MPCD_step
      end if
 
      if (do_shifting) then
@@ -785,13 +797,18 @@ contains
     integer :: ci,cj,ck
     double precision :: x(3)
 
+    cell_active = .true.
+
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
 
              call rel_pos( cell_center(ci,cj,ck) , x0, L, x)
-             if (sum(x**2) < rcut**2) omega(:,:,ci,cj,ck) = reshape( &
+             if (sum(x**2) < rcut**2) then
+                omega(:,:,ci,cj,ck) = reshape( &
 (/ 1.d0, 0.d0, 0.d0, 0.d0, 1.d0, 0.d0, 0.d0, 0.d0, 1.d0 /), (/ 3, 3 /) )
+                cell_active(ci,cj,ck) = .false.
+             end if
 
           end do
        end do

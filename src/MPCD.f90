@@ -27,6 +27,8 @@ module MPCD
   double precision, allocatable :: Vcom(:,:,:,:)
   !> rotation matrix for each cell.
   double precision, allocatable :: omega(:,:,:,:,:)
+  !> cell_active controls wether a cell reacts or not.
+  logical, allocatable :: cell_active(:,:,:)
   !> The length of a cell.
   double precision :: a
   !> The inverse length of a cell.
@@ -37,6 +39,8 @@ module MPCD
   double precision :: oo_L(3)
   !> The MPCD streaming step.
   double precision :: tau
+  !> The MPCD time step. May be different than tau if streaming is performed for partial steps.
+  double precision :: MPCD_tau
   !> Switch to activate gridshifting.
   logical :: do_shifting
   !> Value of the shift. Is kept between -a/2 and a/2.
@@ -114,6 +118,8 @@ contains
     allocate(par_list(0:max_per_cell,N_cells(1),N_cells(2),N_cells(3)))
     allocate(Vcom(4,N_cells(1),N_cells(2),N_cells(3)))
     allocate(omega(3,3,N_cells(1),N_cells(2),N_cells(3)))
+    allocate(cell_active(N_cells(1),N_cells(2),N_cells(3)))
+    cell_active = .true.
     
     allocate(so_r(3,so_sys%N_max))
     allocate(so_v(3,so_sys%N_max))
@@ -317,7 +323,10 @@ contains
                 so_v(:,j) = matmul(om,so_v(:,j))
                 so_v(:,j) = so_v(:,j) + vv(1:3)
              end do
-             if (N_reactions > 0) call cell_reaction(ci,cj,ck,N_reactions,reaction_list,tau)
+             if (N_reactions > 0) then
+                if (cell_active(ci,cj,ck)) &
+                     call cell_reaction(ci,cj,ck,N_reactions,reaction_list,MPCD_tau)
+             end if
           end do
        end do
     end do
