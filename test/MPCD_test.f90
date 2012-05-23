@@ -11,8 +11,7 @@ program test
   integer :: i_time, i_in, N_outer, N_loop
   double precision :: MPCD_kin, MPCD_kin_0, MPCD_mom(3), MPCD_mom_0(3)
   integer :: seed
-  type(vol_reac_t), allocatable :: reaction_list(:)
-  integer :: N_reactions, i
+  integer :: i
 
   call MPCDMD_info
   call mtprng_info(short=.true.)
@@ -53,6 +52,8 @@ program test
   write(*,'(4e28.18)') MPCD_kin_0, MPCD_mom_0
 
   open(11,file='kin_mom')
+  open(12,file='N_of_t')
+  write(12,*) so_sys % N
 
   shift = 0.d0
   
@@ -62,7 +63,7 @@ program test
         call place_in_cells
         call compute_v_com
         call generate_omega
-        call simple_MPCD_step
+        call chem_MPCD_step
         call MPCD_stream
 
         if (do_shifting) then
@@ -77,6 +78,7 @@ program test
 
      call compute_en_mom(MPCD_kin,MPCD_mom)
      write(11,'(4e28.18)') MPCD_kin-MPCD_kin_0,MPCD_mom-MPCD_mom_0
+     write(12,*) so_sys % N
 
   end do
 
@@ -107,19 +109,6 @@ contains
     end do
   end subroutine correct_so
 
-  subroutine reac_loop
-    implicit none
-    integer :: ci,cj,ck
-
-    do ck=1,N_cells(3)
-       do cj=1,N_cells(2)
-          do ci=1,N_cells(1)
-             call cell_reaction(ci,cj,ck,N_reactions,reaction_list,tau)
-          end do
-       end do
-    end do
-
-  end subroutine reac_loop
 
 end program test
 

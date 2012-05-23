@@ -7,6 +7,7 @@
 module MPCD
   use sys
   use mtprng
+  use volume_reaction
   implicit none
 
   !> Value of Pi computed via N[Pi,35] in Mathematica
@@ -73,6 +74,15 @@ module MPCD
   integer, allocatable :: N_MD(:)
   !> Stores the maximum number of MD steps that can be done before streaming the non-MD MPCD particles.
   integer :: N_MD_max
+
+
+  ! Chemical reaction variables
+
+  !> List of volume chemical reactions.
+  type(vol_reac_t), allocatable :: reaction_list(:)
+  !> Number of volume chemical reactions.
+  integer :: N_reactions
+
 
   !> Information on the solvent system, based on sys_t from the sys group.
   type(sys_t) :: so_sys
@@ -287,6 +297,33 @@ contains
 
   end subroutine simple_MPCD_step
 
+  !> Collides the particles whithin each cell, according to their precomputed
+  !! rotation matrix. Applies chemical reactions if appropriate.
+  subroutine chem_MPCD_step
+
+    integer :: i, j
+    integer :: ci,cj,ck
+    double precision :: om(3,3),vv(4)
+
+    do ck=1,N_cells(3)
+       do cj=1,N_cells(2)
+          do ci=1,N_cells(1)
+             vv = Vcom(:,ci,cj,ck)
+             if (vv(4)>0.d0) vv(1:3) = vv(1:3)/vv(4)
+             om = omega(:,:,ci,cj,ck)
+             do i=1,par_list(0,ci,cj,ck)
+                j = par_list(i,ci,cj,ck)
+                so_v(:,j) = so_v(:,j) - vv(1:3)
+                so_v(:,j) = matmul(om,so_v(:,j))
+                so_v(:,j) = so_v(:,j) + vv(1:3)
+             end do
+             if (N_reactions > 0) call cell_reaction(ci,cj,ck,N_reactions,reaction_list,tau)
+          end do
+       end do
+    end do
+
+  end subroutine chem_MPCD_step
+
   !> Advances all particles according to their velocity, for 
   !! a time of tau.
   subroutine MPCD_stream
@@ -406,5 +443,141 @@ contains
     end do
 
   end subroutine add_energy
+
+  !> This routine performs the A to B bulk chemical reaction.
+  !! @param ci Index i of the cell in which the particle belongs.
+  !! @param cj Index j of the cell in which the particle belongs.
+  !! @param ck Index k of the cell in which the particle belongs.
+  !! @param vr_var The vol_reac_t variable.
+  subroutine vol_A_to_B(ci,cj,ck,vr_var)
+    implicit none
+    integer, intent(in) :: ci,cj,ck
+    type(vol_reac_t), intent(in) :: vr_var
+
+    integer :: i, part
+    logical :: found
+
+    found = .false.
+    do i=1,par_list(0,ci,cj,ck)
+       part = par_list(i,ci,cj,ck)
+       if (so_species(part) .eq. vr_var % reac(1)) then
+          so_species(part) = vr_var % prod(1)
+          so_sys % N(vr_var % reac(1)) = so_sys % N(vr_var % reac(1)) - 1
+          so_sys % N(vr_var % prod(1)) = so_sys % N(vr_var % prod(1)) + 1
+          found = .true.
+          exit
+       end if
+    end do
+
+    if (not(found)) stop 'reactant not found in vol_A_to_B'
+
+  end subroutine vol_A_to_B
+
+  !> This function computes the combinatorial term h_\mu^\xi defined
+  !! in Rohlf et al, Comp. Phys. Comm. 179, pp 132 (2008), Eq. (14).
+  !! @param ci Index i of the cell in which the particle belongs.
+  !! @param cj Index j of the cell in which the particle belongs.
+  !! @param ck Index k of the cell in which the particle belongs.
+  !! @param vr_var The vol_reac_t variable.
+  function combi(ci,cj,ck,vr_var)
+    implicit none
+    integer, intent(in) :: ci,cj,ck
+    type(vol_reac_t), intent(in) :: vr_var
+    integer :: combi
+
+    integer :: i, part
+    integer, allocatable :: local_n(:)
+    allocate(local_n(so_sys % N_species))
+    local_n = 0
+
+    do i=1,par_list(0,ci,cj,ck)
+       part = par_list(i,ci,cj,ck)
+       local_n(so_species(part)) = local_n(so_species(part)) + 1
+    end do
+    combi = 1
+    do i=1,so_sys % N_species
+       if (local_n(i) < vr_var % species_reac(i)) then
+          combi = 0
+          deallocate(local_n)
+          return
+       end if
+       if (vr_var % species_reac(i).eq.0) cycle
+       combi = combi * partial_factorial( local_n(i) , vr_var % species_reac(i) )
+    end do
+
+    deallocate(local_n)
+
+  contains
+
+    !> Computes n! / (n-nu)!
+    !! @param n
+    !! @param nu
+    function partial_factorial(n, nu)
+      implicit none
+      integer, intent(in) :: n, nu
+      integer :: partial_factorial
+
+      integer :: i
+
+      partial_factorial = 1
+      do i=n-nu+1, n
+         partial_factorial = partial_factorial * i
+      end do
+
+    end function partial_factorial
+
+  end function combi
+
+  !> This routine performs all the steps that are needed to apply the
+  !! RMPCD algorithm to a given MCPD cell.
+  !! @param ci Index i of the cell in which the particle belongs.
+  !! @param cj Index j of the cell in which the particle belongs.
+  !! @param ck Index k of the cell in which the particle belongs.
+  !! @param n_reac The number of reactions to consider.
+  !! @param reac_list An array of vol_reac_t variables.
+  !! @param interval The time interval for the reaction.
+  subroutine cell_reaction(ci,cj,ck,n_reac,reac_list,interval)
+    implicit none
+    integer, intent(in) :: ci,cj,ck, n_reac
+    type(vol_reac_t), intent(in) :: reac_list(:)
+    double precision, intent(in) :: interval
+
+    integer :: i, idx_reac
+    double precision :: a0, p_something, x
+    double precision, allocatable :: amu(:)
+    allocate(amu(n_reac))
+
+    a0 = 0.d0
+    do i=1,n_reac
+       amu(i) = combi(ci,cj,ck,reac_list(i))*reac_list(i)%rate
+       a0 = a0 + amu(i)
+    end do
+    p_something = a0*interval
+
+    if (mtprng_rand_real1(ran_state) >= p_something) then
+       deallocate(amu)
+       return
+    end if
+    amu = amu/a0
+    do i=2,n_reac
+       amu(i) = amu(i)+amu(i-1)
+    end do
+    x = mtprng_rand_real1(ran_state)
+    do i=1,n_reac
+       if (x<amu(i)) then
+          idx_reac = i
+          exit
+       end if
+    end do
+
+    if (idx_reac .eq. AtoB_R) then
+       call vol_A_to_B(ci,cj,ck,reac_list(idx_reac))
+    else
+       write(*,*) 'unknown reaction type in cell_reaction'
+    end if
+
+  deallocate(amu)
+
+  end subroutine cell_reaction
 
 end module MPCD
