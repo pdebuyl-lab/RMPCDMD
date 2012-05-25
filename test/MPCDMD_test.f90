@@ -405,8 +405,8 @@ program test
         end do
         N_MD_since_re = N_MD_since_re + 1
 
-        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
-             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
+        if ( (max_displ(so_r,so_r_neigh,so_sys%N(0)) > max_d) .or. &
+             (max_displ(at_r,at_r_neigh) > max_d) .or. &
              (N_MD_since_re.ge.N_MD_max)) then
 
            tau = N_MD_since_re*DT
@@ -518,8 +518,8 @@ program test
         end do
         N_MD_since_re = N_MD_since_re + 1
 
-        if ( (maxval( sum( (so_r - so_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
-             (maxval( sum( (at_r - at_r_neigh)**2 , dim=1 ) ) > max_d**2) .or. &
+        if ( (max_displ(so_r,so_r_neigh,so_sys%N(0)) > max_d) .or. &
+             (max_displ(at_r,at_r_neigh) > max_d) .or. &
              (N_MD_since_re.ge.N_MD_max)) then
 
            tau = N_MD_since_re*DT

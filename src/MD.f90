@@ -514,6 +514,41 @@ contains
 
   end subroutine rel_pos
 
+  !> Computes the maximum displacement between two sets of positions. Takes into
+  !! account the boundary conditions thanks to rel_pos.
+  !! @param r1 First set of positions.
+  !! @param r2 Second set of positions.
+  !! @param i_max The upper index to consider.
+  !! @return The maximum displacement between r1 and r2.
+  function max_displ(r1,r2,i_max) result(m)
+    implicit none
+    double precision, intent(in) :: r1(:,:), r2(:,:)
+    integer, intent(in), optional :: i_max
+    double precision :: m
+
+    integer :: i, local_max
+    double precision :: x(3), xsqr
+
+    if (present(i_max)) then
+       local_max = i_max
+       if (local_max > size(r1, dim=2)) then
+          write(*,*) 'excessive i_max ', i_max, ' given in max_displ'
+          stop
+       end if
+    else
+       local_max = size(r1, dim=2)
+    end if
+
+    m = 0.d0
+    do i=1,local_max
+       call rel_pos(r1(:,i),r2(:,i),L,x)
+       xsqr = sum(x**2)
+       if (xsqr > m) m = xsqr
+    end do
+    m = sqrt(m)
+
+  end function max_displ
+
   subroutine config_reac_MD(CF)
     use sys
     use ParseText
