@@ -612,7 +612,7 @@ program test
            do i=1,N_groups
               do j=1,group_list(i) % N
                  idx1 = group_list(i) % istart + j - 1
-                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:))+a)
+                 call switch_off(at_r(:,idx1), maxval(at_so % sig(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, maxval(at_so % cut(at_species(idx1),:))+a)
               end do
            end do
         end if
@@ -791,25 +791,29 @@ contains
     end do
   end subroutine correct_at
 
-  subroutine switch_off(x0, rcut)
-    double precision, intent(in) :: x0(3), rcut
+  subroutine switch_off(x0, rcut, chemcut)
+    double precision, intent(in) :: x0(3), rcut, chemcut
 
     integer :: ci,cj,ck
-    double precision :: x(3)
+    double precision :: x(3), n(3)
 
     cell_active = .true.
 
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
-
              call rel_pos( cell_center(ci,cj,ck) , x0, L, x)
              if (sum(x**2) < rcut**2) then
-                omega(:,:,ci,cj,ck) = reshape( &
-(/ 1.d0, 0.d0, 0.d0, 0.d0, 1.d0, 0.d0, 0.d0, 0.d0, 1.d0 /), (/ 3, 3 /) )
-                cell_active(ci,cj,ck) = .false.
+                n = x/sqrt(sum(x**2))
+                if (mtprng_rand_real1(ran_state) < 0.5d0) n = -n
+                omega(:,:,ci,cj,ck) = &
+                     reshape( (/ &
+                     n(1)**2, n(1)*n(2) + n(3), n(1)*n(3) - n(2) ,&
+                     n(2)*n(1) - n(3) , n(2)**2 , n(2)*n(3) + n(1),&
+                     n(3)*n(1) + n(2), n(3)*n(2) - n(1), n(3)**2 &
+                     /), (/3, 3/))
              end if
-
+             if (sum(x**2) < chemcut**2) cell_active(ci,cj,ck) = .false.
           end do
        end do
     end do
