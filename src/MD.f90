@@ -497,23 +497,6 @@ contains
 
   end subroutine compute_tot_mom_energy
 
-  subroutine rel_pos(r1, r2, Lvar, rvar)
-    double precision, intent(in) :: r1(3), r2(3), Lvar(3)
-    double precision, intent(out) :: rvar(3)
-
-    integer :: dim
-
-    rvar = r1-r2
-    do dim=1,3
-       if ( rvar(dim) < -0.5d0*Lvar(dim) ) then
-          rvar(dim) = rvar(dim) + Lvar(dim)
-       else if ( rvar(dim) > 0.5d0*Lvar(dim) ) then
-          rvar(dim) = rvar(dim) - Lvar(dim)
-       end if
-    end do
-
-  end subroutine rel_pos
-
   !> Computes the maximum displacement between two sets of positions. Takes into
   !! account the boundary conditions thanks to rel_pos.
   !! @param r1 First set of positions.
@@ -1305,5 +1288,117 @@ contains
     end do at_loop
 
   end subroutine del_particle
+
+  !> Collides the particles whithin each cell, according to their precomputed
+  !! rotation matrix. Applies chemical reactions if appropriate.
+  subroutine MD_MPCD_step
+    implicit none
+
+    integer :: i, j
+    integer :: ci,cj,ck
+    double precision :: om(3,3),vv(4)
+
+    do ck=1,N_cells(3)
+       do cj=1,N_cells(2)
+          do ci=1,N_cells(1)
+             if (cell_collide(ci,cj,ck)) then
+                vv = Vcom(:,ci,cj,ck)
+                if (vv(4)>0.d0) vv(1:3) = vv(1:3)/vv(4)
+                om = omega(:,:,ci,cj,ck)
+                do i=1,par_list(0,ci,cj,ck)
+                   j = par_list(i,ci,cj,ck)
+                   so_v(:,j) = so_v(:,j) - vv(1:3)
+                   so_v(:,j) = matmul(om,so_v(:,j))
+                   so_v(:,j) = so_v(:,j) + vv(1:3)
+                end do
+             else
+                call partial_collision(ci,cj,ck)
+             end if
+             if (N_reactions > 0) then
+                if (cell_active(ci,cj,ck)) &
+                     call cell_reaction(ci,cj,ck,N_reactions,reaction_list,MPCD_tau)
+             end if
+          end do
+       end do
+    end do
+
+  end subroutine MD_MPCD_step
+
+  !> Performs a collision only for solvent particles that are not in any
+  !! interaction range.
+  !! @param ci The cell i index.
+  !! @param cj The cell j index.
+  !! @param ck The cell k index.
+  subroutine partial_collision(ci,cj,ck)
+    implicit none
+    integer, intent(in) :: ci,cj,ck
+
+    double precision :: v(3), mass, om(3,3)
+    integer :: i, part
+
+    v = 0.d0
+    mass = 0.d0
+    if (par_list(0,ci,cj,ck) .lt. 2) return
+    do i=1,par_list(0,ci,cj,ck)
+       part = par_list(i,ci,cj,ck)
+       if (count_neighbours(part, .true.) .eq. 0) then
+          mass = mass + so_sys % mass( so_species(part) )
+          v = v + so_sys % mass( so_species(part) ) * so_v(:,part)
+       end if
+    end do
+    v = v/mass
+    om = omega(:,:,ci,cj,ck)
+    do i=1,par_list(0,ci,cj,ck)
+       part = par_list(i,ci,cj,ck)
+       if (count_neighbours(part, .true.) .eq. 0) then
+          so_v(:,part) = so_v(:,part) - v
+          so_v(:,part) = matmul(om,so_v(:,part))
+          so_v(:,part) = so_v(:,part) + v
+       end if
+    end do
+
+
+  end subroutine partial_collision
+
+  !> This function counts the neighbours of a given solvent particle.
+  !!
+  !! It takes the neighbour candidates from so_neigh_list and compares the distance with the
+  !! cut-off of the appropriate LJ interaction parameter.
+  !! @param so_i The solvent particle to consider.
+  !! @param one_is_enough If set to .true., the count stop whenever the first neighbouring atom
+  !! is found.
+  function count_neighbours(so_i, one_is_enough)
+    implicit none
+    integer :: count_neighbours
+    integer, intent(in) :: so_i
+    logical, optional, intent(in) :: one_is_enough
+
+    integer :: at_i, i
+    double precision :: x(3), d_sqr
+    logical :: flag
+
+    if (present(one_is_enough)) then
+       flag = one_is_enough
+    else
+       flag = .false.
+    end if
+
+    count_neighbours = 0
+    do i=1, so_neigh_list(0,so_i)
+       at_i = so_neigh_list(i,so_i)
+       call rel_pos(so_r(:,so_i), at_r(:,at_i), L, x)
+       d_sqr = sum(x**2)
+       if ( d_sqr <= (at_so % cut(at_species(at_i), so_species(so_i)))**2 ) then
+          if (flag) then
+             count_neighbours = 1
+             return
+          else
+             count_neighbours = count_neighbours + 1
+          end if
+       end if
+    end do
+
+  end function count_neighbours
+
 
 end module MD

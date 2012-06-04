@@ -29,6 +29,8 @@ module MPCD
   double precision, allocatable :: omega(:,:,:,:,:)
   !> cell_active controls wether a cell reacts or not.
   logical, allocatable :: cell_active(:,:,:)
+  !> cell_collide controls wether a cell collides fully or partially.
+  logical, allocatable :: cell_collide(:,:,:)
   !> The length of a cell.
   double precision :: a
   !> The inverse length of a cell.
@@ -120,6 +122,8 @@ contains
     allocate(omega(3,3,N_cells(1),N_cells(2),N_cells(3)))
     allocate(cell_active(N_cells(1),N_cells(2),N_cells(3)))
     cell_active = .true.
+    allocate(cell_collide(N_cells(1),N_cells(2),N_cells(3)))
+    cell_collide = .true.
     
     allocate(so_r(3,so_sys%N_max))
     allocate(so_v(3,so_sys%N_max))
@@ -332,6 +336,23 @@ contains
     end do
 
   end subroutine chem_MPCD_step
+
+  subroutine rel_pos(r1, r2, Lvar, rvar)
+    double precision, intent(in) :: r1(3), r2(3), Lvar(3)
+    double precision, intent(out) :: rvar(3)
+
+    integer :: dim
+
+    rvar = r1-r2
+    do dim=1,3
+       if ( rvar(dim) < -0.5d0*Lvar(dim) ) then
+          rvar(dim) = rvar(dim) + Lvar(dim)
+       else if ( rvar(dim) > 0.5d0*Lvar(dim) ) then
+          rvar(dim) = rvar(dim) - Lvar(dim)
+       end if
+    end do
+
+  end subroutine rel_pos
 
   !> Advances all particles according to their velocity, for 
   !! a time of tau.

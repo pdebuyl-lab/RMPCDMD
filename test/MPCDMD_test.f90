@@ -616,7 +616,7 @@ program test
               end do
            end do
         end if
-        call chem_MPCD_step
+        call MD_MPCD_step
      end if
 
      if (do_shifting) then
@@ -798,21 +798,13 @@ contains
     double precision :: x(3), n(3)
 
     cell_active = .true.
+    cell_collide = .true.
 
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
              call rel_pos( cell_center(ci,cj,ck) , x0, L, x)
-             if (sum(x**2) < rcut**2) then
-                n = x/sqrt(sum(x**2))
-                if (mtprng_rand_real1(ran_state) < 0.5d0) n = -n
-                omega(:,:,ci,cj,ck) = &
-                     reshape( (/ &
-                     n(1)**2, n(1)*n(2) + n(3), n(1)*n(3) - n(2) ,&
-                     n(2)*n(1) - n(3) , n(2)**2 , n(2)*n(3) + n(1),&
-                     n(3)*n(1) + n(2), n(3)*n(2) - n(1), n(3)**2 &
-                     /), (/3, 3/))
-             end if
+             if (sum(x**2) < rcut**2) cell_collide(ci,cj,ck) = .false.
              if (sum(x**2) < chemcut**2) cell_active(ci,cj,ck) = .false.
           end do
        end do
