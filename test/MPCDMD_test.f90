@@ -603,6 +603,13 @@ program test
      
 
 
+     if (do_shifting) then
+        shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+        shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
+     end if
+
+
      call correct_so
      if (collide) then
         call place_in_cells
@@ -618,13 +625,6 @@ program test
         end if
         call MD_MPCD_step
      end if
-
-     if (do_shifting) then
-        shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-        shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-        shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-     end if
-
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
      
