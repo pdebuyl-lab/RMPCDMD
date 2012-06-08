@@ -499,7 +499,7 @@ contains
        end if
     end do
 
-    if (not(found)) stop 'reactant not found in vol_A_to_B'
+    if (.not. found) stop 'reactant not found in vol_A_to_B'
 
   end subroutine vol_A_to_B
 
