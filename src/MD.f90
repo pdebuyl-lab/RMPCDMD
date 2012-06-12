@@ -88,11 +88,19 @@ contains
     implicit none
     type(group_t), intent(in) :: g_var
     
-    integer :: i
+    integer :: i, g_n
 
-    do i=g_var%istart, g_var%istart + g_var%N - 1
-       at_species(i) = g_var % species1
-    end do
+    if (g_var % g_type .eq. ATOM_G) then
+       do i=g_var%istart, g_var%istart + g_var%N - 1
+          at_species(i) = g_var % species1
+       end do
+    else
+       i = g_var % istart
+       g_n = g_var % N
+       at_species(i:i+g_n/2-1) = g_var % species1
+       at_species(i+g_n/2:i+g_n-1) = g_var % species2
+    end if
+
     
   end subroutine config_atom_group
 

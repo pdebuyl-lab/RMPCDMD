@@ -110,7 +110,9 @@ contains
     case('fixed')
        group_var % g_type = FIXED_G
        group_var % N = PTread_i(CF,'group'//group_index//'N')
-       group_var % species1 = PTread_i(CF,'group'//group_index//'species')
+       s = PTread_ivec(CF,'group'//group_index//'species',2)
+       group_var % species1 = s(1)
+       group_var % species2 = s(2)
     case default
        write(*,*) 'unknown type for', g_string
        stop
