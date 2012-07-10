@@ -18,6 +18,8 @@ module reaction
      logical(kind=1) :: two_products
      !>  If set to .true., the difference in u_int is taken into account when reacting.
      logical(kind=1) :: thermal
+     !> Determines the kind of exothermic reaction scheme.
+     integer :: thermal_kind
      !> Species of the first product.
      integer :: product1
      !> Species of the second product (only used when two_products==.true.).
@@ -25,6 +27,10 @@ module reaction
      !> Reaction rate.
      double precision :: rate
   end type reac_t
+
+  integer, parameter :: THERMAL_KICK = 1
+  integer, parameter :: THERMAL_CELL = 2
+  integer, parameter :: THERMAL_ONES = 3
 
 contains
 
@@ -43,6 +49,7 @@ contains
     integer, intent(in) :: so_i
     
     character(len=5) :: at_so_s
+    character(len=16) :: th
 
     write(at_so_s, '(i2.02,a,i2.02)') at_i, '_', so_i
     
@@ -53,7 +60,21 @@ contains
        reac_var % at_exit = PTread_l(CF, 'reac'//at_so_s//'_at_exit')
        reac_var % two_products = PTread_l(CF, 'reac'//at_so_s//'_two_products')
        reac_var % thermal = PTread_l(CF, 'reac'//at_so_s//'_thermal')
-       
+
+       if (reac_var % thermal) then
+          th = PTread_s(CF, 'reac'//at_so_s//'_thermal_kind')
+          select case(th)
+          case('kick')
+             reac_var % thermal_kind = THERMAL_KICK
+          case('cell')
+             reac_var % thermal_kind = THERMAL_CELL
+          case('ones')
+             reac_var % thermal_kind = THERMAL_ONES
+          case default
+             write(*,*) 'unknown reaction kind for ', 'reac'//at_so_s
+          end select
+       end if
+
        reac_var % product1 = PTread_i(CF, 'reac'//at_so_s//'_product1')
        if (reac_var % two_products) reac_var % product2 = PTread_i(CF, 'reac'//at_so_s//'_product2')
     

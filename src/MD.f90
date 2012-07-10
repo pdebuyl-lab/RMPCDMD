@@ -825,10 +825,12 @@ contains
     integer :: at_i, j, part, at_si, i_neigh, neigh_idx
     integer :: g_i
     integer :: p1si, p2si
+    integer :: r1si
     double precision :: x(3)
     double precision :: dist_min
     double precision :: delta_u
-    logical :: too_many_atoms, thermal
+    double precision :: mubs, s(3), ctheta, wbs(3), wbs_norm, mass_s, mass_b
+    logical :: too_many_atoms, thermal, found_extra
     double precision :: dist_sqr, neigh_sqr
     integer :: total_N, ci, cj, ck, cc(3)
 
@@ -862,9 +864,13 @@ contains
                    if (so_do_reac(part)) then
                       !check for neighbours!
                       too_many_atoms = .false.
+                      call indices(so_r(:,part), cc)
+                      cc = modulo(cc-1, N_cells)+1
+                      if (par_list(0,cc(1),cc(2),cc(3)) .le. 3) exit
                       if (count_atom_neighbours(part,.true.)>0) too_many_atoms = .true.
                       if ( ( .not. at_so_reac(at_si, so_species(part)) % two_products ) ) then
                          if (.not. too_many_atoms) then
+                            r1si = so_species(part)
                             so_sys % N(so_species(part)) = so_sys % N(so_species(part)) - 1
                             delta_u = u_int(so_species(part))
                             thermal = at_so_reac(at_si, so_species(part)) % thermal
@@ -872,9 +878,48 @@ contains
                             so_sys % N(so_species(part)) = so_sys % N(so_species(part)) + 1
                             delta_u = delta_u - u_int(so_species(part))
                             if (thermal) then
-                               call add_kin_kick_g_so(group_list(g_i), at_i, part, delta_u)
+                               if (at_so_reac(at_si,r1si) % thermal_kind .eq. THERMAL_KICK) then
+                                  call add_kin_kick_g_so(group_list(g_i), at_i, part, delta_u)
+                               else if (at_so_reac(at_si,r1si) % thermal_kind .eq. THERMAL_ONES) then
+                                  ! pick an extra solvent particle
+                                  call indices(so_r(:,part), cc)
+                                  cc = modulo(cc-1, N_cells)+1
+                                  found_extra = .false.
+                                  do i_neigh=1,par_list(0,cc(1),cc(2),cc(3))
+                                     neigh_idx = par_list(i_neigh,cc(1),cc(2),cc(3))
+                                     if ( (neigh_idx .ne. part) ) then
+! .and. &
+!                                          (count_neighbours(neigh_idx,.true.).eq.0)) then
+                                        found_extra=.true.
+                                        exit
+                                     end if
+                                  end do
+                                  if (.not. found_extra) then
+                                     write(*,*) 'not found extra in reac_loop'
+                                     write(*,*) 'N ', par_list(0,cc(1),cc(2),cc(3))
+                                     write(*,*) 'cc ', cc
+                                     stop
+                                  end if
+                               end if
+                               ! compute wab and s
+                               mass_s = so_sys % mass(so_species(neigh_idx))
+                               mass_b = so_sys % mass(so_species(part))
+                               mubs = mass_b * mass_s &
+                                    /(mass_b+mass_s)
+                               x = (mass_s*so_v(:,neigh_idx) + mass_b*so_v(:,part))/(mass_b+mass_s)
+                               s = rand_sphere()
+                               wbs = so_v(:,part) - so_v(:,neigh_idx)
+                               wbs_norm = sqrt( sum( wbs**2 ) )
+                               ctheta = sum( s*wbs/wbs_norm)
+                               s = s * &
+                                    ((-wbs_norm*ctheta) + &
+                                    sqrt( (wbs_norm*ctheta)**2 + 2.d0*delta_u/mubs ) )
+                               so_v(:,part) = x + (wbs+s) * mass_s/(mass_b+mass_s)
+                               so_v(:,neigh_idx) = x - (wbs+s) * mass_b/(mass_b+mass_s)
+
                             end if
                             so_do_reac(part) = .false.
+
                          end if
                       else
                          if (.not. too_many_atoms) then
