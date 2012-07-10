@@ -32,6 +32,7 @@ program test
   double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
   integer :: N_th_loop
   integer :: N_reset_fuel
+  integer :: N_therm
   character(len=16) :: reset_reac
   double precision :: reset_radius
   logical :: reactive, collide, switch
@@ -248,6 +249,7 @@ program test
   N_reset_fuel = PTread_i(CF, 'N_reset_fuel')
   reset_radius = PTread_d(CF, 'reset_radius')
   reset_reac = PTread_s(CF, 'reset_reac')
+  N_therm = PTread_i(CF, 'N_therm')
 
   collide = PTread_l(CF, 'collide')
   if (checkpoint <= 0) call h5md_write_par(file_id, 'collide', collide)
@@ -623,7 +625,11 @@ program test
               end do
            end do
         end if
-        call MD_MPCD_step
+        if ( (N_therm > 0) .and. (mod(i_time, N_therm).eq.0) ) then
+           call MD_MPCD_step(.true., target_T)
+        else
+           call MD_MPCD_step(.false., target_T)
+        end if
      end if
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)

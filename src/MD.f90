@@ -48,7 +48,6 @@ module MD
   
   double precision :: h
 
-
 contains
 
 
@@ -1279,26 +1278,50 @@ contains
 
   !> Collides the particles whithin each cell, according to their precomputed
   !! rotation matrix. Applies chemical reactions if appropriate.
-  subroutine MD_MPCD_step
+  subroutine MD_MPCD_step(thermostat, therm_temp)
     implicit none
+    logical, intent(in) :: thermostat
+    double precision, intent(in) :: therm_temp
 
     integer :: i, j
     integer :: ci,cj,ck
-    double precision :: om(3,3),vv(4)
+    double precision :: om(3,3),vv(4), vran(3), excess(3), mass, m
 
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
              if (cell_collide(ci,cj,ck)) then
+                if (par_list(0,ci,cj,ck)<2) cycle
                 vv = Vcom(:,ci,cj,ck)
                 if (vv(4)>0.d0) vv(1:3) = vv(1:3)/vv(4)
-                om = omega(:,:,ci,cj,ck)
-                do i=1,par_list(0,ci,cj,ck)
-                   j = par_list(i,ci,cj,ck)
-                   so_v(:,j) = so_v(:,j) - vv(1:3)
-                   so_v(:,j) = matmul(om,so_v(:,j))
-                   so_v(:,j) = so_v(:,j) + vv(1:3)
-                end do
+                if (thermostat) then
+                   mass = 0.d0
+                   excess = 0.d0
+                   do i=1,par_list(0,ci,cj,ck)
+                      j = par_list(i,ci,cj,ck)
+                      m = so_sys % mass(so_species(j))
+                      vran(1) = gasdev(ran_state)
+                      vran(2) = gasdev(ran_state)
+                      vran(3) = gasdev(ran_state)
+                      vran = vran*sqrt(therm_temp/m)
+                      so_v(:,j) = vv(1:3) + vran
+                      mass = mass + m
+                      excess = excess + m*vran
+                   end do
+                   excess = excess/mass
+                   do i=1,par_list(0,ci,cj,ck)
+                      j = par_list(i,ci,cj,ck)
+                      so_v(:,j) = so_v(:,j) - excess
+                   end do
+                else
+                   om = omega(:,:,ci,cj,ck)
+                   do i=1,par_list(0,ci,cj,ck)
+                      j = par_list(i,ci,cj,ck)
+                      so_v(:,j) = so_v(:,j) - vv(1:3)
+                      so_v(:,j) = matmul(om,so_v(:,j))
+                      so_v(:,j) = so_v(:,j) + vv(1:3)
+                   end do
+                end if
              else
                 call partial_collision(ci,cj,ck)
              end if
