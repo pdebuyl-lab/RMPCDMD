@@ -1300,9 +1300,9 @@ contains
                    do i=1,par_list(0,ci,cj,ck)
                       j = par_list(i,ci,cj,ck)
                       m = so_sys % mass(so_species(j))
-                      vran(1) = gasdev(ran_state)
-                      vran(2) = gasdev(ran_state)
-                      vran(3) = gasdev(ran_state)
+                      vran(1) = mtprng_normal(ran_state)
+                      vran(2) = mtprng_normal(ran_state)
+                      vran(3) = mtprng_normal(ran_state)
                       vran = vran*sqrt(therm_temp/m)
                       so_v(:,j) = vv(1:3) + vran
                       mass = mass + m

@@ -471,23 +471,28 @@ program test
         call place_in_cells
         call compute_v_com
         call generate_omega
-        call simple_MPCD_step
+        if (switch) then
+           do i=1,N_groups
+              do j=1,group_list(i) % N
+                 idx1 = group_list(i) % istart + j - 1
+                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, maxval(at_so % cut(at_species(idx1),:))+a)
+              end do
+           end do
+        end if
+        call MD_MPCD_step(.true., target_T)
      end if
 
      total_kin = 0.d0
      total_mass = 0.d0
-     do i=1,at_sys%N(0)
-        total_mass = total_mass + at_sys % mass( at_species(i) )
-        total_kin = total_kin + 0.5d0 * at_sys % mass( at_species(i) ) * sum( at_v(:,i)**2 )
-     end do
      do i=1,so_sys%N(0)
         total_mass = total_mass + so_sys % mass( so_species(i) )
         total_kin = total_kin + 0.5d0 * so_sys % mass( so_species(i) ) * sum( so_v(:,i)**2 )
      end do
-     actual_T = total_kin * 2.d0/(3.d0 * total_mass )
-     v_factor = sqrt( target_T / actual_T )
-     at_v = at_v * v_factor
-     so_v = so_v * v_factor
+     actual_T = total_kin * 2.d0/(3.d0 * so_sys % N(0) )
+     do i=1,at_sys%N(0)
+        total_mass = total_mass + at_sys % mass( at_species(i) )
+        total_kin = total_kin + 0.5d0 * at_sys % mass( at_species(i) ) * sum( at_v(:,i)**2 )
+     end do
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
 
@@ -633,11 +638,12 @@ program test
      end if
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
+     total_kin = 0.d0
+     do i=1,so_sys%N(0)
+        total_kin = total_kin + 0.5d0 * so_sys % mass( so_species(i) ) * sum( so_v(:,i)**2 )
+     end do
+     actual_T = total_kin * 2.d0/(3.d0 * so_sys % N(0) )
      
-     total_mass = ( sum( so_sys % mass(1:so_sys%N_species) * dble(so_sys % N(1:so_sys%N_species)) ) + &
-          sum( at_sys % mass(1:at_sys%N_species) * dble(at_sys % N(1:at_sys%N_species)) ) )
-     actual_T = ( sol_kin + at_kin ) *2.d0/3.d0 / total_mass
-
      if (reactive .and. N_reset_fuel > 0) then
         if (mod(i_time,N_reset_fuel).eq.0) then
            if (reset_reac.eq.'BtoA') then
