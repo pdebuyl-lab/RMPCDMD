@@ -156,7 +156,7 @@ contains
   subroutine homogeneous_solvent(temperature)
     double precision, intent(in) :: temperature
     integer :: i, Nloop
-    double precision :: x(3), t_factor
+    double precision :: x(3), t_factor, tot_m
 
     t_factor = sqrt(3.d0*temperature)
 
@@ -166,6 +166,18 @@ contains
        x(1) = mtprng_rand_real1(ran_state) ; x(2) = mtprng_rand_real1(ran_state) ; x(3) = mtprng_rand_real1(ran_state) ; 
        x = x-0.5d0
        so_v(:,i) = x*2.d0 * t_factor/sqrt(so_sys%mass(so_species(i)))
+    end do
+
+    x = 0.d0
+    tot_m = 0.d0
+    do i=1,so_sys%N(0)
+       x = x + so_sys%mass(so_species(i)) * so_v(:,i)
+       tot_m = tot_m + so_sys%mass(so_species(i))
+    end do
+    x = x/tot_m
+
+    do i=1,so_sys%N(0)
+       so_v(:,i) = so_v(:,i) - x
     end do
 
     Nloop = 1
