@@ -503,6 +503,51 @@ contains
 
   end subroutine vol_A_to_B
 
+  !> This routine performs the A to B bulk endothermic chemical reaction.
+  !! @param ci Index i of the cell in which the particle belongs.
+  !! @param cj Index j of the cell in which the particle belongs.
+  !! @param ck Index k of the cell in which the particle belongs.
+  !! @param vr_var The vol_reac_t variable.
+  subroutine vol_A_to_B_endo(ci,cj,ck,vr_var)
+    implicit none
+    integer, intent(in) :: ci,cj,ck
+    type(vol_reac_t), intent(in) :: vr_var
+
+    integer :: i, part, i_found
+    logical :: found
+    double precision :: deltau, kin, v(3), gamma
+
+    v = Vcom(1:3,ci,cj,ck) / Vcom(4,ci,cj,ck)
+    deltau = u_int( vr_var % prod(1) ) - u_int( vr_var % reac(1) )
+    found = .false.
+    kin = 0.d0
+    do i=1,par_list(0,ci,cj,ck)
+       part = par_list(i,ci,cj,ck)
+       if (so_species(part) .eq. vr_var % reac(1) .and. &
+            .not. found) then
+          i_found = part
+          found = .true.
+       end if
+       kin = kin + 0.5d0 * so_sys%mass(so_species(part)) * &
+            sum( (so_v(:,part) - v)**2 )
+    end do
+
+    if (kin .gt. deltau .and. found) then
+       so_species(i_found) = vr_var % prod(1)
+       so_sys % N(vr_var % reac(1)) = so_sys % N(vr_var % reac(1)) - 1
+       so_sys % N(vr_var % prod(1)) = so_sys % N(vr_var % prod(1)) + 1
+       gamma = sqrt( 1.d0 - deltau/kin )
+       do i=1,par_list(0,ci,cj,ck)
+          part = par_list(i,ci,cj,ck)
+          so_v(:,part) = v + gamma*(so_v(:,part)-v)
+       end do
+    end if
+
+    if (.not. found) stop 'reactant not found in vol_A_to_B'
+
+  end subroutine vol_A_to_B_endo
+
+
   !> This function computes the combinatorial term h_\mu^\xi defined
   !! in Rohlf et al, Comp. Phys. Comm. 179, pp 132 (2008), Eq. (14).
   !! @param ci Index i of the cell in which the particle belongs.
@@ -572,7 +617,7 @@ contains
     type(vol_reac_t), intent(in) :: reac_list(:)
     double precision, intent(in) :: interval
 
-    integer :: i, idx_reac
+    integer :: i, idx_reac, idx_kind
     double precision :: a0, p_something, x
     double precision, allocatable :: amu(:)
     allocate(amu(n_reac))
@@ -600,8 +645,12 @@ contains
        end if
     end do
 
-    if (idx_reac .eq. AtoB_R) then
+    idx_kind = reac_list(idx_reac) % r_kind
+
+    if (idx_kind .eq. AtoB_R) then
        call vol_A_to_B(ci,cj,ck,reac_list(idx_reac))
+    else if (idx_kind .eq. AtoB_endothermic_R) then
+       call vol_A_to_B_endo(ci,cj,ck,reac_list(idx_reac))
     else
        write(*,*) 'unknown reaction type in cell_reaction'
     end if

@@ -24,6 +24,8 @@ module volume_reaction
 
   !> r_kind parameter for unimolecular conversion reaction.
   integer, parameter :: AtoB_R=1
+  !> r_kind parameter for endothermic conversion reaction.
+  integer, parameter :: AtoB_endothermic_R = 2
 
 contains
 
@@ -49,6 +51,17 @@ contains
     select case(r_kind_string)
     case('AtoB')
        vol_reac_var % r_kind = AtoB_R
+       vol_reac_var % N_reac = 1
+       vol_reac_var % N_prod = 1
+       allocate( vol_reac_var % reac(vol_reac_var % N_reac) )
+       vol_reac_var % reac = PTread_ivec(CF, reac_s//'reac', vol_reac_var % N_reac)
+       allocate( vol_reac_var % prod(vol_reac_var % N_prod) )
+       vol_reac_var % prod = PTread_ivec(CF, reac_s//'prod',vol_reac_var % N_prod)
+       allocate( vol_reac_var % species_reac(N_species) )
+       vol_reac_var % species_reac = 0
+       vol_reac_var % species_reac( vol_reac_var % reac(1) ) = 1
+    case('AtoB_endothermic')
+       vol_reac_var % r_kind = AtoB_endothermic_R
        vol_reac_var % N_reac = 1
        vol_reac_var % N_prod = 1
        allocate( vol_reac_var % reac(vol_reac_var % N_reac) )
