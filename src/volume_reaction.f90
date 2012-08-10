@@ -26,6 +26,8 @@ module volume_reaction
   integer, parameter :: AtoB_R=1
   !> r_kind parameter for endothermic conversion reaction.
   integer, parameter :: AtoB_endothermic_R = 2
+  !> r_kind parameter for recombination reaction.
+  integer, parameter :: A_B_to_C_R = 3
 
 contains
 
@@ -71,6 +73,20 @@ contains
        allocate( vol_reac_var % species_reac(N_species) )
        vol_reac_var % species_reac = 0
        vol_reac_var % species_reac( vol_reac_var % reac(1) ) = 1
+    case('A_B_to_C')
+       vol_reac_var % r_kind = A_B_to_C_R
+       vol_reac_var % N_reac = 2
+       vol_reac_var % N_prod = 1
+       allocate( vol_reac_var % reac(vol_reac_var % N_reac) )
+       vol_reac_var % reac = PTread_ivec(CF, reac_s//'reac', vol_reac_var % N_reac)
+       allocate( vol_reac_var % prod(vol_reac_var % N_prod) )
+       vol_reac_var % prod = PTread_ivec(CF, reac_s//'prod',vol_reac_var % N_prod)
+       allocate( vol_reac_var % species_reac(N_species) )
+       vol_reac_var % species_reac = 0
+       vol_reac_var % species_reac( vol_reac_var % reac(1) ) = &
+            vol_reac_var % species_reac( vol_reac_var % reac(1) ) + 1
+       vol_reac_var % species_reac( vol_reac_var % reac(2) ) = &
+            vol_reac_var % species_reac( vol_reac_var % reac(2) ) + 1
     case default
        write(*,*) 'unknown reaction kind for ', reac_s
     end select

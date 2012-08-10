@@ -559,6 +559,61 @@ contains
 
   end subroutine vol_A_to_B_endo
 
+  !> This routine performs the A to B bulk chemical reaction.
+  !! @param ci Index i of the cell in which the particle belongs.
+  !! @param cj Index j of the cell in which the particle belongs.
+  !! @param ck Index k of the cell in which the particle belongs.
+  !! @param vr_var The vol_reac_t variable.
+  subroutine vol_A_B_to_C(ci,cj,ck,vr_var)
+    implicit none
+    integer, intent(in) :: ci,cj,ck
+    type(vol_reac_t), intent(in) :: vr_var
+
+    integer :: i, part, cc(3)
+    logical :: found_A, found_B
+    integer :: i_A, i_B
+    double precision :: wbb(3), mubb, deltak
+    double precision :: m1, m2
+
+    cc(1) = ci ; cc(2) = cj ; cc(3) = ck
+
+    found_A = .false.
+    found_B = .false.
+    do i=1,par_list(0,ci,cj,ck)
+       part = par_list(i,ci,cj,ck)
+       if (so_species(part) .eq. vr_var % reac(1) .and. .not. found_A) then
+          i_A = part
+          found_A = .true.
+       else if (so_species(part) .eq. vr_var % reac(2) .and. .not. found_B) then
+          i_B = part
+          found_B = .true.
+       end if
+       if (found_A .and. found_B) exit
+    end do
+
+    if (i_A.eq.i_B) stop 'i_A and i_B equal in vol_A_B_to_C'
+
+    wbb = so_v(:,i_A) - so_v(:,i_B)
+    m1 = so_sys%mass(so_species(i_A))
+    m2 = so_sys%mass(so_species(i_B))
+    mubb = m1*m2/(m1+m2)
+    deltak = 0.5d0 * mubb * sum(wbb**2)
+
+    so_v(:,i_A) = ( m1*so_v(:,i_A) + m2*so_v(:,i_B) ) / (m1+m2)
+    so_species(i_A) = vr_var % prod(1)
+
+    call del_particle_noMD(i_B, cc)
+
+    so_sys % N(vr_var % reac(1)) = so_sys % N(vr_var % reac(1)) - 1
+    so_sys % N(vr_var % reac(1)) = so_sys % N(vr_var % reac(2)) - 1
+    so_sys % N(vr_var % prod(1)) = so_sys % N(vr_var % prod(1)) + 1
+    so_sys % N(0) = so_sys % N(0) - 1
+
+    call add_energy(cc,deltak)
+
+    if (.not. found_A .or. .not. found_B) stop 'reactant not found in vol_A_B_to_C'
+
+  end subroutine vol_A_B_to_C
 
   !> This function computes the combinatorial term h_\mu^\xi defined
   !! in Rohlf et al, Comp. Phys. Comm. 179, pp 132 (2008), Eq. (14).
@@ -663,6 +718,8 @@ contains
        call vol_A_to_B(ci,cj,ck,reac_list(idx_reac))
     else if (idx_kind .eq. AtoB_endothermic_R) then
        call vol_A_to_B_endo(ci,cj,ck,reac_list(idx_reac))
+    else if (idx_kind .eq. A_B_to_C_R) then
+       if (par_list(0,ci,cj,ck) .gt. 2) call vol_A_B_to_C(ci,cj,ck,reac_list(idx_reac))
     else
        write(*,*) 'unknown reaction type in cell_reaction'
     end if
@@ -670,5 +727,53 @@ contains
   deallocate(amu)
 
   end subroutine cell_reaction
+
+  !> Removes a particle from the system.
+  !!
+  !! This subroutine removes particle del_i from the system. It replaces its data by the data
+  !! of the last particle in the system, then decreases the number of particles by one unit.
+  !! @param del_i The index of the particle to remove.
+  !! @param cc The three indices of the cell to which the particle belongs.
+  subroutine del_particle_noMD(del_i,cc)
+    integer, intent(in) :: del_i, cc(3)
+
+    integer :: i, j, nlast, at_i, at_neigh
+    integer :: lastcc(3)
+
+    nlast = so_sys%N(0)
+
+    so_r(:,del_i) = so_r(:,nlast)
+    so_v(:,del_i) = so_v(:,nlast)
+    so_f1(:,del_i) = so_f1(:,nlast)
+    so_f2(:,del_i) = so_f2(:,nlast)
+    so_r_neigh(:,del_i) = so_r_neigh(:,nlast)
+    so_species(del_i) = so_species(nlast)
+    is_MD(del_i) = is_MD(nlast)
+    N_MD(del_i) = N_MD(nlast)
+
+    ! remove del_i from the particle list
+    do i=1,par_list(0,cc(1),cc(2),cc(3))
+       if (par_list(i,cc(1),cc(2),cc(3)).eq.del_i) then
+          ! remove del_i from list and decrease count by 1
+          par_list(i,cc(1),cc(2),cc(3)) = &
+               par_list(par_list(0,cc(1),cc(2),cc(3)),cc(1),cc(2),cc(3))
+          par_list(0,cc(1),cc(2),cc(3)) = par_list(0,cc(1),cc(2),cc(3)) - 1
+          ! get out of loop
+          exit
+       end if
+    end do
+
+    ! seek nlast in par_list and replace by del_i
+    call indices(so_r(:,nlast),lastcc)
+    do i=1,par_list(0,lastcc(1),lastcc(2),lastcc(3))
+       if (par_list(i,lastcc(1),lastcc(2),lastcc(3)).eq.nlast) then
+          ! remove nlast from list and decrease count by 1
+          par_list(i,lastcc(1),lastcc(2),lastcc(3)) = del_i
+          ! get out of loop
+          exit
+       end if
+    end do
+
+  end subroutine del_particle_noMD
 
 end module MPCD
