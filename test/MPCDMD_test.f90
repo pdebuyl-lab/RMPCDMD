@@ -75,7 +75,7 @@ program test
   if (checkpoint>0) then
      call h5md_open_file(file_ID, 'data.h5', rw=.true.)
   else
-     call h5md_create_file(file_ID, 'data.h5', 'MPCDMD')
+     call h5md_create_file(file_ID, 'data.h5', 'Pierre de Buyl', 'MPCDMD', 'No version information yet')
   end if
 
   seed = PTread_i(CF,'seed')
