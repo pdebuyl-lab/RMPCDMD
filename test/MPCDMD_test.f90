@@ -33,7 +33,7 @@ program test
   double precision :: total_kin, total_mass, actual_T, target_T, v_factor, MD_DT
   integer :: N_th_loop
   integer :: N_therm
-  logical :: reactive, collide, switch
+  logical :: reactive, collide, switch, switch_collide, switch_reac
   integer :: checkpoint
 
   integer(HID_T) :: file_ID
@@ -248,8 +248,11 @@ program test
 
   collide = PTread_l(CF, 'collide')
   if (checkpoint <= 0) call h5md_write_par(file_id, 'collide', collide)
-  switch = PTread_l(CF, 'switch')
-  if (checkpoint <= 0) call h5md_write_par(file_id, 'switch', switch)
+  switch_collide = PTread_l(CF, 'switch_collide')
+  switch_reac = PTread_l(CF, 'switch_reac')
+  switch = switch_collide .or. switch_reac
+  if (checkpoint <= 0) call h5md_write_par(file_id, 'switch_collide', switch_collide)
+  if (checkpoint <= 0) call h5md_write_par(file_id, 'switch_reac', switch_reac)
 
   write(*,*) so_sys%N_species
   write(*,*) so_sys%N_max
@@ -512,7 +515,7 @@ program test
            do i=1,N_groups
               do j=1,group_list(i) % N
                  idx1 = group_list(i) % istart + j - 1
-                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, maxval(at_so % cut(at_species(idx1),:))+a)
+                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, maxval(at_so % cut(at_species(idx1),:))+a, switch_collide, switch_reac)
               end do
            end do
         end if
@@ -631,8 +634,9 @@ contains
     end do
   end subroutine correct_at
 
-  subroutine switch_off(x0, rcut, chemcut)
+  subroutine switch_off(x0, rcut, chemcut, switch_collide, switch_reac)
     double precision, intent(in) :: x0(3), rcut, chemcut
+    logical, intent(in) :: switch_collide, switch_reac
 
     integer :: ci,cj,ck
     double precision :: x(3), n(3)
@@ -644,8 +648,12 @@ contains
        do cj=1,N_cells(2)
           do ci=1,N_cells(1)
              call rel_pos( cell_center(ci,cj,ck) , x0, L, x)
-             if (sum(x**2) < rcut**2) cell_collide(ci,cj,ck) = .false.
-             if (sum(x**2) < chemcut**2) cell_active(ci,cj,ck) = .false.
+             if (switch_collide) then
+                if (sum(x**2) < rcut**2) cell_collide(ci,cj,ck) = .false.
+             end if
+             if (switch_reac) then
+                if (sum(x**2) < chemcut**2) cell_active(ci,cj,ck) = .false.
+          end if
           end do
        end do
     end do
