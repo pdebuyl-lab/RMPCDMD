@@ -15,6 +15,7 @@ program test
 
   integer :: i_time, i_in, i, istart, reneigh, N_MD_since_re
   integer :: i_MD_time
+  logical :: run_loop
   integer :: N_MD_loop, N_loop, en_unit
   integer :: flush_unit
   double precision :: realtime
@@ -390,9 +391,16 @@ program test
 
   vmem = 0.d0
 
+  !! Simulation loop
 
   DT = MD_DT
-  do i_time = 1,N_th_loop
+  do i_time = 1,N_loop+N_th_loop
+
+     if (i_time .gt. N_th_loop) then
+        run_loop = .true.
+     else
+        run_loop = .false.
+     end if
      
      do i_in = 1,N_MD_loop
 
@@ -435,125 +443,8 @@ program test
            group_list(i) % f = com_f(group_list(i))
         end do
 
-        realtime=realtime+DT
-        i_MD_time = i_MD_time + 1
-
-        if (group_list(1)%g_type.eq.FIXED_G) then
-           vmem = (/ 1.d0, 0.d0, 0.d0 /)
-        else
-           vmem = (1.d0 - DT/10.d0) * vmem + DT/10.d0 * at_v(:,1)
-        end if
-
-     end do
-
-     call correct_at
-     
-     if (N_MD_since_re.gt.0) then
-        reneigh = reneigh + 1
-        tau = N_MD_since_re*DT
-        call MPCD_stream
-        N_MD_since_re = 0
-        call correct_so
-        call place_in_cells
-        call make_neigh_list
-        call compute_f
-     end if
-
-     
-     if (do_shifting) then
-        shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-        shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-        shift(3) = (mtprng_rand_real1(ran_state)-0.5d0)*a
-     end if
-
-     call correct_so
-     if (collide) then
-        call place_in_cells
-        call compute_v_com
-        call generate_omega
-        if (switch) then
-           do i=1,N_groups
-              do j=1,group_list(i) % N
-                 idx1 = group_list(i) % istart + j - 1
-                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, maxval(at_so % cut(at_species(idx1),:))+a)
-              end do
-           end do
-        end if
-        call MD_MPCD_step(.true., target_T)
-     end if
-
-     total_kin = 0.d0
-     total_mass = 0.d0
-     do i=1,so_sys%N(0)
-        total_mass = total_mass + so_sys % mass( so_species(i) )
-        total_kin = total_kin + 0.5d0 * so_sys % mass( so_species(i) ) * sum( so_v(:,i)**2 )
-     end do
-     actual_T = total_kin * 2.d0/(3.d0 * so_sys % N(0) )
-     do i=1,at_sys%N(0)
-        total_mass = total_mass + at_sys % mass( at_species(i) )
-        total_kin = total_kin + 0.5d0 * at_sys % mass( at_species(i) ) * sum( at_v(:,i)**2 )
-     end do
-
-     call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
-
-     call h5md_write_obs(at_soID, at_sol_en, i_MD_time, realtime)
-     call h5md_write_obs(at_atID, at_at_en, i_MD_time, realtime)
-     call h5md_write_obs(at_kinID, at_kin, i_MD_time, realtime)
-     call h5md_write_obs(so_kinID, sol_kin, i_MD_time, realtime)
-     call h5md_write_obs(total_vID, total_v, i_MD_time, realtime)
-     call h5md_write_obs(enID, energy, i_MD_time, realtime)
-     call h5md_write_obs(tempID, actual_T, i_MD_time, realtime)
-     call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
-     call h5md_write_obs(vmemID, vmem, i_MD_time, realtime)
-
-     if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
-  end do
-  
-  DT = MD_DT
-  do i_time = N_th_loop+1,N_loop+N_th_loop
-     
-     do i_in = 1,N_MD_loop
-
-        at_r_old = at_r
-
-        call MD_step1
-
-        do i=1,N_groups
-           if (group_list(i)%g_type .eq. SHAKE_G) then
-              call shake(group_list(i))
-           end if
-        end do
-        N_MD_since_re = N_MD_since_re + 1
-
-        if ( (max_displ(so_r,so_r_neigh,so_sys%N(0)) > max_d) .or. &
-             (max_displ(at_r,at_r_neigh) > max_d) .or. &
-             (N_MD_since_re.ge.N_MD_max)) then
-
-           tau = N_MD_since_re*DT
-           call MPCD_stream
-           N_MD_since_re = 0
-           reneigh = reneigh + 1
-           call correct_so
-           call place_in_cells
-           call make_neigh_list
-        end if
-
-        call compute_f
-        call MD_step2
-
-        do i=1,N_groups
-           if (group_list(i)%g_type .eq. SHAKE_G) then
-              call rattle(group_list(i))
-           end if
-        end do
-
-        do i=1,N_groups
-           group_list(i) % r = com_r(group_list(i))
-           group_list(i) % v = com_v(group_list(i))
-           group_list(i) % f = com_f(group_list(i))
-        end do
-
-        if (reactive) call reac_loop
+        !! Catalytic reactions
+        if (run_loop .and. reactive) call reac_loop
 
         if (group_list(1)%g_type.eq.FIXED_G) then
            vmem = (/ 1.d0, 0.d0, 0.d0 /)
@@ -564,7 +455,8 @@ program test
         realtime=realtime+DT
         i_MD_time = i_MD_time + 1
 
-        if ( collect_MD_steps > 0 .and. mod(i_MD_time, collect_MD_steps) .eq. 0 ) then
+        !! Writing of fast observables to disk
+        if (run_loop .and. collect_MD_steps > 0 .and. mod(i_MD_time, collect_MD_steps) .eq. 0 ) then
            if (allocated(group_list(1) % subgroup) .and. (group_list(1) % N_sub .eq. 2) ) then
               v_sub1 = com_v(group_list(1),1)
               v_sub2 = com_v(group_list(1),2)
@@ -586,6 +478,7 @@ program test
 
      end do
 
+     !! Correction of atoms positions for boundary conditions
      call correct_at
 
      if (N_MD_since_re.gt.0) then
@@ -606,10 +499,9 @@ program test
      else
         x_temp = vmem
      end if
-     if (group_list(1) % N_radial > 0) call update_polar_fields(pf1, com_g1, x_temp)
+
+     if (run_loop .and. group_list(1) % N_radial > 0) call update_polar_fields(pf1, com_g1, x_temp)
      
-
-
      if (do_shifting) then
         shift(1) = (mtprng_rand_real1(ran_state)-0.5d0)*a
         shift(2) = (mtprng_rand_real1(ran_state)-0.5d0)*a
@@ -630,7 +522,12 @@ program test
               end do
            end do
         end if
-        if ( (N_therm > 0) .and. (mod(i_time, N_therm).eq.0) ) then
+        !! Applies a thermostat, if appropriate, every N_therm steps
+        if ( &
+             ( (N_therm > 0) .and. (mod(i_time, N_therm).eq.0)) &
+             .or. &
+             (.not. run_loop) &
+             ) then
            call MD_MPCD_step(.true., target_T)
         else
            call MD_MPCD_step(.false., target_T)
@@ -638,13 +535,16 @@ program test
      end if
 
      call compute_tot_mom_energy(en_unit, at_sol_en, at_at_en, sol_kin, at_kin, energy, total_v)
+
+     !! This has to be modified fo ran actual computation of T TODO
      total_kin = 0.d0
      do i=1,so_sys%N(0)
         total_kin = total_kin + 0.5d0 * so_sys % mass( so_species(i) ) * sum( so_v(:,i)**2 )
      end do
      actual_T = total_kin * 2.d0/(3.d0 * so_sys % N(0) )
      
-     if (reactive .and. N_reset_fuel > 0) then
+     !! Fuel reset loop
+     if (run_loop .and. reactive .and. N_reset_fuel > 0) then
         if (mod(i_time,N_reset_fuel).eq.0) then
            if (reset_reac.eq.'BtoA') then
            ! doing straight B->A
@@ -719,9 +619,9 @@ program test
      call h5md_write_obs(solvent_N_ID, so_sys % N, i_MD_time, realtime)
      call h5md_write_obs(vmemID, vmem, i_MD_time, realtime)
 
-     if (mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
+     if (run_loop .and. mod(i_time, collect_traj_steps).eq.0) call h5md_write_obs(posID, at_r, i_MD_time, realtime)
 
-     if (mod(i_time, 100).eq.0) then
+     if (run_loop .and. mod(i_time, 100).eq.0) then
         if (group_list(1) % N_radial > 0) call write_polar_fields(pf1, i_MD_time, realtime)
         call h5fflush_f(file_ID,H5F_SCOPE_GLOBAL_F, h5_error)
         write(flush_unit, *) 'flushed at i_time ', i_time
