@@ -244,6 +244,8 @@ program test
      end do
   end if
   so_do_reac = .false.
+  reac_cut = PTread_d(CF, 'reac_cut')
+  if (checkpoint <= 0) call h5md_write_par(file_id, 'reac_cut', reac_cut)
   N_therm = PTread_i(CF, 'N_therm')
 
   collide = PTread_l(CF, 'collide')

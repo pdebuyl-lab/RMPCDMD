@@ -36,6 +36,9 @@ module MD
   !> A reverse lookup list: for each solvent particle, a list of neighbouring atoms.
   integer, allocatable :: so_neigh_list(:,:)
 
+  !> Factor controlling the boundary for catalytic reactions.
+  double precision :: reac_cut
+
   !> The timestep for the molecular dynamics integrator.
   double precision :: DT
 
@@ -1120,7 +1123,7 @@ contains
        at_i = so_neigh_list(i,so_i)
        call rel_pos(so_r(:,so_i), at_r(:,at_i), L, x)
        d_sqr = sum(x**2)
-       if ( d_sqr <= 1.2d0*at_so % cut(at_species(at_i), so_species(so_i))**2 ) then
+       if ( d_sqr <= (reac_cut*at_so % cut(at_species(at_i), so_species(so_i)))**2 ) then
           if (flag) then
              count_atom_neighbours = 1
              return
