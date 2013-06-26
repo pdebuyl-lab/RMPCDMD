@@ -514,10 +514,15 @@ program test
         call compute_v_com
         call generate_omega
         if (switch) then
+           cell_active = .true.
+           cell_collide = .true.
            do i=1,N_groups
               do j=1,group_list(i) % N
                  idx1 = group_list(i) % istart + j - 1
-                 call switch_off(at_r(:,idx1), maxval(at_so % cut(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, maxval(at_so % cut(at_species(idx1),:))+a, switch_collide, switch_reac)
+                 call switch_off(at_r(:,idx1), &
+                      maxval(at_so % cut(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, &
+                      maxval(at_so % cut(at_species(idx1),:))+sqrt(3.d0)/2.d0*a, &
+                      switch_collide, switch_reac)
               end do
            end do
         end if
@@ -642,9 +647,6 @@ contains
 
     integer :: ci,cj,ck
     double precision :: x(3), n(3)
-
-    cell_active = .true.
-    cell_collide = .true.
 
     do ck=1,N_cells(3)
        do cj=1,N_cells(2)
