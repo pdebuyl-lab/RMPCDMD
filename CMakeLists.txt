@@ -26,12 +26,12 @@ add_executable(MPCDMD_test src/MPCDMD.f90 src/LJ.f90 src/MD.f90
 src/MPCD.f90 src/group.f90 src/sys.f90 src/volume_reaction.f90 src/reaction.f90
 src/polar_fields.f90
 test/MPCDMD_test.f90 f90h5md/h5md.f90)
-target_link_libraries(MPCDMD_test ParseText mtprng ${HDF5FORTRANLIB} ${HDF5LIB} ${ZLIB} ${SZLIB})
+target_link_libraries(MPCDMD_test ParseText mtprng ${HDF5FORTRANLIB} ${HDF5LIB})
 add_dependencies(MPCDMD_test MPCDMD_version)
 
 add_executable(MPCD_test src/MPCDMD.f90 src/MPCD.f90 src/group.f90
 src/sys.f90 src/volume_reaction.f90 test/MPCD_test.f90)
-target_link_libraries(MPCD_test ParseText mtprng ${HDF5FORTRANLIB} ${HDF5LIB} ${ZLIB} ${SZLIB})
+target_link_libraries(MPCD_test ParseText mtprng ${HDF5FORTRANLIB} ${HDF5LIB})
 add_dependencies(MPCD_test MPCDMD_version)
 
 
