@@ -1,9 +1,9 @@
 [submodule "ParseText"]
 	path = ParseText
-	url = git://cenoli41.ulb.ac.be/ParseText.git 
+	url = ../ParseText
 [submodule "mtprng"]
 	path = mtprng
-	url = git://cenoli41.ulb.ac.be/mtprng.git
+	url = ../mtprng
 [submodule "f90h5md"]
 	path = f90h5md
-	url = git://cenoli41.ulb.ac.be/f90h5md.git
+	url = ../f90h5md
