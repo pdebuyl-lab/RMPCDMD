@@ -670,9 +670,9 @@ contains
   subroutine begin_h5md
 
     call h5md_create_trajectory_group(file_ID, group_name='colloid')
-    call h5md_add_trajectory_data(file_ID, 'position', at_sys% N_max, 3, posID, group_name='colloid')
-    call h5md_add_trajectory_data(file_ID, 'velocity', at_sys% N_max, 3, velID, group_name='colloid')
-    call h5md_add_trajectory_data(file_ID, 'jumps', at_sys% N_max, 3, jumpID, group_name='colloid')
+    call h5md_add_trajectory_data(file_ID, 'position', int(at_sys% N_max, HSIZE_T), 3_HSIZE_T, posID, group_name='colloid')
+    call h5md_add_trajectory_data(file_ID, 'velocity', int(at_sys% N_max, HSIZE_T), 3_HSIZE_T, velID, group_name='colloid')
+    call h5md_add_trajectory_data(file_ID, 'jumps', int(at_sys% N_max, HSIZE_T), 3_HSIZE_T, jumpID, group_name='colloid')
     call h5md_create_obs(file_ID, 'mtprng_f90', rngID, mtprng_container)
     call h5md_create_obs(file_ID, 'energy', enID, energy)
     call h5md_create_obs(file_ID, 'temperature', tempID, actual_T, link_from='energy')
@@ -695,10 +695,10 @@ contains
        call h5md_create_obs(file_ID, 'colloid_force', colloid_forceID, colloid_f, link_from='v_com')
     end if
     call h5md_create_trajectory_group(file_ID, group_name='solvent')
-    call h5md_add_trajectory_data(file_ID, 'position', so_sys% N_max, 3, so_posID, group_name='solvent', compress=.true.)
-    call h5md_add_trajectory_data(file_ID, 'velocity', so_sys% N_max, 3, so_velID, group_name='solvent', compress=.true.)
-    call h5md_add_trajectory_data(file_ID, 'species', so_sys% N_max, 1, so_speciesID, group_name='solvent', species_react=.true., compress=.true.)
-    call h5md_add_trajectory_data(file_ID, 'so_do_reac', so_sys% N_max, 1, so_do_reacID, group_name='solvent', force_kind='integer', force_rank=2, compress=.true.)
+    call h5md_add_trajectory_data(file_ID, 'position', int(so_sys% N_max, HSIZE_T), 3_HSIZE_T, so_posID, group_name='solvent', compress=.true.)
+    call h5md_add_trajectory_data(file_ID, 'velocity', int(so_sys% N_max, HSIZE_T), 3_HSIZE_T, so_velID, group_name='solvent', compress=.true.)
+    call h5md_add_trajectory_data(file_ID, 'species', int(so_sys% N_max, HSIZE_T), 1_HSIZE_T, so_speciesID, group_name='solvent', species_react=.true., compress=.true.)
+    call h5md_add_trajectory_data(file_ID, 'so_do_reac', int(so_sys% N_max, HSIZE_T), 1_HSIZE_T, so_do_reacID, group_name='solvent', force_kind='integer', force_rank=2, compress=.true.)
 
   end subroutine begin_h5md
 
