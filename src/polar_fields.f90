@@ -6,6 +6,7 @@ module polar_fields
   use MD, only: rel_pos
   use MPCD, only: L, PI
   use h5md
+  use hdf5
   implicit none
 
   !> A polar_fields_t contains the parameters for the distributions and the

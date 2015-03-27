@@ -8,6 +8,7 @@ program test
   use ParseText
   use MPCDMD
   use h5md
+  use hdf5
   use polar_fields
   implicit none
   
