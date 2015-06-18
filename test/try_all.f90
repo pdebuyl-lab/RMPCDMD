@@ -4,18 +4,26 @@ program try_all
 
   type(cell_system_t) :: solvent_cells
 
-  integer :: i
-  double precision :: r(3, 10)
+  integer :: i, j, L(3)
+  double precision :: r(3, 1000)
+
+  L = [8, 3, 5]
 
   do i = 1, size(r, 2)
-     r(:, i) = i * [0.01d0, 0.02d0, 0.05d0]
+     call random_number(r(:, i))
+     do j=1, 3
+        r(j, i) = r(j, i) * L(j)
+     end do
   end do
 
-  call solvent_cells%init([8, 4, 4], 1.d0)
+  call solvent_cells%init(L, 1.d0)
+
+  print *, solvent_cells%M
 
   call solvent_cells%count_particles(r)
 
-  print *, solvent_cells%cell_count(1)
+  print *, sum(solvent_cells%cell_count)
+  print *, solvent_cells%cell_count
 
   call solvent_cells%del()
 

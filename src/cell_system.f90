@@ -12,7 +12,7 @@ module cell_system
      double precision :: a(3)
      double precision :: origin(3)
      integer, allocatable :: cell_count(:)
-     type(hilbert_t) :: hilbert
+     integer :: M(3)
    contains
      procedure :: init
      procedure :: del
@@ -26,10 +26,19 @@ contains
     integer, intent(in) :: L(3)
     double precision, intent(in) :: a
 
+    integer :: i
+
     this%L = L
-    this%N = L(1)*L(2)*L(3)
     this%a = a
+    this%M = 1
     this%origin = 0.d0
+
+    do i=1, 3
+       do while ( 2**this%M(i) < L(i) )
+          this%M(i) = this%M(i)+1
+       end do
+    end do
+    this%N = 2**this%M(1)*2**this%M(2)*2**this%M(3)
     allocate(this%cell_count(this%N))
 
   end subroutine init
@@ -56,7 +65,7 @@ contains
 
     do i=1, N_particles
        p = floor( (position(:, i) - this%origin ) / this%a )
-       idx = this%hilbert%p_to_h(p)
+       idx = compact_p_to_h(p, this%M) + 1
        this%cell_count(idx) = this%cell_count(idx) + 1
     end do
 
