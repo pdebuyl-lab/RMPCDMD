@@ -5,8 +5,10 @@ program try_all
 
   type(cell_system_t) :: solvent_cells
 
+  integer, parameter :: N = 1000
+
   integer :: i, idx, j, L(3), p(3)
-  double precision :: r(3, 1000), r_new(3, 1000)
+  double precision :: r(3, N), r_new(3, N)
 
   L = [8, 3, 5]
 
@@ -29,7 +31,7 @@ program try_all
 
   call solvent_cells%sort_particles(r, r_new)
 
-  do i=1, 1000
+  do i=1, N
        p = floor( (r_new(:, i) - solvent_cells%origin ) / solvent_cells%a )
        idx = compact_p_to_h(p, solvent_cells%M) + 1
        write(*, *) idx
