@@ -6,28 +6,25 @@ program try_all
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
+  type(particle_system_t) :: colloids
 
   integer, parameter :: N = 1000
+  integer, parameter :: N_colloids = 5
 
   integer :: i, idx, j, L(3), p(3)
 
   L = [8, 3, 4]
 
   call solvent% init(N)
+  call colloids% init(N_colloids)
 
-  call random_number(solvent% vel(:, i))
+  call random_number(solvent% vel(:, :))
+  solvent% vel(:, :) = solvent% vel(:, :) - 0.5d0
   solvent% force = 0
   solvent% species = 1
-  do i = 1, N
-     call random_number(solvent% pos(:, i))
-     do j=1, 3
-        solvent% pos(j, i) = solvent% pos(j, i) * L(j)
-     end do
-  end do
+  call solvent% random_placement(L*1.d0)
 
   call solvent_cells%init(L, 1.d0)
-
-  print *, solvent_cells%M
 
   call solvent_cells%count_particles(solvent% pos)
 
@@ -35,10 +32,7 @@ program try_all
   print *, solvent_cells%cell_count
   print *, solvent_cells%cell_start(1), solvent_cells%cell_start(solvent_cells%N)
 
-  call solvent_cells%sort_particles(solvent% pos, solvent% pos_old)
-  solvent% pos_pointer => solvent% pos
-  solvent% pos => solvent% pos_old
-  solvent% pos_old => solvent% pos_pointer
+  call sort
 
   open(12, file='sorted_pos')
   do i=1, N
@@ -46,10 +40,7 @@ program try_all
   end do
   close(12)
 
-  call random_number(solvent% pos(:, :))
-  do j = 1, 3
-     solvent% pos(j, :) = solvent% pos(j, :) * L(j)
-  end do
+  call solvent% random_placement(L*1.d0)
 
   call sort
 

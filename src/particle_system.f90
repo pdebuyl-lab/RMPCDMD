@@ -33,6 +33,7 @@ module particle_system
      integer, pointer :: species_pointer(:)
    contains
      procedure :: init
+     procedure :: random_placement
   end type particle_system_t
 
 contains
@@ -68,5 +69,18 @@ contains
     this% species_old => this% species2
 
   end subroutine init
+
+  subroutine random_placement(this, L)
+    class(particle_system_t), intent(inout) :: this
+    double precision, intent(in) :: L(3)
+
+    integer :: j
+
+    call random_number(this% pos(:, :))
+    do j=1, 3
+        this% pos(j, :) = this% pos(j, :) * L(j)
+     end do
+
+  end subroutine random_placement
 
 end module particle_system
