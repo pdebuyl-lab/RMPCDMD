@@ -1,11 +1,12 @@
 program try_all
   use cell_system
+  use hilbert
   implicit none
 
   type(cell_system_t) :: solvent_cells
 
-  integer :: i, j, L(3)
-  double precision :: r(3, 1000)
+  integer :: i, idx, j, L(3), p(3)
+  double precision :: r(3, 1000), r_new(3, 1000)
 
   L = [8, 3, 5]
 
@@ -24,7 +25,15 @@ program try_all
 
   print *, sum(solvent_cells%cell_count)
   print *, solvent_cells%cell_count
-  print *, solvent_cells%cell_count_sum(1), solvent_cells%cell_count_sum(solvent_cells%N)
+  print *, solvent_cells%cell_start(1), solvent_cells%cell_start(solvent_cells%N)
+
+  call solvent_cells%sort_particles(r, r_new)
+
+  do i=1, 1000
+       p = floor( (r_new(:, i) - solvent_cells%origin ) / solvent_cells%a )
+       idx = compact_p_to_h(p, solvent_cells%M) + 1
+       write(*, *) idx
+  end do
 
   call solvent_cells%del()
 

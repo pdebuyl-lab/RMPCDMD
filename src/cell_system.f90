@@ -12,12 +12,14 @@ module cell_system
      double precision :: a(3)
      double precision :: origin(3)
      integer, allocatable :: cell_count(:)
-     integer, allocatable :: cell_count_sum(:)
+     integer, allocatable :: cell_start(:)
+     integer, allocatable :: cell
      integer :: M(3)
    contains
      procedure :: init
      procedure :: del
      procedure :: count_particles
+     procedure :: sort_particles
   end type cell_system_t
 
 contains
@@ -41,7 +43,7 @@ contains
     end do
     this%N = 2**this%M(1)*2**this%M(2)*2**this%M(3)
     allocate(this%cell_count(this%N))
-    allocate(this%cell_count_sum(this%N))
+    allocate(this%cell_start(this%N))
 
   end subroutine init
 
@@ -71,12 +73,30 @@ contains
        this%cell_count(idx) = this%cell_count(idx) + 1
     end do
 
-    this%cell_count_sum = 0
-    this%cell_count_sum(1) = this%cell_count(1)
+    this%cell_start(1) = 1
     do i=2, this%N
-       this%cell_count_sum(i) = this%cell_count_sum(i-1) + this%cell_count(i)
+       this%cell_start(i) = this%cell_start(i-1) + this%cell_count(i-1)
     end do
 
   end subroutine count_particles
+
+  subroutine sort_particles(this, position_old, position_new)
+    class(cell_system_t), intent(inout) :: this
+    double precision, intent(in) :: position_old(:, :)
+    double precision, intent(out) :: position_new(:, :)
+
+    integer :: i, idx, N, start, p(3)
+
+    N = size(position_old, 2)
+
+    do i=1, N
+       p = floor( (position_old(:, i) - this%origin ) / this%a )
+       idx = compact_p_to_h(p, this%M) + 1
+       start = this%cell_start(idx)
+       position_new(:, start) = position_old(:, i)
+       this%cell_start(idx) = start + 1
+    end do
+
+  end subroutine sort_particles
 
 end module cell_system
