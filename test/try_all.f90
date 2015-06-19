@@ -24,6 +24,7 @@ program try_all
 
   print *, sum(solvent_cells%cell_count)
   print *, solvent_cells%cell_count
+  print *, solvent_cells%cell_count_sum(1), solvent_cells%cell_count_sum(solvent_cells%N)
 
   call solvent_cells%del()
 

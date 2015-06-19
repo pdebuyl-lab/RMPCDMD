@@ -12,6 +12,7 @@ module cell_system
      double precision :: a(3)
      double precision :: origin(3)
      integer, allocatable :: cell_count(:)
+     integer, allocatable :: cell_count_sum(:)
      integer :: M(3)
    contains
      procedure :: init
@@ -40,6 +41,7 @@ contains
     end do
     this%N = 2**this%M(1)*2**this%M(2)*2**this%M(3)
     allocate(this%cell_count(this%N))
+    allocate(this%cell_count_sum(this%N))
 
   end subroutine init
 
@@ -67,6 +69,12 @@ contains
        p = floor( (position(:, i) - this%origin ) / this%a )
        idx = compact_p_to_h(p, this%M) + 1
        this%cell_count(idx) = this%cell_count(idx) + 1
+    end do
+
+    this%cell_count_sum = 0
+    this%cell_count_sum(1) = this%cell_count(1)
+    do i=2, this%N
+       this%cell_count_sum(i) = this%cell_count_sum(i-1) + this%cell_count(i)
     end do
 
   end subroutine count_particles
