@@ -59,7 +59,5 @@ program try_all
   end do
   close(12)
 
-  call solvent_cells%del()
-  call solvent% del()
 
 end program try_all

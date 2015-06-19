@@ -17,7 +17,6 @@ module cell_system
      integer :: M(3)
    contains
      procedure :: init
-     procedure :: del
      procedure :: count_particles
      procedure :: sort_particles
   end type cell_system_t
@@ -46,15 +45,6 @@ contains
     allocate(this%cell_start(this%N))
 
   end subroutine init
-
-  subroutine del(this)
-    class(cell_system_t), intent(inout) :: this
-
-    if (allocated(this%cell_count)) then
-       deallocate(this%cell_count)
-    end if
-
-  end subroutine del
 
   subroutine count_particles(this, position)
     class(cell_system_t), intent(inout) :: this
