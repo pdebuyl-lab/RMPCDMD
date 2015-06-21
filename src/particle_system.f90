@@ -1,5 +1,5 @@
 module particle_system
-
+  implicit none
   private
 
   public :: particle_system_t
