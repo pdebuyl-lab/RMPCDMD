@@ -18,11 +18,13 @@ program try_all
   call solvent% init(N)
   call colloids% init(N_colloids)
 
+  call colloids% random_placement(L*1.d0)
+
   call random_number(solvent% vel(:, :))
   solvent% vel(:, :) = solvent% vel(:, :) - 0.5d0
   solvent% force = 0
   solvent% species = 1
-  call solvent% random_placement(L*1.d0)
+  call solvent% random_placement(L*1.d0, colloids% pos, 1.d0)
 
   call solvent_cells%init(L, 1.d0)
 
@@ -37,6 +39,12 @@ program try_all
   open(12, file='sorted_pos')
   do i=1, N
      write(12, *) solvent% pos(:,i)
+  end do
+  close(12)
+
+  open(12, file='colloids_pos')
+  do i=1, N_colloids
+     write(12, *) colloids% pos(:,i)
   end do
   close(12)
 

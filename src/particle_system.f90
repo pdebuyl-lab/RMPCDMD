@@ -70,16 +70,49 @@ contains
 
   end subroutine init
 
-  subroutine random_placement(this, L)
+  subroutine random_placement(this, L, obstacles, radius)
     class(particle_system_t), intent(inout) :: this
     double precision, intent(in) :: L(3)
+    double precision, intent(in), optional :: obstacles(:,:)
+    double precision, intent(in), optional :: radius
 
-    integer :: j
+    integer :: i, j, N_obstacles
+    double precision :: x(3), rsq, radiussq
+    logical :: tooclose
 
-    call random_number(this% pos(:, :))
-    do j=1, 3
-        this% pos(j, :) = this% pos(j, :) * L(j)
-     end do
+    if (present(obstacles) .or. present(radius)) then
+       if ( .not. ( present(obstacles) .and. present(radius) ) ) then
+          stop 'obstacles and radius must be present/absent together'
+       end if
+       N_obstacles = size(obstacles, 2)
+    else
+       N_obstacles = 0
+    end if
+
+    if (N_obstacles .gt. 0) then
+       radiussq = radius**2
+       do i = 1, this% Nmax
+          tooclose = .true.
+          do while ( tooclose )
+             call random_number(x)
+             x = x * L
+             tooclose = .false.
+             do j = 1, N_obstacles
+                rsq = sum(rel_pos(x, obstacles(:, j), L)**2)
+                if ( rsq < radiussq ) then
+                   tooclose = .true.
+                   exit
+                end if
+             end do
+             this% pos(:, i) = x
+          end do
+       end do
+    else
+       call random_number(this% pos(:, :))
+       do j=1, 3
+          this% pos(j, :) = this% pos(j, :) * L(j)
+       end do
+    end if
 
   end subroutine random_placement
 
