@@ -8,6 +8,7 @@ add_subdirectory(ParseText)
 
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY})
 add_executable(try_all
+src/common.f90
 src/cell_system.f90
 src/particle_system.f90
 src/hilbert.f90
