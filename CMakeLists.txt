@@ -12,6 +12,7 @@ src/common.f90
 src/cell_system.f90
 src/particle_system.f90
 src/hilbert.f90
+src/neighbor_list.f90
 test/try_all.f90)
 target_link_libraries(try_all ParseText dl)
 

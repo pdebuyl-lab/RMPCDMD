@@ -2,18 +2,28 @@ program try_all
   use cell_system
   use particle_system
   use hilbert
+  use neighbor_list
   implicit none
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
   type(particle_system_t) :: colloids
+  type(neighbor_list_t) :: neigh
 
   integer, parameter :: N = 1000
-  integer, parameter :: N_colloids = 5
+  integer, parameter :: N_colloids = 3
 
-  integer :: i, idx, j, L(3), p(3)
+  integer :: i, L(3), seed_size, clock
+  integer, allocatable :: seed(:)
 
-  L = [8, 3, 4]
+  call random_seed(size = seed_size)
+  allocate(seed(seed_size))
+  call system_clock(count=clock)
+  seed = clock + 37 * [ (i - 1, i = 1, seed_size) ]
+  call random_seed(put = seed)
+  deallocate(seed)
+
+  L = [8, 5, 5]
 
   call solvent% init(N)
   call colloids% init(N_colloids)
@@ -36,6 +46,16 @@ program try_all
 
   call sort
 
+  call neigh% init(N_colloids, 300)
+
+  call neigh% update_list(colloids, solvent, 1.4d0, solvent_cells)
+
+  open(12, file='neigh_list')
+  do i = 1, N_colloids
+     write(12, *) neigh% n(i)
+     write(12, *) neigh% list(:, i)
+  end do
+
   open(12, file='sorted_pos')
   do i=1, N
      write(12, *) solvent% pos(:,i)
@@ -48,9 +68,13 @@ program try_all
   end do
   close(12)
 
-  call solvent% random_placement(L*1.d0)
+  do i = 1, 1000
 
-  call sort
+     call solvent% random_placement(L*1.d0)
+     call sort
+     call neigh% update_list(colloids, solvent, 1.4d0, solvent_cells)
+
+  end do
 
   open(12, file='sorted_pos_2')
   do i=1, N
