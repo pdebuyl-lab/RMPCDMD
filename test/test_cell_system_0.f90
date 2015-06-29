@@ -1,19 +1,21 @@
 program try_all
   use cell_system
   use hilbert
+  use tester
   implicit none
 
   type(cell_system_t) :: solvent_cells
+  type(tester_t) :: tester
 
   integer, parameter :: N = 2000
   double precision, target :: pos1(3, N), pos2(3, N)
   double precision, pointer :: pos(:,:), pos_old(:,:), pos_pointer(:,:)
 
-  logical :: success
-
   integer :: i, L(3), seed_size, clock
   integer, allocatable :: seed(:)
   integer :: h, c1(3), c2(3)
+
+  call tester% init()
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
@@ -39,13 +41,9 @@ program try_all
   call sort
   call solvent_cells%count_particles(pos)
 
-  success = .true.
-  if (solvent_cells%cell_start(1) .ne. 1) success = .false.
-  print *, solvent_cells%cell_start(1), 1
-  if (solvent_cells%cell_start(solvent_cells%N) .ne. N+1) success = .false.
-  print *, solvent_cells%cell_start(solvent_cells%N), N+1
-  if (sum(solvent_cells%cell_count) .ne. N) success = .false.
-  print *, sum(solvent_cells%cell_count), N
+  call tester% assert_equal(solvent_cells%cell_start(1), 1)
+  call tester% assert_equal(solvent_cells%cell_start(solvent_cells%N), N+1)
+  call tester% assert_equal(sum(solvent_cells%cell_count), N)
 
   h = 1
   do i = 1, N
@@ -55,13 +53,10 @@ program try_all
      end do
      c1 = floor( (pos(:, i) - solvent_cells% origin) / solvent_cells% a )
      c2 = compact_h_to_p(h-1, solvent_cells% M)
-     if (c1(1) .ne. c2(1)) success = .false.
-     if (c1(2) .ne. c2(2)) success = .false.
-     if (c1(3) .ne. c2(3)) success = .false.
-     if (.not. success) print *, i, h, c1, c2
+     call tester% assert_equal(c1, c2)
   end do
 
-  if (success) write(*,*) 'success'
+  call tester% print()
 
 contains
 

@@ -21,8 +21,9 @@ target_link_libraries(try_all ParseText dl)
 add_executable(test_cell_system_0
 src/cell_system.f90
 src/hilbert.f90
+test/tester.f90
 test/test_cell_system_0.f90)
 target_link_libraries(test_cell_system_0 dl)
 
 add_test(test_cell_system_0 test_cell_system_0)
-set_tests_properties(test_cell_system_0 PROPERTIES PASS_REGULAR_EXPRESSION "success")
+set_tests_properties(test_cell_system_0 PROPERTIES PASS_REGULAR_EXPRESSION "all tests succeeded")
