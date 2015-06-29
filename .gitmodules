@@ -1,3 +1,6 @@
 [submodule "ParseText"]
 	path = ParseText
 	url = ../ParseText
+[submodule "fortran_tester"]
+	path = fortran_tester
+	url = ../fortran_tester
