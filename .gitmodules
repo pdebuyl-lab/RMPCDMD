@@ -4,3 +4,6 @@
 [submodule "fortran_tester"]
 	path = fortran_tester
 	url = ../fortran_tester
+[submodule "fortran_h5md"]
+	path = fortran_h5md
+	url = ../fortran_h5md
