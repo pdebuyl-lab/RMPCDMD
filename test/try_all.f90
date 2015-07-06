@@ -3,12 +3,15 @@ program try_all
   use particle_system
   use hilbert
   use neighbor_list
+  use interaction
   implicit none
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
   type(particle_system_t) :: colloids
   type(neighbor_list_t) :: neigh
+  type(lj_params_t) :: solvent_colloid_lj
+  type(lj_params_t) :: colloid_lj
 
   integer, parameter :: N = 1000
   integer, parameter :: N_colloids = 3
@@ -24,6 +27,12 @@ program try_all
   deallocate(seed)
 
   L = [8, 5, 5]
+
+  call solvent_colloid_lj% init( reshape( [ 1.d0 ], [1, 1] ), &
+       reshape( [ 1.d0 ], [1, 1] ), reshape( [ 2.d0**(1.d0/6.d0) ], [1, 1] ) )
+
+  call colloid_lj% init( reshape( [ 1.d0 ], [1, 1] ), &
+       reshape( [ 2.d0 ], [1, 1] ), reshape( [ 2.d0*2.d0**(1.d0/6.d0) ], [1, 1] ) )
 
   call solvent% init(N)
   call colloids% init(N_colloids)
