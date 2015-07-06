@@ -7,6 +7,7 @@ module particle_system
 
   type particle_system_t
      integer :: Nmax
+     integer :: n_species
      double precision, pointer :: pos1(:,:)
      double precision, pointer :: pos2(:,:)
      double precision, pointer :: pos(:,:)
@@ -34,16 +35,24 @@ module particle_system
      integer, pointer :: species_pointer(:)
    contains
      procedure :: init
+     procedure :: init_from_file
      procedure :: random_placement
   end type particle_system_t
 
 contains
 
-  subroutine init(this, Nmax)
+  subroutine init(this, Nmax, n_species)
     class(particle_system_t), intent(out) :: this
     integer, intent(in) :: Nmax
+    integer, intent(in), optional :: n_species
 
     this% Nmax = Nmax
+    if (present(n_species)) then
+       this% n_species = n_species
+    else
+       this% n_species = 1
+    end if
+
     allocate(this% pos1(3, Nmax))
     allocate(this% pos2(3, Nmax))
     this% pos => this% pos1
