@@ -91,23 +91,16 @@ contains
 
     type(h5md_file_t) :: f
     type(h5md_element_t) :: e
-    logical :: valid, link_exists
     integer(HID_T) :: g, mem_space, file_space
     integer(HSIZE_T) :: dims(3), maxdims(3), start(3)
     integer :: rank
 
     call f% open(filename, H5F_ACC_RDONLY_F)
 
-    call h5iis_valid_f(f% particles, valid, f% error)
-    if (.not. valid) then
-       stop 'particles group not found'
-    end if
+    call h5md_check_valid(f% particles, 'particles group not found')
 
-    call h5lexists_f(f% particles, group_name, link_exists, e% error)
-    if (.not. link_exists) then
-       write(*,*) 'particles group ', group_name, ' not found'
-       stop
-    end if
+    call h5md_check_exists(f% particles, group_name, 'group '//group_name//' not found')
+
     call h5gopen_f(f% particles, group_name, g, f% error)
 
     call e% open_time(g, 'position')
