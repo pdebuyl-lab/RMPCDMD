@@ -47,7 +47,7 @@ contains
     this% sigma = sigma
     this% sigma_sq = sigma**2
     this% cut = cut
-    this% cut = cut**2
+    this% cut_sq = cut**2
 
   end subroutine lj_params_init
 
