@@ -38,6 +38,7 @@ module particle_system
      procedure :: init
      procedure :: init_from_file
      procedure :: random_placement
+     procedure :: sort
   end type particle_system_t
 
 contains
@@ -180,5 +181,52 @@ contains
     end if
 
   end subroutine random_placement
+
+  subroutine sort(this, cells)
+    use cell_system
+    use hilbert
+    implicit none
+    class(particle_system_t), intent(inout) :: this
+    type(cell_system_t), intent(inout) :: cells
+
+    integer :: i, idx, start, p(3)
+
+    call cells%count_particles(this% pos)
+
+    do i=1, this% Nmax
+       if (this% species(i) == 0) continue
+       p = floor( (this% pos(:, i) - cells% origin ) / cells% a )
+       idx = compact_p_to_h(p, cells% M) + 1
+       start = cells% cell_start(idx)
+       this% pos_old(:, start) = this% pos(:, i)
+       this% vel_old(:, start) = this% vel(:, i)
+       this% force_old(:, start) = this% force(:, i)
+       this% id_old(start) = this% id(i)
+       this% species_old(start) = this% species(i)
+       cells% cell_start(idx) = start + 1
+    end do
+
+    this% pos_pointer => this% pos
+    this% pos => this% pos_old
+    this% pos_old => this% pos_pointer
+
+    this% vel_pointer => this% vel
+    this% vel => this% vel_old
+    this% vel_old => this% vel_pointer
+
+    this% force_pointer => this% force
+    this% force => this% force_old
+    this% force_old => this% force_pointer
+
+    this% id_pointer => this% id
+    this% id => this% id_old
+    this% id_old => this% id_pointer
+
+    this% species_pointer => this% species
+    this% species => this% species_old
+    this% species_old => this% species_pointer
+
+  end subroutine sort
+
 
 end module particle_system
