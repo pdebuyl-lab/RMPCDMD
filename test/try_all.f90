@@ -16,6 +16,8 @@ program try_all
   integer, parameter :: N = 1000
   integer, parameter :: N_colloids = 3
 
+  double precision :: epsilon, sigma, sigma_cut
+
   integer :: i, L(3), seed_size, clock
   integer, allocatable :: seed(:)
 
@@ -28,11 +30,19 @@ program try_all
 
   L = [8, 5, 5]
 
-  call solvent_colloid_lj% init( reshape( [ 1.d0 ], [1, 1] ), &
-       reshape( [ 1.d0 ], [1, 1] ), reshape( [ 2.d0**(1.d0/6.d0) ], [1, 1] ) )
+  epsilon = 1
+  sigma = 1
+  sigma_cut = sigma*2**(1.d0/6.d0)
 
-  call colloid_lj% init( reshape( [ 1.d0 ], [1, 1] ), &
-       reshape( [ 2.d0 ], [1, 1] ), reshape( [ 2.d0*2.d0**(1.d0/6.d0) ], [1, 1] ) )
+  call solvent_colloid_lj% init( reshape( [ epsilon ], [1, 1] ), &
+       reshape( [ sigma ], [1, 1] ), reshape( [ sigma_cut ], [1, 1] ) )
+
+  epsilon = 1
+  sigma = 2
+  sigma_cut = sigma*2**(1.d0/6.d0)
+
+  call colloid_lj% init( reshape( [ epsilon ], [1, 1] ), &
+       reshape( [ sigma ], [1, 1] ), reshape( [ sigma_cut ], [1, 1] ) )
 
   call solvent% init(N)
   call colloids% init(N_colloids)
