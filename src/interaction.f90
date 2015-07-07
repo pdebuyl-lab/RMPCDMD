@@ -1,7 +1,4 @@
 module interaction
-  use common
-  use particle_system
-  use neighbor_list
   implicit none
 
   type lj_params_t
@@ -51,42 +48,6 @@ contains
 
   end subroutine lj_params_init
 
-  subroutine compute_force(ps1, ps2, n_list, L, lj_params)
-    type(particle_system_t), intent(inout) :: ps1
-    type(particle_system_t), intent(inout) :: ps2
-    type(neighbor_list_t), intent(in) :: n_list
-    double precision, intent(in) :: L(3)
-    type(lj_params_t), intent(in) :: lj_params
-
-    integer :: i, j
-    integer :: n_species1, n_species2
-    double precision :: x(3), d(3), f(3), f1(3)
-    integer :: s1, s2
-    double precision :: r_sq
-
-    n_species1 = ps1% n_species
-    n_species2 = ps2% n_species
-
-    do i = 1, ps1% Nmax
-       if (ps1% species(i) <= 0) continue
-       x = ps1% pos(:, i)
-       s1 = ps1% species(i)
-       f1 = 0
-       do j = 1, n_list% n(i)
-          s2 = ps2% species(j)
-          if (s2 <= 0) continue
-          d = rel_pos(x, ps2% pos(:, j), L)
-          r_sq = sum(d**2)
-          if ( r_sq <= lj_params% cut_sq(s1, s2) ) then
-             f = lj_force(d, r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
-             f1 = f1 + f
-             ps2% force(:, j) = ps2% force(:, j) - f
-          end if
-       end do
-       ps1% force(:, i) = ps1% force(:, i) + f1
-    end do
-
-  end subroutine compute_force
 
   pure function lj_force(d, r_sq, epsilon, sigma) result(f)
     double precision, intent(in) :: d(3)

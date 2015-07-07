@@ -1,5 +1,6 @@
 module particle_system
   use common
+  use interaction
   implicit none
   private
 
@@ -132,42 +133,44 @@ contains
 
   end subroutine init_from_file
 
-  subroutine random_placement(this, L, obstacles, radius)
+  subroutine random_placement(this, L, other, lj_params)
     class(particle_system_t), intent(inout) :: this
     double precision, intent(in) :: L(3)
-    double precision, intent(in), optional :: obstacles(:,:)
-    double precision, intent(in), optional :: radius
+    type(particle_system_t), intent(inout), optional :: other
+    type(lj_params_t), intent(in), optional :: lj_params
 
     integer :: i, j, N_obstacles
-    double precision :: x(3), rsq, radiussq
+    integer :: s1, s2
+    double precision :: x(3), rsq
     logical :: tooclose
 
-    if (present(obstacles) .or. present(radius)) then
-       if ( .not. ( present(obstacles) .and. present(radius) ) ) then
-          stop 'obstacles and radius must be present/absent together'
+    if (present(other) .or. present(lj_params)) then
+       if ( .not. ( present(other) .and. present(lj_params) ) ) then
+          stop 'other and lj_params must be present/absent together'
        end if
-       N_obstacles = size(obstacles, 2)
+       N_obstacles = other% Nmax
     else
        N_obstacles = 0
     end if
 
     if (N_obstacles .gt. 0) then
-       radiussq = radius**2
        do i = 1, this% Nmax
+          s1 = this% species(i)
           tooclose = .true.
           do while ( tooclose )
              call random_number(x)
              x = x * L
              tooclose = .false.
              do j = 1, N_obstacles
-                rsq = sum(rel_pos(x, obstacles(:, j), L)**2)
-                if ( rsq < radiussq ) then
+                s2 = other% species(j)
+                rsq = sum(rel_pos(x, other% pos(:, j), L)**2)
+                if ( rsq < lj_params% cut_sq(s1, s2) ) then
                    tooclose = .true.
                    exit
                 end if
              end do
-             this% pos(:, i) = x
           end do
+          this% pos(:, i) = x
        end do
     else
        call random_number(this% pos(:, :))

@@ -36,6 +36,7 @@ program try_all
 
   call solvent% init(N)
   call colloids% init(N_colloids)
+  colloids% species = 1
 
   call colloids% random_placement(L*1.d0)
 
@@ -43,7 +44,7 @@ program try_all
   solvent% vel(:, :) = solvent% vel(:, :) - 0.5d0
   solvent% force = 0
   solvent% species = 1
-  call solvent% random_placement(L*1.d0, colloids% pos, 1.d0)
+  call solvent% random_placement(L*1.d0, colloids, solvent_colloid_lj)
 
   call solvent_cells%init(L, 1.d0)
 

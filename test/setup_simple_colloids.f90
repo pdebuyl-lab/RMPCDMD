@@ -4,12 +4,15 @@ program setup_simple_colloids
   use hilbert
   use neighbor_list
   use hdf5
+  use interaction
   implicit none
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
   type(particle_system_t) :: colloids
   type(neighbor_list_t) :: neigh
+  type(lj_params_t) :: solvent_colloid_lj
+  type(lj_params_t) :: colloid_lj
 
   integer, parameter :: N = 3000
   integer :: error
@@ -28,6 +31,12 @@ program setup_simple_colloids
 
   L = [12, 12, 12]
 
+  call solvent_colloid_lj% init( reshape( [ 1.d0 ], [1, 1] ), &
+       reshape( [ 1.d0 ], [1, 1] ), reshape( [ 2.d0**(1.d0/6.d0) ], [1, 1] ) )
+
+  call colloid_lj% init( reshape( [ 1.d0 ], [1, 1] ), &
+       reshape( [ 2.d0 ], [1, 1] ), reshape( [ 2.d0*2.d0**(1.d0/6.d0) ], [1, 1] ) )
+
   call solvent% init(N)
 
   call colloids% init_from_file('input_data.h5', 'colloids')
@@ -36,7 +45,7 @@ program setup_simple_colloids
   solvent% vel(:, :) = solvent% vel(:, :) - 0.5d0
   solvent% force = 0
   solvent% species = 1
-  call solvent% random_placement(L*1.d0, colloids% pos, 1.d0)
+  call solvent% random_placement(L*1.d0, colloids, solvent_colloid_lj)
 
   call solvent_cells%init(L, 1.d0)
 
