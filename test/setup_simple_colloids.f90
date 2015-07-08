@@ -4,6 +4,7 @@ program setup_simple_colloids
   use hilbert
   use neighbor_list
   use hdf5
+  use h5md_module
   use interaction
   implicit none
 
@@ -49,7 +50,8 @@ program setup_simple_colloids
 
   call solvent% init(N)
 
-  call colloids% init_from_file('input_data.h5', 'colloids')
+  call colloids% init_from_file('input_data.h5', 'colloids', H5MD_LINEAR, 4)
+  write(*, *) colloids% pos
 
   call random_number(solvent% vel(:, :))
   solvent% vel(:, :) = solvent% vel(:, :) - 0.5d0
