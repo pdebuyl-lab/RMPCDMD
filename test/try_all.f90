@@ -4,6 +4,8 @@ program try_all
   use hilbert
   use neighbor_list
   use interaction
+  use hdf5
+  use h5md_module
   implicit none
 
   type(cell_system_t) :: solvent_cells
@@ -13,12 +15,16 @@ program try_all
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
 
+  type(h5md_file_t) :: datafile
+  type(h5md_element_t) :: elem
+  integer(HID_T) :: colloids_group, box_group
+
   integer, parameter :: N = 1000
   integer, parameter :: N_colloids = 3
 
   double precision :: epsilon, sigma, sigma_cut
 
-  integer :: i, L(3), seed_size, clock
+  integer :: i, L(3), seed_size, clock, error
   integer, allocatable :: seed(:)
 
   call random_seed(size = seed_size)
@@ -27,6 +33,8 @@ program try_all
   seed = clock + 37 * [ (i - 1, i = 1, seed_size) ]
   call random_seed(put = seed)
   deallocate(seed)
+
+  call h5open_f(error)
 
   L = [8, 5, 5]
 
@@ -60,9 +68,14 @@ program try_all
 
   call solvent_cells%count_particles(solvent% pos)
 
-  print *, sum(solvent_cells%cell_count)
-  print *, solvent_cells%cell_count
-  print *, solvent_cells%cell_start(1), solvent_cells%cell_start(solvent_cells%N)
+  call datafile% create('test_data.h5', 'RMPCDMD:try_all', '0.0 dev', 'Pierre de Buyl')
+  call h5gcreate_f(datafile% particles, 'colloids', colloids_group, error)
+
+  call h5gcreate_f(colloids_group, 'box', box_group, error)
+  call h5md_write_attribute(box_group, 'dimension', 3)
+  call h5md_write_attribute(box_group, 'boundary', ['periodic', 'periodic', 'periodic'])
+  call elem% create_fixed(box_group, 'edges', L*1.d0)
+  call h5gclose_f(box_group, error)
 
   call solvent% sort(solvent_cells)
 
@@ -101,5 +114,9 @@ program try_all
      write(12, *) solvent% pos(:,i)
   end do
   close(12)
+
+  call h5gclose_f(colloids_group, error)
+
+  call h5close_f(error)
 
 end program try_all
