@@ -17,6 +17,7 @@ program try_all
 
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
+  type(h5md_element_t) :: e_solvent
   integer(HID_T) :: colloids_group, box_group
 
   integer, parameter :: N = 1000
@@ -77,6 +78,8 @@ program try_all
   call elem% create_fixed(box_group, 'edges', L*1.d0)
   call h5gclose_f(box_group, error)
 
+  call e_solvent% create_time(colloids_group, 'position', solvent% pos, ior(H5MD_TIME, H5MD_STORE_TIME))
+
   call solvent% sort(solvent_cells)
 
   call neigh% init(N_colloids, 300)
@@ -101,11 +104,12 @@ program try_all
   end do
   close(12)
 
-  do i = 1, 1000
+  do i = 1, 50
 
      call solvent% random_placement(L*1.d0)
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, 1.4d0, solvent_cells)
+     call e_solvent% append(solvent% pos, i, i*1.d0)
 
   end do
 
