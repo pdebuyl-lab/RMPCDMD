@@ -18,7 +18,7 @@ program try_all
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
   type(h5md_element_t) :: e_solvent
-  integer(HID_T) :: colloids_group, box_group
+  integer(HID_T) :: colloids_group, box_group, solvent_group
 
   integer, parameter :: N = 1000
   integer, parameter :: N_colloids = 3
@@ -26,6 +26,7 @@ program try_all
   double precision :: epsilon, sigma, sigma_cut
 
   integer :: i, L(3), seed_size, clock, error
+  integer :: j
   integer, allocatable :: seed(:)
 
   call random_seed(size = seed_size)
@@ -78,7 +79,16 @@ program try_all
   call elem% create_fixed(box_group, 'edges', L*1.d0)
   call h5gclose_f(box_group, error)
 
-  call e_solvent% create_time(colloids_group, 'position', solvent% pos, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem% create_fixed(colloids_group, 'position', colloids% pos)
+
+  call h5gcreate_f(datafile% particles, 'solvent', solvent_group, error)
+  call h5gcreate_f(solvent_group, 'box', box_group, error)
+  call h5md_write_attribute(box_group, 'dimension', 3)
+  call h5md_write_attribute(box_group, 'boundary', ['periodic', 'periodic', 'periodic'])
+  call elem% create_fixed(box_group, 'edges', L*1.d0)
+  call h5gclose_f(box_group, error)
+
+  call e_solvent% create_time(solvent_group, 'position', solvent% pos, ior(H5MD_TIME, H5MD_STORE_TIME))
 
   call solvent% sort(solvent_cells)
 
@@ -92,34 +102,25 @@ program try_all
      write(12, *) neigh% list(:, i)
   end do
 
-  open(12, file='sorted_pos')
-  do i=1, N
-     write(12, *) solvent% pos(:,i)
-  end do
-  close(12)
-
-  open(12, file='colloids_pos')
-  do i=1, N_colloids
-     write(12, *) colloids% pos(:,i)
-  end do
-  close(12)
+  call e_solvent% append(solvent% pos, 0, 0.d0)
 
   do i = 1, 50
+     solvent% pos = solvent% pos + 0.1d0
+     do j= 1, 3
+        solvent% pos(:, j) = modulo( solvent% pos(:, j), L(j)*1.d0 )
+     end do
 
-     call solvent% random_placement(L*1.d0)
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, 1.4d0, solvent_cells)
      call e_solvent% append(solvent% pos, i, i*1.d0)
-
   end do
 
-  open(12, file='sorted_pos_2')
-  do i=1, N
-     write(12, *) solvent% pos(:,i)
-  end do
-  close(12)
+  call e_solvent% close()
 
   call h5gclose_f(colloids_group, error)
+  call h5gclose_f(solvent_group, error)
+
+  call datafile% close()
 
   call h5close_f(error)
 
