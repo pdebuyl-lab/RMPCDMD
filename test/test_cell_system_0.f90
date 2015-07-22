@@ -7,13 +7,16 @@ program try_all
   type(cell_system_t) :: solvent_cells
   type(tester_t) :: tester
 
-  integer, parameter :: N = 2000
-  double precision, target :: pos1(3, N), pos2(3, N)
+  integer, parameter :: N = 1000000
+  double precision, target, allocatable :: pos1(:, :), pos2(:, :)
   double precision, pointer :: pos(:,:), pos_old(:,:), pos_pointer(:,:)
 
   integer :: i, L(3), seed_size, clock
   integer, allocatable :: seed(:)
   integer :: h, c1(3), c2(3)
+
+  allocate(pos1(3, N))
+  allocate(pos2(3, N))
 
   call tester% init()
 
@@ -27,7 +30,7 @@ program try_all
   pos => pos1
   pos_old => pos2
 
-  L = [8, 5, 5]
+  L = [120, 30, 30]
 
   call random_number(pos)
   do i = 1, 3
@@ -38,7 +41,12 @@ program try_all
 
   call solvent_cells%count_particles(pos)
 
-  call sort
+  call solvent_cells%sort_particles(pos, pos_old)
+
+  pos_pointer => pos
+  pos => pos_old
+  pos_old => pos_pointer
+
   call solvent_cells%count_particles(pos)
 
   call tester% assert_equal(solvent_cells%cell_start(1), 1)
@@ -58,25 +66,7 @@ program try_all
 
   call tester% print()
 
-contains
-
-  subroutine sort
-    integer :: i, idx, start, p(3)
-
-    call solvent_cells%count_particles(pos)
-
-    do i=1, N
-       p = floor( (pos(:, i) - solvent_cells% origin ) / solvent_cells% a )
-       idx = compact_p_to_h(p, solvent_cells% M) + 1
-       start = solvent_cells% cell_start(idx)
-       pos_old(:, start) = pos(:, i)
-       solvent_cells% cell_start(idx) = start + 1
-    end do
-
-    pos_pointer => pos
-    pos => pos_old
-    pos_old => pos_pointer
-
-  end subroutine sort
+  deallocate(pos1)
+  deallocate(pos2)
 
 end program try_all
