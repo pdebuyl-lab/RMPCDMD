@@ -2,7 +2,7 @@ module hilbert
   implicit none
   private
 
-  public :: compact_p_to_h, compact_h_to_p
+  public :: p_to_h, h_to_p, compact_p_to_h, compact_h_to_p
   
   integer, parameter :: dim = 3
   integer, parameter :: mask=2**dim-1

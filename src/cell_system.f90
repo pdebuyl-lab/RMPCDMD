@@ -57,9 +57,11 @@ contains
 
     this%cell_count = 0
 
+    !$omp parallel do private(p)
     do i=1, N_particles
        p = floor( (position(:, i) - this%origin ) / this%a )
        idx = compact_p_to_h(p, this%M) + 1
+       !$omp atomic
        this%cell_count(idx) = this%cell_count(idx) + 1
     end do
 
@@ -79,12 +81,15 @@ contains
 
     N = size(position_old, 2)
 
+    !$omp parallel do private(p)
     do i=1, N
        p = floor( (position_old(:, i) - this%origin ) / this%a )
        idx = compact_p_to_h(p, this%M) + 1
+       !$omp atomic capture
        start = this%cell_start(idx)
+       this%cell_start(idx) = this%cell_start(idx) + 1
+       !$omp end atomic
        position_new(:, start) = position_old(:, i)
-       this%cell_start(idx) = start + 1
     end do
 
   end subroutine sort_particles
