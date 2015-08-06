@@ -13,7 +13,6 @@ module cell_system
      double precision :: origin(3)
      integer, allocatable :: cell_count(:)
      integer, allocatable :: cell_start(:)
-     integer, allocatable :: cell
      integer :: M(3)
    contains
      procedure :: init
