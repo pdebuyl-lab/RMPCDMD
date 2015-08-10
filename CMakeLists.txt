@@ -30,6 +30,7 @@ src/cell_system.f90
 fortran_h5md/h5md_module.f90
 src/hilbert.f90
 src/particle_system.f90
+src/mpcd.f90
 test/setup_simple_fluid.f90)
 target_link_libraries(setup_simple_fluid ParseText ${HDF5_Fortran_LIBRARIES} dl)
 
