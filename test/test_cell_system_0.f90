@@ -5,7 +5,7 @@ program try_all
   implicit none
 
   type(cell_system_t) :: solvent_cells
-  type(tester_t) :: tester
+  type(tester_t) :: test
 
   integer, parameter :: N = 1000000
   double precision, target, allocatable :: pos1(:, :), pos2(:, :)
@@ -18,7 +18,7 @@ program try_all
   allocate(pos1(3, N))
   allocate(pos2(3, N))
 
-  call tester% init()
+  call test% init()
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
@@ -49,9 +49,9 @@ program try_all
 
   call solvent_cells%count_particles(pos)
 
-  call tester% assert_equal(solvent_cells%cell_start(1), 1)
-  call tester% assert_equal(solvent_cells%cell_start(solvent_cells%N), N+1)
-  call tester% assert_equal(sum(solvent_cells%cell_count), N)
+  call test% assert_equal(solvent_cells%cell_start(1), 1)
+  call test% assert_equal(solvent_cells%cell_start(solvent_cells%N), N+1)
+  call test% assert_equal(sum(solvent_cells%cell_count), N)
 
   h = 1
   do i = 1, N
@@ -61,10 +61,10 @@ program try_all
      end do
      c1 = floor( (pos(:, i) - solvent_cells% origin) / solvent_cells% a )
      c2 = compact_h_to_p(h-1, solvent_cells% M)
-     call tester% assert_equal(c1, c2)
+     call test% assert_equal(c1, c2)
   end do
 
-  call tester% print()
+  call test% print()
 
   deallocate(pos1)
   deallocate(pos2)

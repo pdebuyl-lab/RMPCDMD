@@ -56,7 +56,7 @@ contains
 
     this%cell_count = 0
 
-    !$omp parallel do private(p)
+    !$omp parallel do private(p, idx)
     do i=1, N_particles
        p = floor( (position(:, i) - this%origin ) / this%a )
        idx = compact_p_to_h(p, this%M) + 1
@@ -80,7 +80,7 @@ contains
 
     N = size(position_old, 2)
 
-    !$omp parallel do private(p)
+    !$omp parallel do private(p, idx, start)
     do i=1, N
        p = floor( (position_old(:, i) - this%origin ) / this%a )
        idx = compact_p_to_h(p, this%M) + 1
