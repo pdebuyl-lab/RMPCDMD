@@ -37,8 +37,14 @@ program setup_fluid
 
   call solvent% init(N)
 
-  call random_number(solvent% vel(:, :))
-  solvent% vel(:, :) = solvent% vel(:, :) - 0.5d0
+  do j=1, solvent% Nmax
+     solvent% vel(1, j) = localnormal()
+     solvent% vel(2, j) = localnormal()
+     solvent% vel(3, j) = localnormal()
+  end do
+  v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
+  solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
+
   solvent% force = 0
   solvent% species = 1
   call solvent% random_placement(L*1.d0)
@@ -65,13 +71,7 @@ program setup_fluid
   call e_solvent_v% append(solvent% vel, 0, 0.d0)
 
   do i = 1, 20
-     do j=1, solvent% Nmax
-        solvent% vel(1, j) = localnormal()
-        solvent% vel(2, j) = localnormal()
-        solvent% vel(3, j) = localnormal()
-     end do
-     v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
-     solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
+     call simple_mpcd_step(solvent, solvent_cells)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
      solvent% pos = solvent% pos + 0.1 * solvent% vel
@@ -84,7 +84,7 @@ program setup_fluid
      call e_solvent_v% append(solvent% vel, i, i*1.d0)
 
      call solvent_cells%count_particles(solvent% pos)
-     write(*,*) compute_temperature(solvent, solvent_cells), sum(solvent% vel**2)/(3*solvent% Nmax)
+     write(*,*) compute_temperature(solvent, solvent_cells), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
   end do
 
   call e_solvent% close()

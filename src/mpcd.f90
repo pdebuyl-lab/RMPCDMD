@@ -5,9 +5,70 @@ module mpcd
 
   private
 
-  public :: compute_temperature
+  public :: compute_temperature, simple_mpcd_step
 
 contains
+
+  function rand_sphere() result(n)
+    double precision :: n(3)
+
+    logical :: s_lt_one
+    double precision :: s, alpha
+
+    s_lt_one = .false.
+    do while (.not. s_lt_one)
+       call random_number(n(1:2))
+       n(1:2) = 2*n(1:2) - 1
+       s = n(1)**2 + n(2)**2
+       if ( s<1.d0 ) s_lt_one = .true.
+    end do
+    alpha = 2.d0 * sqrt(1.d0 - s)
+    n(1) = n(1)*alpha
+    n(2) = n(2)*alpha
+    n(3) = 1.d0 - 2.d0*s
+  end function rand_sphere
+
+  subroutine simple_mpcd_step(particles, cells, temperature)
+    class(particle_system_t), intent(in) :: particles
+    class(cell_system_t), intent(in) :: cells
+    double precision, intent(in), optional :: temperature
+
+    integer :: i, start, n
+    integer :: cell_idx, count
+    double precision :: local_v(3), omega(3,3), vec(3)
+    logical :: thermostat
+
+    thermostat = present(temperature)
+    if (thermostat) error stop 'thermostatting not implemented'
+
+    do cell_idx = 1, cells% N
+       if (cells% cell_count(cell_idx) <= 1) cycle
+
+       start = cells% cell_start(cell_idx)
+       n = cells% cell_count(cell_idx)
+       count = count + 1
+
+       local_v = 0
+       do i = start, start + n - 1
+          local_v = local_v + particles% vel(:, i)
+       end do
+       local_v = local_v / n
+
+       vec = rand_sphere()
+       omega = &
+            reshape( (/ &
+            vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
+            vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
+            vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
+            /), (/3, 3/))
+
+       do i = start, start + n - 1
+          particles% vel(:, i) = local_v + matmul(omega, (particles% vel(:, i)-local_v))
+       end do
+
+    end do
+
+  end subroutine simple_mpcd_step
 
   function compute_temperature(particles, cells) result(te)
     class(particle_system_t), intent(in) :: particles
