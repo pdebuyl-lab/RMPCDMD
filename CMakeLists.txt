@@ -10,6 +10,7 @@ enable_testing()
 add_subdirectory(ParseText)
 add_subdirectory(fortran_h5md)
 add_subdirectory(fortran_tester)
+add_subdirectory(random_module)
 
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY} ${HDF5_Fortran_INCLUDE_DIR})
 
@@ -21,7 +22,7 @@ src/interaction.f90
 src/particle_system.f90
 src/mpcd.f90
 src/neighbor_list.f90)
-target_link_libraries(RMPCDMD fortran_h5md)
+target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module)
 
 add_executable(try_all
 test/try_all.f90)

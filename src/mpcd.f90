@@ -1,6 +1,7 @@
 module mpcd
   use particle_system
   use cell_system
+  use mt19937ar_module
   implicit none
 
   private
@@ -9,7 +10,8 @@ module mpcd
 
 contains
 
-  function rand_sphere() result(n)
+  function rand_sphere(state) result(n)
+    type(mt19937ar_t), intent(inout) :: state
     double precision :: n(3)
 
     logical :: s_lt_one
@@ -17,7 +19,8 @@ contains
 
     s_lt_one = .false.
     do while (.not. s_lt_one)
-       call random_number(n(1:2))
+       n(1) = genrand_real1(state)
+       n(2) = genrand_real1(state)
        n(1:2) = 2*n(1:2) - 1
        s = n(1)**2 + n(2)**2
        if ( s<1.d0 ) s_lt_one = .true.
@@ -28,9 +31,10 @@ contains
     n(3) = 1.d0 - 2.d0*s
   end function rand_sphere
 
-  subroutine simple_mpcd_step(particles, cells, temperature)
+  subroutine simple_mpcd_step(particles, cells, state, temperature)
     class(particle_system_t), intent(in) :: particles
     class(cell_system_t), intent(in) :: cells
+    type(mt19937ar_t), intent(inout) :: state
     double precision, intent(in), optional :: temperature
 
     integer :: i, start, n
@@ -54,7 +58,7 @@ contains
        end do
        local_v = local_v / n
 
-       vec = rand_sphere()
+       vec = rand_sphere(state)
        omega = &
             reshape( (/ &
             vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&

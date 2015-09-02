@@ -7,3 +7,6 @@
 [submodule "fortran_h5md"]
 	path = fortran_h5md
 	url = ../fortran_h5md
+[submodule "random_module"]
+	path = random_module
+	url = git@github.com:pdebuyl/random_module
