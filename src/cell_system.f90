@@ -9,11 +9,12 @@ module cell_system
   type cell_system_t
      integer :: L(3)
      integer :: N
-     double precision :: a(3)
+     double precision :: a
      double precision :: origin(3)
      integer, allocatable :: cell_count(:)
      integer, allocatable :: cell_start(:)
      integer :: M(3)
+     logical :: has_walls
    contains
      procedure :: init
      procedure :: count_particles
@@ -22,14 +23,23 @@ module cell_system
 
 contains
 
-  subroutine init(this, L, a)
+  subroutine init(this, L, a, has_walls)
     class(cell_system_t), intent(out) :: this
     integer, intent(in) :: L(3)
     double precision, intent(in) :: a
+    logical, intent(in), optional :: has_walls
 
     integer :: i
 
     this%L = L
+    if (present(has_walls)) then
+       this% has_walls = has_walls
+    else
+       this% has_walls = .false.
+    end if
+    if (this% has_walls) then
+       this%L(3) = L(3) + 1
+    end if
     this%a = a
     this%M = 1
     this%origin = 0.d0
