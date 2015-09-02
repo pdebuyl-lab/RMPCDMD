@@ -6,7 +6,11 @@ program setup_fluid
   use hdf5
   use h5md_module
   use mpcd
+  use mt19937ar_module
+  use iso_c_binding
   implicit none
+
+  type(mt19937ar_t), target :: mt
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
@@ -19,10 +23,9 @@ program setup_fluid
   integer, parameter :: N = 2000
 
   integer :: i, L(3), seed_size, clock, error
-  integer :: j
   integer, allocatable :: seed(:)
 
-  double precision :: v_com(3)
+  double precision :: v_com(3), wall_v(3,2)
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
@@ -31,17 +34,16 @@ program setup_fluid
   call random_seed(put = seed)
   deallocate(seed)
 
+  call system_clock(count=clock)
+  call init_genrand(mt, int(clock, c_long))
+
   call h5open_f(error)
 
   L = [8, 5, 5]
 
   call solvent% init(N)
 
-  do j=1, solvent% Nmax
-     solvent% vel(1, j) = localnormal()
-     solvent% vel(2, j) = localnormal()
-     solvent% vel(3, j) = localnormal()
-  end do
+  call mt_normal_data(solvent% vel, mt)
   v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
   solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
 
@@ -49,7 +51,7 @@ program setup_fluid
   solvent% species = 1
   call solvent% random_placement(L*1.d0)
 
-  call solvent_cells%init(L, 1.d0)
+  call solvent_cells%init(L, 1.d0, .true.)
 
   call solvent_cells%count_particles(solvent% pos)
 
@@ -70,14 +72,12 @@ program setup_fluid
   call e_solvent% append(solvent% pos, 0, 0.d0)
   call e_solvent_v% append(solvent% vel, 0, 0.d0)
 
+  wall_v = 0
   do i = 1, 20
-     call simple_mpcd_step(solvent, solvent_cells)
+     call wall_mpcd_step(solvent, solvent_cells, mt, [ 0.8d0, 1.2d0 ], wall_v, [10,10])
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
-     solvent% pos = solvent% pos + 0.1 * solvent% vel
-     do j= 1, 3
-        solvent% pos(:, j) = modulo( solvent% pos(:, j), L(j)*1.d0 )
-     end do
+     call mpcd_stream(solvent, solvent_cells, 0.1d0)
 
      call solvent% sort(solvent_cells)
      call e_solvent% append(solvent% pos, i, i*1.d0)
@@ -102,7 +102,8 @@ contains
   !!
   !! Use the method from Marsaglia & Bray (1964) to generate numbers from a
   !! normal distribution.
-  function localnormal() result(r)
+  function localnormal(state) result(r)
+    type(mt19937ar_t), intent(inout) :: state
     double precision :: r
 
     double precision :: u1, u2, radius
@@ -116,10 +117,8 @@ contains
     else
        found = .false.
        do while (.not. found)
-          call random_number(u1)
-          u1 = 2*u1 - 1
-          call random_number(u2)
-          u2 = 2*u2 - 1
+          u1 = 2*genrand_real1(state) - 1
+          u2 = 2*genrand_real1(state) - 1
           radius = (u1**2+u2**2)
           if ( ( radius < 1 ) .and. (radius > 0) ) found = .true.
        end do
