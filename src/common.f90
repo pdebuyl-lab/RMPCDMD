@@ -3,6 +3,20 @@ module common
   private
 
   public :: rel_pos
+  public :: profile_t
+
+  type profile_t
+     double precision, allocatable :: data(:)
+     integer, allocatable :: count(:)
+     double precision :: xmin
+     double precision :: dx
+     integer :: n
+   contains
+     generic, public :: init => profile_init
+     procedure, private :: profile_init
+     generic, public :: bin => profile_bin
+     procedure, private :: profile_bin
+  end type profile_t
 
 contains
 
@@ -23,5 +37,37 @@ contains
     end do
 
   end function rel_pos
+
+  subroutine profile_init(this, xmin, xmax, n)
+    class(profile_t), intent(out) :: this
+    double precision, intent(in) :: xmin, xmax
+    integer, intent(in) :: n
+
+    this% n = n
+    this% xmin = xmin
+    this% dx = (xmax - xmin) / (n-1)
+    if (this% dx <= 0) error stop 'negative step in profile_init'
+    allocate(this% data(n))
+    this% data = 0
+    allocate(this% count(n))
+    this% count = 0
+
+  end subroutine profile_init
+
+  subroutine profile_bin(this, x, value)
+    class(profile_t), intent(inout) :: this
+    double precision, intent(in) :: x, value
+
+    integer :: idx, count
+
+    count = 0
+    idx = floor( (x - this% xmin) / this% dx ) + 1
+    if ( ( idx > 0 ) .and. ( idx <= this% n ) ) then
+       this% data(idx) = this% data(idx) + value
+       this% count(idx) = this% count(idx) + 1
+       count = count + 1
+    end if
+
+  end subroutine profile_bin
 
 end module common
