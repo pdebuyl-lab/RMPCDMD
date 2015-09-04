@@ -45,7 +45,7 @@ contains
 
     this% n = n
     this% xmin = xmin
-    this% dx = (xmax - xmin) / (n-1)
+    this% dx = (xmax - xmin) / n
     if (this% dx <= 0) error stop 'negative step in profile_init'
     allocate(this% data(n))
     this% data = 0
@@ -58,14 +58,12 @@ contains
     class(profile_t), intent(inout) :: this
     double precision, intent(in) :: x, value
 
-    integer :: idx, count
+    integer :: idx
 
-    count = 0
     idx = floor( (x - this% xmin) / this% dx ) + 1
     if ( ( idx > 0 ) .and. ( idx <= this% n ) ) then
        this% data(idx) = this% data(idx) + value
        this% count(idx) = this% count(idx) + 1
-       count = count + 1
     end if
 
   end subroutine profile_bin
