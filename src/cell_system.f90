@@ -8,6 +8,7 @@ module cell_system
 
   type cell_system_t
      integer :: L(3)
+     double precision :: edges(3)
      integer :: N
      double precision :: a
      double precision :: origin(3)
@@ -32,6 +33,7 @@ contains
     integer :: i
 
     this%L = L
+    this% edges = L*a
     if (present(has_walls)) then
        this% has_walls = has_walls
     else
