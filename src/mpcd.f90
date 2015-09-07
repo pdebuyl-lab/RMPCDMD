@@ -104,7 +104,7 @@ contains
        n_virtual = 0
 
        ! Find whether we are in a wall cell
-       cell = compact_h_to_p(cell_idx, cells% M)
+       cell = compact_h_to_p(cell_idx - 1, cells% M)
        if (cell(3) == 1) then
           wall_idx = 1
           vec = wall_v(:,wall_idx)
