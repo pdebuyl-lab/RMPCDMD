@@ -17,6 +17,10 @@ module common
      procedure, private :: profile_init
      generic, public :: bin => profile_bin
      procedure, private :: profile_bin
+     generic, public :: reset => profile_reset
+     procedure, private :: profile_reset
+     generic, public :: norm => profile_norm
+     procedure, private :: profile_norm
   end type profile_t
 
   type histogram_t
@@ -80,6 +84,23 @@ contains
     end if
 
   end subroutine profile_bin
+
+  subroutine profile_reset(this)
+    class(profile_t), intent(inout) :: this
+
+    this% data = 0
+    this% count = 0
+
+  end subroutine profile_reset
+
+  subroutine profile_norm(this)
+    class(profile_t), intent(inout) :: this
+
+    where (this% count > 0)
+       this% data = this% data / this% count
+    end where
+
+  end subroutine profile_norm
 
   subroutine histogram_init(this, xmin, xmax, n)
     class(histogram_t), intent(out) :: this

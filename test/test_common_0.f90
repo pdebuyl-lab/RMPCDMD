@@ -50,14 +50,11 @@ program test_common_0
   call test% assert_positive(p% count)
   call test% assert_equal(sum(p% count), nloop)
 
-  where (p% count > 0)
-     p% data = p% data / p% count
-  end where
+  call p% norm()
 
   call test% assert_close(p% data, x)
 
-  p% data = 0
-  p% count = 0
+  call p% reset()
   do i = 1, n
      x(i) = cos( flin((dble(i)-0.5d0)/dble(n)) )
   end do
@@ -69,9 +66,7 @@ program test_common_0
      call p% bin(x0, x1)
   end do
 
-  where (p% count > 0)
-     p% data = p% data / p% count
-  end where
+  call p% norm()
 
   write(*,*) p % data
   write(*,*) x
