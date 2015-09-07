@@ -1,4 +1,5 @@
 program setup_fluid
+  use common
   use cell_system
   use particle_system
   use hilbert
@@ -14,6 +15,8 @@ program setup_fluid
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
+
+  type(profile_t) :: tz
 
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
@@ -51,11 +54,14 @@ program setup_fluid
   solvent% species = 1
   call solvent% random_placement(L*1.d0)
 
-  call solvent_cells%init(L, 1.d0, .true.)
+  call solvent_cells%init(L, 1.d0)
 
   call solvent_cells%count_particles(solvent% pos)
 
   call datafile% create('data_setup_simple_fluid.h5', 'RMPCDMD:setup_simple_fluid', '0.0 dev', 'Pierre de Buyl')
+
+  call tz% init(0.d0, solvent_cells% edges(3), L(3))
+  call h5gcreate_f(datafile% id, 'observables', datafile% observables, error)
 
   call h5gcreate_f(datafile% particles, 'solvent', solvent_group, error)
   call h5gcreate_f(solvent_group, 'box', box_group, error)
@@ -69,12 +75,16 @@ program setup_fluid
 
   call solvent% sort(solvent_cells)
 
-  call e_solvent% append(solvent% pos, 0, 0.d0)
-  call e_solvent_v% append(solvent% vel, 0, 0.d0)
-
   wall_v = 0
-  do i = 1, 20
-     call wall_mpcd_step(solvent, solvent_cells, mt, [ 0.8d0, 1.2d0 ], wall_v, [10,10])
+  do i = 1, 200
+     call simple_mpcd_step(solvent, solvent_cells, mt)
+     call mpcd_stream(solvent, solvent_cells, 0.1d0)
+     call solvent% sort(solvent_cells)
+     call solvent_cells%count_particles(solvent% pos)
+  end do
+
+  do i = 1, 200
+     call simple_mpcd_step(solvent, solvent_cells, mt)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
      call mpcd_stream(solvent, solvent_cells, 0.1d0)
@@ -84,13 +94,20 @@ program setup_fluid
      call e_solvent_v% append(solvent% vel, i, i*1.d0)
 
      call solvent_cells%count_particles(solvent% pos)
-     write(*,*) compute_temperature(solvent, solvent_cells), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
+     write(13,*) compute_temperature(solvent, solvent_cells, tz), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
+
   end do
 
   call e_solvent% close()
   call e_solvent_v% close()
 
   call h5gclose_f(solvent_group, error)
+
+  call tz% norm()
+  call elem% create_fixed(datafile% observables, 'tz', tz% data)
+  call elem% create_fixed(datafile% observables, 'tz_count', tz% count)
+
+  call h5gclose_f(datafile% observables, error)
 
   call datafile% close()
 
