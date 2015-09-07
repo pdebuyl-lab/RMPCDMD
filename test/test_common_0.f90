@@ -8,6 +8,7 @@ program test_common_0
   type(profile_t) :: p
 
   double precision :: x0, x1
+  double precision, allocatable :: x(:)
   integer :: i
   integer :: n
   integer, parameter :: nloop = 100
@@ -17,31 +18,75 @@ program test_common_0
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
-  clock = 1002581
+  clock = 71943989
   seed = clock + 37 * [ (i - 1, i = 1, seed_size) ]
   call random_seed(put = seed)
   deallocate(seed)
 
-  call test% init()
 
   x0 = 7.d0
   x1 = 10.d0
   n = 19
 
+  call test% init(d_tol = x1 / sqrt(dble(nloop)))
+
   call p% init(x0, x1, n)
+
+  allocate(x(size(p% data)))
+
+  do i = 1, n
+     x(i) = flin( (dble(i)-0.5d0)/dble(n) )
+  end do
 
   call test% assert_positive(p% dx)
   call test% assert_positive(p% count)
 
   do i = 1, nloop
      call random_number(x0)
-     x0 = 7.d0 + x0 * 3
-     x1 = x0
-     call p% bin(x0, x1)
+     x0 = flin(x0)
+     call p% bin(x0, x0)
   end do
 
   call test% assert_positive(p% count)
   call test% assert_equal(sum(p% count), nloop)
+
+  where (p% count > 0)
+     p% data = p% data / p% count
+  end where
+
+  call test% assert_close(p% data, x)
+
+  p% data = 0
+  p% count = 0
+  do i = 1, n
+     x(i) = cos( flin((dble(i)-0.5d0)/dble(n)) )
+  end do
+
+  do i = 1, nloop
+     call random_number(x0)
+     x0 = flin(x0)
+     x1 = cos(x0)
+     call p% bin(x0, x1)
+  end do
+
+  where (p% count > 0)
+     p% data = p% data / p% count
+  end where
+
+  write(*,*) p % data
+  write(*,*) x
+
+  call test% assert_close(p% data, x)
+
   call test% print()
+
+contains
+
+  double precision elemental function flin(x)
+    double precision, intent(in) :: x
+
+    flin = x0 + x * 3.d0
+
+  end function flin
 
 end program test_common_0
