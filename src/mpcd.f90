@@ -185,8 +185,8 @@ contains
   end function compute_temperature
 
   !! Advance mpcd particles
-  !
-  ! If the cell system has a wall in the z direction, a bounce-back collision is used.
+  !!
+  !! If the cell system has a wall in the z direction, a bounce-back collision is used.
   subroutine mpcd_stream(particles, cells, dt)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
