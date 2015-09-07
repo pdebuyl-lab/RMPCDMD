@@ -96,35 +96,4 @@ program setup_fluid
 
   call h5close_f(error)
 
-contains
-
-  !> Normal random number
-  !!
-  !! Use the method from Marsaglia & Bray (1964) to generate numbers from a
-  !! normal distribution.
-  function localnormal(state) result(r)
-    type(mt19937ar_t), intent(inout) :: state
-    double precision :: r
-
-    double precision :: u1, u2, radius
-    double precision, save :: other
-    logical :: found
-    logical, save :: oneleft=.false.
-
-    if ( oneleft ) then
-       r = other
-       oneleft = .false.
-    else
-       found = .false.
-       do while (.not. found)
-          u1 = 2*genrand_real1(state) - 1
-          u2 = 2*genrand_real1(state) - 1
-          radius = (u1**2+u2**2)
-          if ( ( radius < 1 ) .and. (radius > 0) ) found = .true.
-       end do
-       other = u1 * sqrt( -2 * log(radius)/radius )
-       r = u2 * sqrt( -2 * log(radius)/radius )
-    end if
-  end function localnormal
-
 end program setup_fluid
