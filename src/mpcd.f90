@@ -1,4 +1,5 @@
 module mpcd
+  use common
   use particle_system
   use cell_system
   use mt19937ar_module
@@ -148,14 +149,26 @@ contains
 
   end subroutine wall_mpcd_step
 
-  function compute_temperature(particles, cells) result(te)
-    class(particle_system_t), intent(in) :: particles
-    class(cell_system_t), intent(in) :: cells
+  function compute_temperature(particles, cells, tz) result(te)
+    use hilbert, only : compact_h_to_p
+    type(particle_system_t), intent(in) :: particles
+    type(cell_system_t), intent(in) :: cells
+    type(profile_t), intent(inout), optional :: tz
+
     double precision :: te
 
     integer :: i, start, n
     integer :: cell_idx, count
+    integer :: cell(3)
     double precision :: local_v(3), local_kin
+    logical :: do_tz
+
+    if (present(tz)) then
+       do_tz = .true.
+       if (.not. (allocated(tz% data) .and. allocated(tz% count))) error stop 'profile_t: data not allocated'
+    else
+       do_tz = .false.
+    end if
 
     cell_idx = 1
     count = 0
@@ -176,7 +189,13 @@ contains
        do i = start, start + n - 1
           local_kin = local_kin + sum((particles% vel(:, i)-local_v)**2)
        end do
-       te = te + local_kin / dble(3*(n-1))
+       local_kin = local_kin / dble(3*(n-1))
+       te = te + local_kin
+
+       if (do_tz) then
+          cell = compact_h_to_p(cell_idx - 1, cells% M)
+          call tz% bin(cells% origin(3) + (cell(3)+0.5d0)*cells% a, local_kin)
+       end if
 
     end do
 
