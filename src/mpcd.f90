@@ -195,13 +195,13 @@ contains
     integer :: i
     double precision :: pos_min(3), pos_max(3), delta
 
-    pos_min(3) = 0
-    pos_max(3) = cells% L(3) * cells% a
+    pos_min = 0
+    pos_max = cells% edges
 
     do i = 1, particles% Nmax
        particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt
-       particles% pos(1,i) = modulo( particles% pos(1,i) , cells% L(1)*cells% a )
-       particles% pos(2,i) = modulo( particles% pos(2,i) , cells% L(2)*cells% a )
+       particles% pos(1,i) = modulo( particles% pos(1,i) , cells% edges(1) )
+       particles% pos(2,i) = modulo( particles% pos(2,i) , cells% edges(2) )
        if (cells% has_walls) then
           if (particles% pos(3,i) < pos_min(3)) then
              ! bounce position
@@ -217,7 +217,7 @@ contains
              particles% vel(3,i) = -particles% vel(3,i)
           end if
        else
-          particles% pos(2,i) = modulo( particles% pos(2,i) , cells% L(2)*cells% a )
+          particles% pos(3,i) = modulo( particles% pos(3,i) , cells% edges(3) )
        end if
     end do
 
