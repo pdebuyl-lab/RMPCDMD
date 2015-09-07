@@ -85,7 +85,7 @@ contains
   double precision elemental function flin(x)
     double precision, intent(in) :: x
 
-    flin = x0 + x * 3.d0
+    flin = 7.d0 + x * 3.d0
 
   end function flin
 
