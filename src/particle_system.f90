@@ -197,17 +197,20 @@ contains
 
     call cells%count_particles(this% pos)
 
+    !$omp parallel do private(p, idx, start)
     do i=1, this% Nmax
        if (this% species(i) == 0) continue
        p = floor( (this% pos(:, i) - cells% origin ) / cells% a )
        idx = compact_p_to_h(p, cells% M) + 1
+       !$omp atomic capture
        start = cells% cell_start(idx)
+       cells% cell_start(idx) = cells% cell_start(idx) + 1
+       !$omp end atomic
        this% pos_old(:, start) = this% pos(:, i)
        this% vel_old(:, start) = this% vel(:, i)
        this% force_old(:, start) = this% force(:, i)
        this% id_old(start) = this% id(i)
        this% species_old(start) = this% species(i)
-       cells% cell_start(idx) = start + 1
     end do
 
     this% pos_pointer => this% pos
