@@ -105,7 +105,7 @@ contains
        n_virtual = 0
 
        ! Find whether we are in a wall cell
-       cell = compact_h_to_p(cell_idx - 1, cells% M)
+       cell = compact_h_to_p(cell_idx - 1, cells% M) + 1
        if (cell(3) == 1) then
           wall_idx = 1
           vec = wall_v(:,wall_idx)
@@ -227,13 +227,13 @@ contains
              delta = pos_min(3) - particles% pos(3,i)
              particles% pos(3,i) = pos_min(3) + delta
              ! bounce velocity
-             particles% vel(3,i) = -particles% vel(3,i)
+             particles% vel(:,i) = -particles% vel(:,i)
           else if (particles% pos(3,i) > pos_max(3)) then
              ! bounce position
              delta = particles% pos(3,i) - pos_max(3)
              particles% pos(3,i) = pos_max(3) - delta
              ! bounce velocity
-             particles% vel(3,i) = -particles% vel(3,i)
+             particles% vel(:,i) = -particles% vel(:,i)
           end if
        else
           particles% pos(3,i) = modulo( particles% pos(3,i) , cells% edges(3) )
