@@ -41,7 +41,7 @@ contains
     double precision, intent(in), optional :: temperature
 
     integer :: i, start, n
-    integer :: cell_idx, count
+    integer :: cell_idx
     double precision :: local_v(3), omega(3,3), vec(3)
     logical :: thermostat
 
@@ -53,7 +53,6 @@ contains
 
        start = cells% cell_start(cell_idx)
        n = cells% cell_count(cell_idx)
-       count = count + 1
 
        local_v = 0
        do i = start, start + n - 1
@@ -89,7 +88,7 @@ contains
     integer, intent(in) :: wall_n(2)
 
     integer :: i, start, n
-    integer :: cell_idx, count
+    integer :: cell_idx
     double precision :: local_v(3), omega(3,3), vec(3)
     integer :: n_virtual
     integer :: cell(3)
@@ -101,26 +100,24 @@ contains
 
        start = cells% cell_start(cell_idx)
        n = cells% cell_count(cell_idx)
-       count = count + 1
        n_virtual = 0
 
        ! Find whether we are in a wall cell
        cell = compact_h_to_p(cell_idx - 1, cells% M) + 1
        if (cell(3) == 1) then
           wall_idx = 1
-          vec = wall_v(:,wall_idx)
        else if (cell(3) == cells% L(3)) then
           wall_idx = 2
-          vec = wall_v(:,wall_idx)
        else
           wall_idx = -1
-          vec = local_v
        end if
 
-       if ( (wall_idx > 0) .and. (n < wall_n(wall_idx)) ) then
-          n_virtual = wall_n(wall_idx) - n
-          call mt_normal_data(virtual_v, state)
-          virtual_v = virtual_v * sqrt(n_virtual*wall_temperature(wall_idx))
+       if (wall_idx > 0) then
+          if (n < wall_n(wall_idx)) then
+             n_virtual = wall_n(wall_idx) - n
+             call mt_normal_data(virtual_v, state)
+             virtual_v = virtual_v * sqrt(n_virtual*wall_temperature(wall_idx))
+          end if
        end if
 
        local_v = 0
