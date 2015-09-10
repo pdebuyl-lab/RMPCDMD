@@ -9,4 +9,4 @@
 	url = ../fortran_h5md
 [submodule "random_module"]
 	path = random_module
-	url = git@github.com:pdebuyl/random_module
+	url = ../random_module
