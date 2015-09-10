@@ -21,14 +21,17 @@ program setup_fluid
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
   type(h5md_element_t) :: e_solvent, e_solvent_v
+  type(h5md_element_t) :: elem_tz, elem_tz_count
   integer(HID_T) :: box_group, solvent_group
 
-  integer, parameter :: N = 8000
+  integer, parameter :: N = 16000
 
   integer :: i, L(3), seed_size, clock, error
   integer, allocatable :: seed(:)
 
-  double precision :: v_com(3), wall_v(3,2)
+  double precision :: v_com(3), wall_v(3,2), wall_t(2)
+
+  double precision, parameter :: tau = 0.1d0
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
@@ -42,7 +45,7 @@ program setup_fluid
 
   call h5open_f(error)
 
-  L = [8, 5, 20]
+  L = [8, 5, 40]
 
   call solvent% init(N)
 
@@ -76,44 +79,55 @@ program setup_fluid
 
   call e_solvent% create_time(solvent_group, 'position', solvent% pos, ior(H5MD_TIME, H5MD_STORE_TIME))
   call e_solvent_v% create_time(solvent_group, 'velocity', solvent% vel, ior(H5MD_TIME, H5MD_STORE_TIME))
-
+  call elem_tz% create_time(datafile% observables, 'tz', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_tz_count% create_time(datafile% observables, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
   call solvent% sort(solvent_cells)
+  call solvent_cells%count_particles(solvent% pos)
 
   wall_v = 0
-  do i = 1, 100
-     ! call wall_mpcd_step(solvent, solvent_cells, mt, &
-     !      wall_temperature=[0.9d0, 1.1d0], wall_v=wall_v, wall_n=[10, 10])
-     call simple_mpcd_step(solvent, solvent_cells, mt)
-     call mpcd_stream(solvent, solvent_cells, 1.d0)
+  wall_t = [0.9d0, 1.1d0]
+
+  do i = 1, 400
+     call wall_mpcd_step(solvent, solvent_cells, mt, &
+          wall_temperature=[0.9d0, 1.1d0], wall_v=wall_v, wall_n=[10, 10])
+     call mpcd_stream(solvent, solvent_cells, tau)
+     call random_number(solvent_cells% origin(3))
+     solvent_cells% origin(3) = solvent_cells% origin(3) - 1
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
   end do
 
-  do i = 1, 400
-     ! call wall_mpcd_step(solvent, solvent_cells, mt, &
-     !      wall_temperature=[0.9d0, 1.1d0], wall_v=wall_v, wall_n=[10, 10])
-     call simple_mpcd_step(solvent, solvent_cells, mt)
+  do i = 1, 2000
+     call wall_mpcd_step(solvent, solvent_cells, mt, &
+          wall_temperature=[0.9d0, 1.1d0], wall_v=wall_v, wall_n=[10, 10])
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
-     call mpcd_stream(solvent, solvent_cells, 1.d0)
+     call mpcd_stream(solvent, solvent_cells, tau)
 
+     call random_number(solvent_cells% origin(3))
+     solvent_cells% origin(3) = solvent_cells% origin(3) - 1
      call solvent% sort(solvent_cells)
+     call solvent_cells%count_particles(solvent% pos)
+
      call e_solvent% append(solvent% pos, i, i*1.d0)
      call e_solvent_v% append(solvent% vel, i, i*1.d0)
 
-     call solvent_cells%count_particles(solvent% pos)
      write(13,*) compute_temperature(solvent, solvent_cells, tz), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
+
+     if (modulo(i, 50) == 0) then
+        call tz% norm()
+        call elem_tz% append(tz% data, i, i*1.d0)
+        call elem_tz_count% append(tz% count, i, i*1.d0)
+        call tz% reset()
+     end if
 
   end do
 
   call e_solvent% close()
   call e_solvent_v% close()
+  call elem_tz% close()
 
   call h5gclose_f(solvent_group, error)
-
-  call tz% norm()
-  call elem% create_fixed(datafile% observables, 'tz', tz% data)
-  call elem% create_fixed(datafile% observables, 'tz_count', tz% count)
 
   call h5gclose_f(datafile% observables, error)
 

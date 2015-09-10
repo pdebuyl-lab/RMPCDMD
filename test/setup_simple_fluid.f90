@@ -74,6 +74,7 @@ program setup_fluid
   call e_solvent_v% create_time(solvent_group, 'velocity', solvent% vel, ior(H5MD_TIME, H5MD_STORE_TIME))
 
   call solvent% sort(solvent_cells)
+  call solvent_cells%count_particles(solvent% pos)
 
   wall_v = 0
   do i = 1, 200
@@ -90,10 +91,10 @@ program setup_fluid
      call mpcd_stream(solvent, solvent_cells, 0.1d0)
 
      call solvent% sort(solvent_cells)
+     call solvent_cells%count_particles(solvent% pos)
      call e_solvent% append(solvent% pos, i, i*1.d0)
      call e_solvent_v% append(solvent% vel, i, i*1.d0)
 
-     call solvent_cells%count_particles(solvent% pos)
      write(13,*) compute_temperature(solvent, solvent_cells, tz), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
 
   end do
