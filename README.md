@@ -1,5 +1,5 @@
-RMPCDMD: Reactive MultiParticle Dynamics - Molecular Dynamics
-=============================================================
+RMPCDMD: Reactive MultiParticle Collision Dynamics - Molecular Dynamics
+=======================================================================
 
 **Author:** [Pierre de Buyl](http://pdebuyl.be/)
 
