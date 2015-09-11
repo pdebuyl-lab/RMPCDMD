@@ -194,13 +194,23 @@ contains
     type(cell_system_t), intent(inout) :: cells
 
     integer :: i, idx, start, p(3)
+    integer :: L(3)
+    logical :: nowalls
+
+    L = cells% L
+    nowalls = .not. cells% has_walls
 
     call cells%count_particles(this% pos)
 
     !$omp parallel do private(p, idx, start)
     do i=1, this% Nmax
        if (this% species(i) == 0) continue
-       p = floor( (this% pos(:, i) - cells% origin ) / cells% a )
+       p = floor( (this% pos(:, i) / cells% a ) - cells% origin )
+       if ( p(1) == L(1) ) p(1) = 0
+       if ( p(2) == L(2) ) p(2) = 0
+       if (nowalls) then
+          if ( p(3) == L(3) ) p(3) = 0
+       end if
        idx = compact_p_to_h(p, cells% M) + 1
        !$omp atomic capture
        start = cells% cell_start(idx)

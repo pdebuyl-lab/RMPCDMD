@@ -75,11 +75,17 @@ program setup_fluid
 
   call solvent% sort(solvent_cells)
   call solvent_cells%count_particles(solvent% pos)
+  solvent_cells% origin(1) = genrand_real1(mt) - 1
+  solvent_cells% origin(2) = genrand_real1(mt) - 1
+  solvent_cells% origin(3) = genrand_real1(mt) - 1
 
   wall_v = 0
   do i = 1, 200
      call simple_mpcd_step(solvent, solvent_cells, mt)
      call mpcd_stream(solvent, solvent_cells, 0.1d0)
+     solvent_cells% origin(1) = genrand_real1(mt) - 1
+     solvent_cells% origin(2) = genrand_real1(mt) - 1
+     solvent_cells% origin(3) = genrand_real1(mt) - 1
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
   end do
@@ -90,6 +96,9 @@ program setup_fluid
 
      call mpcd_stream(solvent, solvent_cells, 0.1d0)
 
+     solvent_cells% origin(1) = genrand_real1(mt) - 1
+     solvent_cells% origin(2) = genrand_real1(mt) - 1
+     solvent_cells% origin(3) = genrand_real1(mt) - 1
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
      call e_solvent% append(solvent% pos, i, i*1.d0)
@@ -98,6 +107,13 @@ program setup_fluid
      write(13,*) compute_temperature(solvent, solvent_cells, tz), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
 
   end do
+
+  clock = 0
+  do i = 1 , solvent_cells% N
+     if ( solvent_cells% cell_count(i) > 0 ) clock = clock + 1
+  end do
+  write(*,*) clock, 'filled cells'
+  write(*,*) L(1)*L(2)*L(3), 'actual cells'
 
   call e_solvent% close()
   call e_solvent_v% close()

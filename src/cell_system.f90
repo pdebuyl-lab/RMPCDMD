@@ -63,14 +63,24 @@ contains
 
     integer :: i, idx, N_particles
     integer :: p(3)
+    integer :: L(3)
+    logical :: nowalls
 
     N_particles = size(position, 2)
+
+    L = this% L
+    nowalls = .not. this% has_walls
 
     this%cell_count = 0
 
     !$omp parallel do private(p, idx)
     do i=1, N_particles
-       p = floor( (position(:, i) - this%origin ) / this%a )
+       p = floor( (position(:, i) / this% a ) - this%origin )
+       if ( p(1) == L(1) ) p(1) = 0
+       if ( p(2) == L(2) ) p(2) = 0
+       if (nowalls) then
+          if ( p(3) == L(3) ) p(3) = 0
+       end if
        idx = compact_p_to_h(p, this%M) + 1
        !$omp atomic
        this%cell_count(idx) = this%cell_count(idx) + 1
@@ -94,7 +104,7 @@ contains
 
     !$omp parallel do private(p, idx, start)
     do i=1, N
-       p = floor( (position_old(:, i) - this%origin ) / this%a )
+       p = floor( (position_old(:, i) / this% a) - this%origin )
        idx = compact_p_to_h(p, this%M) + 1
        !$omp atomic capture
        start = this%cell_start(idx)

@@ -24,7 +24,7 @@ program setup_fluid
   type(h5md_element_t) :: elem_tz, elem_tz_count
   integer(HID_T) :: box_group, solvent_group
 
-  integer, parameter :: N = 16000
+  integer, parameter :: N = 10800
 
   integer :: i, L(3), seed_size, clock, error
   integer, allocatable :: seed(:)
@@ -45,7 +45,7 @@ program setup_fluid
 
   call h5open_f(error)
 
-  L = [8, 5, 40]
+  L = [6, 6, 30]
 
   call solvent% init(N)
 
@@ -87,30 +87,27 @@ program setup_fluid
   wall_v = 0
   wall_t = [0.9d0, 1.1d0]
 
-  do i = 1, 400
+  do i = 1, 1000
      call wall_mpcd_step(solvent, solvent_cells, mt, &
           wall_temperature=[0.9d0, 1.1d0], wall_v=wall_v, wall_n=[10, 10])
      call mpcd_stream(solvent, solvent_cells, tau)
-     call random_number(solvent_cells% origin(3))
-     solvent_cells% origin(3) = solvent_cells% origin(3) - 1
+     call random_number(solvent_cells% origin)
+     solvent_cells% origin = solvent_cells% origin - 1
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
   end do
 
-  do i = 1, 2000
+  do i = 1, 1000
      call wall_mpcd_step(solvent, solvent_cells, mt, &
           wall_temperature=[0.9d0, 1.1d0], wall_v=wall_v, wall_n=[10, 10])
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
      call mpcd_stream(solvent, solvent_cells, tau)
+     call random_number(solvent_cells% origin)
+     solvent_cells% origin = solvent_cells% origin - 1
 
-     call random_number(solvent_cells% origin(3))
-     solvent_cells% origin(3) = solvent_cells% origin(3) - 1
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
-
-     call e_solvent% append(solvent% pos, i, i*1.d0)
-     call e_solvent_v% append(solvent% vel, i, i*1.d0)
 
      write(13,*) compute_temperature(solvent, solvent_cells, tz), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
 
@@ -122,6 +119,16 @@ program setup_fluid
      end if
 
   end do
+
+  call e_solvent% append(solvent% pos, i, i*1.d0)
+  call e_solvent_v% append(solvent% vel, i, i*1.d0)
+
+  clock = 0
+  do i = 1 , solvent_cells% N
+     if ( solvent_cells% cell_count(i) > 0 ) clock = clock + 1
+  end do
+  write(*,*) clock, 'filled cells'
+  write(*,*) L(1)*L(2)*(L(3)+1), 'actual cells'
 
   call e_solvent% close()
   call e_solvent_v% close()
