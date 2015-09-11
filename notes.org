@@ -1,0 +1,17 @@
+
+* Simulation programs under =test=
+
+** Diagnostics
+
+- Temperature: average and z-profile
+- Density z-profile
+- Number of filled cells
+
+** setup_simple_fluid
+
+Define a periodic pure MPCD fluid.
+
+** setup_thermal_fluid
+
+Define a pure MPCD fluid periodic in x and y and under a temperature
+gradient in z.
