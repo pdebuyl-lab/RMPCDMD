@@ -112,7 +112,7 @@ contains
        this% pos = pos
        deallocate(pos)
     else if ( (mode == H5MD_TIME) .or. (mode == H5MD_LINEAR) ) then
-       if (.not. present(idx) ) stop 'missing idx in init_from_file'
+       if (.not. present(idx) ) error stop 'missing idx in init_from_file'
        call e% open_time(g, 'position')
        call this% init(e% Nmax)
        dims = [3, e% Nmax, 1]
@@ -121,7 +121,7 @@ contains
        call h5dget_space_f(e% v, file_space, e% error)
        call h5sget_simple_extent_ndims_f(file_space, rank, e% error)
        if (rank /= 3) then
-          stop 'invalid dataset rank'
+          error stop 'invalid dataset rank'
        end if
        call h5sget_simple_extent_dims_f(file_space, dims, maxdims, e% error)
        start = [0, 0, idx]
@@ -151,7 +151,7 @@ contains
 
     if (present(other) .or. present(lj_params)) then
        if ( .not. ( present(other) .and. present(lj_params) ) ) then
-          stop 'other and lj_params must be present/absent together'
+          error stop 'other and lj_params must be present/absent together'
        end if
        N_obstacles = other% Nmax
     else

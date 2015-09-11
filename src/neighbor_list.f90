@@ -88,7 +88,7 @@ contains
           if (rsq .lt. radiussq) then
              list_idx = list_idx + 1
              if (list_idx .gt. this% Nmax) then
-                stop 'maximum of neighbor list reached'
+                error stop 'maximum of neighbor list reached'
              end if
              this% list(list_idx, i) = cell_start+cell_i
           end if

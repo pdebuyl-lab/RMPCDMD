@@ -26,7 +26,7 @@ contains
          size(epsilon, 1) /= size(cut, 1) .or. &
          size(epsilon, 2) /= size(sigma, 2) .or. &
          size(epsilon, 2) /= size(cut, 2) ) then
-       stop 'unequal sizes for arguments to lj_params_init'
+       error stop 'unequal sizes for arguments to lj_params_init'
     end if
 
     n1 = size(epsilon, 1)
