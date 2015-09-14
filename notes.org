@@ -15,3 +15,27 @@ Define a periodic pure MPCD fluid.
 
 Define a pure MPCD fluid periodic in x and y and under a temperature
 gradient in z.
+
+* features, existing and to come
+
+** flow tolerant temperature computation
+
+** bounce-back walls for the solvent
+
+** thermal boundary conditions
+implemented via virtual wall particles
+
+** gravity
+not implemented
+
+** bulk thermostatting
+not implemented
+
+** bulk rmpcd
+not implemented
+
+** md
+not implemented
+
+** external field on colloid
+not implemented
