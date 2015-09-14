@@ -10,6 +10,7 @@ module mpcd
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
   public :: mpcd_stream
+  public :: compute_rho
 
 contains
 
@@ -199,6 +200,21 @@ contains
     te = te / count
 
   end function compute_temperature
+
+  !! Compute density profile along z
+  subroutine compute_rho(particles, rhoz)
+    type(particle_system_t), intent(in) :: particles
+    type(histogram_t), intent(inout) :: rhoz
+
+    integer :: i
+
+    if (.not. allocated(rhoz% data)) error stop 'histogram_t: data not allocated'
+
+    do i = 1, particles% Nmax
+       call rhoz% bin(particles% pos(3, i))
+    end do
+
+  end subroutine compute_rho
 
   !! Advance mpcd particles
   !!
