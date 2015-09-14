@@ -20,22 +20,55 @@ gradient in z.
 
 ** flow tolerant temperature computation
 
+The temperature is computed cell-wise to eliminate the c.o.m. kinetic
+energy locally.
+
 ** bounce-back walls for the solvent
 
+Implemented in z only.
+
+*** allow bounce back along two directions
+
+This is useful to couple a gravity driven flow in z. It might be
+useless if gravity implented in y direction, though.
+
+** TODO robust neighbour listing
+
+Should work automatically given a cut-off radius.
+
 ** thermal boundary conditions
-implemented via virtual wall particles
+
+Implemented via virtual wall particles.
 
 ** gravity
-not implemented
+
+Not implemented.
 
 ** bulk thermostatting
-not implemented
+
+Not implemented.
 
 ** bulk rmpcd
-not implemented
 
-** md
-not implemented
+Not implemented.
+
+** MD
+
+Not implemented.
 
 ** external field on colloid
-not implemented
+
+Not implemented.
+
+* References
+
+** Foundational
+
+- MPCD and MPCDMD papers by Malevanets and Kapral
+- RMPCD paper
+
+** Thermal gradient
+
+Lusebrink and Ripoll, J. Chem. Phys. 136, 084106 (2012)
+
+** gravity
