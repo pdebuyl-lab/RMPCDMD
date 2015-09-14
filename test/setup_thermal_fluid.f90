@@ -17,11 +17,14 @@ program setup_fluid
   type(particle_system_t) :: solvent
 
   type(profile_t) :: tz
+  type(histogram_t) :: rhoz
 
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
   type(h5md_element_t) :: e_solvent, e_solvent_v
   type(h5md_element_t) :: elem_tz, elem_tz_count
+  type(h5md_element_t) :: elem_rhoz
+  type(h5md_element_t) :: elem_T
   integer(HID_T) :: box_group, solvent_group
 
   integer, parameter :: N = 10800
@@ -30,6 +33,7 @@ program setup_fluid
   integer, allocatable :: seed(:)
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
+  double precision :: T
 
   double precision, parameter :: tau = 0.1d0
 
@@ -64,10 +68,8 @@ program setup_fluid
 
   call datafile% create('data_setup_simple_fluid.h5', 'RMPCDMD:setup_simple_fluid', '0.0 dev', 'Pierre de Buyl')
 
-  call tz% init(&
-       solvent_cells% origin(3), &
-       solvent_cells% origin(3) + solvent_cells% L(3) * solvent_cells% a, &
-       solvent_cells% L(3))
+  call tz% init(0.d0, solvent_cells% edges(3), L(3))
+  call rhoz% init(0.d0, solvent_cells% edges(3), L(3))
   call h5gcreate_f(datafile% id, 'observables', datafile% observables, error)
 
   call h5gcreate_f(datafile% particles, 'solvent', solvent_group, error)
@@ -81,6 +83,9 @@ program setup_fluid
   call e_solvent_v% create_time(solvent_group, 'velocity', solvent% vel, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_tz% create_time(datafile% observables, 'tz', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_tz_count% create_time(datafile% observables, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_rhoz% create_time(datafile% observables, 'rhoz', rhoz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_T% create_time(datafile% observables, 'temperature', T, ior(H5MD_TIME, H5MD_STORE_TIME))
+
   call solvent% sort(solvent_cells)
   call solvent_cells%count_particles(solvent% pos)
 
@@ -109,19 +114,26 @@ program setup_fluid
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
 
-     write(13,*) compute_temperature(solvent, solvent_cells, tz), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
+     T = compute_temperature(solvent, solvent_cells, tz)
+     write(13,*) T, sum(solvent% vel**2)/(3*solvent% Nmax), v_com
+     call elem_T% append(T, i, i*tau)
+
+     call compute_rho(solvent, rhoz)
 
      if (modulo(i, 50) == 0) then
         call tz% norm()
-        call elem_tz% append(tz% data, i, i*1.d0)
-        call elem_tz_count% append(tz% count, i, i*1.d0)
+        call elem_tz% append(tz% data, i, i*tau)
+        call elem_tz_count% append(tz% count, i, i*tau)
         call tz% reset()
+        rhoz% data = rhoz% data / (50.d0 * rhoz% dx)
+        call elem_rhoz% append(rhoz% data, i, i*tau)
+        rhoz% data = 0
      end if
 
   end do
 
-  call e_solvent% append(solvent% pos, i, i*1.d0)
-  call e_solvent_v% append(solvent% vel, i, i*1.d0)
+  call e_solvent% append(solvent% pos, i, i*tau)
+  call e_solvent_v% append(solvent% vel, i, i*tau)
 
   clock = 0
   do i = 1 , solvent_cells% N
@@ -133,6 +145,8 @@ program setup_fluid
   call e_solvent% close()
   call e_solvent_v% close()
   call elem_tz% close()
+  call elem_rhoz% close()
+  call elem_T% close()
 
   call h5gclose_f(solvent_group, error)
 
