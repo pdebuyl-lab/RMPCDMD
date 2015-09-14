@@ -60,6 +60,20 @@ Not implemented.
 
 Not implemented.
 
+
+* neighbor listing
+
+** encompassing cubes or spheres
+
+add cell system with side rc + skin, visit 27-cube
+
+spherical count = rho * 4/3 pi (rc+skin)^3
+cubic count = rho * (3*(rc+skin))^3
+
+cubic count / spherical count = 27 / (4/3 pi)
+
+** cell lists
+
 * References
 
 ** Foundational
