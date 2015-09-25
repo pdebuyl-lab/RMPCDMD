@@ -24,6 +24,29 @@ A. S. Mikhailov and R. Kapral [EPL 103, 60009
 The current version is under total refactoring to remove the use of
 global variables, enable testing and plan for parallel accelerations.
 
+## Compile the code
+
+RMPCDMD has the following requirements:
+
+- A Fortran 2003 compiler (e.g. [gfortran](https://gcc.gnu.org/wiki/GFortran))
+- A Fortran enabled [HDF5](https://www.hdfgroup.org/HDF5/) installation
+- [CMake](http://cmake.org/)
+- [GNU Make](https://www.gnu.org/software/make/)
+- [git](http://git-scm.com/)
+
+At the command line, execute the following
+
+    git clone https://github.com/pdebuyl/RMPCDMD
+	cd RMPCDMD
+	git submodule init
+	git submodule update
+	mkdir build
+	cd build
+	cmake ..
+	make
+
+You can then execute, for instance, the executable `./setup_simple_fluid`.
+
 ## License
 
 BSD 3-clause, see [LICENSE](LICENSE).
