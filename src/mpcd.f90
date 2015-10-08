@@ -10,7 +10,7 @@ module mpcd
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
   public :: mpcd_stream
-  public :: compute_rho
+  public :: compute_rho, compute_vx
 
 contains
 
@@ -215,6 +215,20 @@ contains
     end do
 
   end subroutine compute_rho
+  
+  subroutine compute_vx(particles, vx)
+    type(particle_system_t), intent(in) :: particles
+    type(profile_t), intent(inout) :: vx
+
+    integer :: i
+
+    if (.not. allocated(vx% data)) error stop 'histogram_t: data not allocated'
+
+    do i = 1, particles% Nmax
+       call vx% bin(particles% pos(3, i), particles% vel(1, i))
+    end do
+
+  end subroutine compute_vx
 
   !! Advance mpcd particles
   !!
@@ -226,14 +240,15 @@ contains
 
     integer :: i
     double precision :: pos_min(3), pos_max(3), delta
-
+	double precision, dimension(3) :: g =  [1d0,0.0d0,0.0d0]! adding gravity
     pos_min = 0
     pos_max = cells% edges
 
     do i = 1, particles% Nmax
-       particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt
+       particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt + g*dt**2/2
        particles% pos(1,i) = modulo( particles% pos(1,i) , cells% edges(1) )
        particles% pos(2,i) = modulo( particles% pos(2,i) , cells% edges(2) )
+       particles% vel(:,i) = particles% vel(:,i) + g*dt
        if (cells% has_walls) then
           if (particles% pos(3,i) < pos_min(3)) then
              ! bounce position
