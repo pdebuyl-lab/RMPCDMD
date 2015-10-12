@@ -14,9 +14,11 @@ module neighbor_list
      integer :: Nmax
      integer, allocatable :: list(:, :)
      integer, allocatable :: n(:)
+     integer, allocatable :: stencil(:,:)
    contains
      procedure :: init
      procedure :: update_list
+     procedure :: make_stencil
   end type neighbor_list_t
 
 contains
@@ -53,21 +55,26 @@ contains
 
   end function next_cell
 
+  !! Update the neighbor list
+  !!
+  !! Loop over the stencil for neighboring cells.
   subroutine update_list(this, system1, system2, radius, cells)
     class(neighbor_list_t), intent(inout) :: this
     type(particle_system_t), intent(in) :: system1
     type(particle_system_t), intent(in) :: system2
     type(cell_system_t), intent(in) :: cells
     double precision, intent(in) :: radius
-    
+
     integer :: cell(3), neigh_cell(3), M(3), actual_cell(3)
     integer :: neigh_idx, i, cell_i, cell_n, cell_start, list_idx
+    integer :: j, stencil_size
     double precision :: x(3), y(3), L(3)
     double precision :: rsq, radiussq
 
     L = cells% L * cells% a
     radiussq = radius**2
     M = cells% M
+    stencil_size = size(this% stencil, dim=2)
 
     do i = 1, system1% Nmax
        x = system1% pos(:, i)
@@ -81,32 +88,26 @@ contains
 
        if ( cell_n .eq. 0 ) continue
 
-       do while ( .true. )
+       stencil: do j = 1, stencil_size
+          actual_cell = modulo(cell + this% stencil(:,j) , cells% L)
+          neigh_idx = compact_p_to_h( actual_cell, M ) + 1
+          cell_n = cells% cell_count(neigh_idx)
+          cell_start = cells% cell_start(neigh_idx)
 
-          y = system2% pos(:, cell_start+cell_i)
-          rsq = sum(rel_pos(x, y, L)**2)
-          if (rsq .lt. radiussq) then
-             list_idx = list_idx + 1
-             if (list_idx .gt. this% Nmax) then
-                error stop 'maximum of neighbor list reached'
+          do cell_i = cell_start, cell_start + cell_n - 1
+             y = system2% pos(:, cell_i)
+             rsq = sum(rel_pos(x, y, L)**2)
+
+             if (rsq .lt. radiussq) then
+                list_idx = list_idx + 1
+                if (list_idx .gt. this% Nmax) then
+                   error stop 'maximum of neighbor list reached'
+                end if
+                this% list(list_idx, i) = cell_start+cell_i
              end if
-             this% list(list_idx, i) = cell_start+cell_i
-          end if
+          end do
+       end do stencil
 
-          cell_i = cell_i + 1
-
-          if ( cell_i .gt. cell_n ) then
-             neigh_cell = next_cell(neigh_cell)
-             actual_cell = modulo(cell + neigh_cell, cells% L)
-             neigh_idx = compact_p_to_h( actual_cell, M ) + 1
-             cell_i = 1
-             cell_n = cells% cell_count(neigh_idx)
-             cell_start = cells% cell_start(neigh_idx)
-          end if
-
-          if ( neigh_cell(3) .eq. 3) exit
-
-       end do
        this% n(i) = list_idx
 
     end do
@@ -149,5 +150,63 @@ contains
     end do
 
   end subroutine compute_force
+
+  !! Prepare a stencil of neighboring cells
+  !!
+  !! Precomputing the stencil of cells for the neighbor list is described in P. J. in 't Veld,
+  !! S. J. Plimpton and G. S. Grest. Comp. Phys. Commun. 179, 320-329 (2008) but for regular
+  !! Molecular Dynamics. The present version is suited for MPCD solvent.
+  subroutine make_stencil(this, cells, cut)
+    class(neighbor_list_t), intent(inout) :: this
+    type(cell_system_t), intent(in) :: cells
+    double precision :: cut
+
+    integer :: max_i, count
+    integer :: i,j,k
+    double precision :: a
+
+    a = cells% a
+
+    max_i = floor(cut / a) + 1
+
+    count = 0
+    do i = -max_i, max_i
+       do j = -max_i, max_i
+          do k = -max_i, max_i
+             if (closest( [i,j,k], [0,0,0] ) < cut) count = count + 1
+          end do
+       end do
+    end do
+
+    if (allocated(this% stencil)) deallocate(this% stencil)
+    allocate(this% stencil(3, count))
+
+    count = 0
+    do i = -max_i, max_i
+       do j = -max_i, max_i
+          do k = -max_i, max_i
+             if (closest( [i,j,k], [0,0,0] ) < cut) then
+                count = count + 1
+                this% stencil(:,count) = [i,j,k]
+             end if
+          end do
+       end do
+    end do
+
+  end subroutine make_stencil
+
+  pure function closest(x1, x2) result(c)
+    integer, dimension(3), intent(in) :: x1, x2
+    double precision :: c
+
+    integer :: i, dist_sq
+
+    dist_sq = 0
+    do i = 1, 3
+       dist_sq = dist_sq + max( 0, abs(x1(i) - x2(i)) - 1)**2
+    end do
+    c = sqrt(dble(dist_sq))
+
+  end function closest
 
 end module neighbor_list

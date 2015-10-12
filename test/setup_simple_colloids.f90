@@ -63,13 +63,10 @@ program setup_simple_colloids
 
   call solvent_cells%count_particles(solvent% pos)
 
-  print *, sum(solvent_cells%cell_count)
-  print *, solvent_cells%cell_count
-  print *, solvent_cells%cell_start(1), solvent_cells%cell_start(solvent_cells%N)
-
   call solvent% sort(solvent_cells)
 
   call neigh% init(colloids% Nmax, 300)
+  call neigh% make_stencil(solvent_cells, 1.5d0)
 
   call neigh% update_list(colloids, solvent, 1.4d0, solvent_cells)
 
