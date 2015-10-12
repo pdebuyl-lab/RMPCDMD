@@ -84,9 +84,9 @@ contains
     class(particle_system_t), intent(in) :: particles
     class(cell_system_t), intent(in) :: cells
     type(mt19937ar_t), intent(inout) :: state
-    double precision, intent(in) :: wall_temperature(2)
-    double precision, intent(in) :: wall_v(3,2)
-    integer, intent(in) :: wall_n(2)
+    double precision, optional, intent(in) :: wall_temperature(2)
+    double precision, optional, intent(in) :: wall_v(3,2)
+    integer, optional, intent(in) :: wall_n(2)
 
     integer :: i, start, n
     integer :: cell_idx
@@ -95,6 +95,12 @@ contains
     integer :: cell(3)
     integer :: wall_idx
     double precision :: virtual_v(3)
+    logical :: all_present, all_absent
+
+    all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
+    all_absent = .not. present(wall_temperature) .and. .not. present(wall_v) .and. .not. present(wall_n)
+    if ( .not. (all_present .or. all_absent) ) &
+         error stop 'wall parameters must be all present or all absent in wall_mpcd_step'
 
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
@@ -105,9 +111,9 @@ contains
 
        ! Find whether we are in a wall cell
        cell = compact_h_to_p(cell_idx - 1, cells% M) + 1
-       if (cell(3) == 1) then
+       if (all_present .and. (cell(3) == 1)) then
           wall_idx = 1
-       else if (cell(3) == cells% L(3)) then
+       else if (all_present .and. (cell(3) == cells% L(3))) then
           wall_idx = 2
        else
           wall_idx = -1
