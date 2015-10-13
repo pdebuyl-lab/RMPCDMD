@@ -78,18 +78,12 @@ contains
 
     do i = 1, system1% Nmax
        x = system1% pos(:, i)
-       cell = floor( (x - cells% origin) / cells% a )
-       neigh_cell = [ -2, -2, -2]
-       neigh_idx = compact_p_to_h( cell + neigh_cell, M ) + 1
-       cell_i = 1
-       cell_n = cells% cell_count(neigh_idx)
-       cell_start = cells% cell_start(neigh_idx)
+       cell = floor( (x - cells% origin) / cells% a ) + 1
        list_idx = 0
 
-       if ( cell_n .eq. 0 ) continue
-
        stencil: do j = 1, stencil_size
-          actual_cell = modulo(cell + this% stencil(:,j) , cells% L)
+          ! 0-based index for hilbert routine
+          actual_cell = modulo(cell + this% stencil(:,j) - 1 , cells% L)
           neigh_idx = compact_p_to_h( actual_cell, M ) + 1
           cell_n = cells% cell_count(neigh_idx)
           cell_start = cells% cell_start(neigh_idx)
@@ -103,7 +97,7 @@ contains
                 if (list_idx .gt. this% Nmax) then
                    error stop 'maximum of neighbor list reached'
                 end if
-                this% list(list_idx, i) = cell_start+cell_i
+                this% list(list_idx, i) = cell_i
              end if
           end do
        end do stencil
