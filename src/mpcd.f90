@@ -225,7 +225,7 @@ contains
     double precision, intent(in) :: dt
 
     integer :: i
-    double precision :: pos_min(3), pos_max(3), delta
+    double precision :: pos_min(3), pos_max(3), delta, time
 
     pos_min = 0
     pos_max = cells% edges
@@ -237,14 +237,16 @@ contains
        if (cells% has_walls) then
           if (particles% pos(3,i) < pos_min(3)) then
              ! bounce position
-             delta = pos_min(3) - particles% pos(3,i)
-             particles% pos(3,i) = pos_min(3) + delta
+             delta = particles% pos(3,i) - pos_min(3)
+             time = delta / particles% vel(3,i)
+             particles% pos(:,i) = particles% pos(:,i) - particles% vel(:,i)*(2*time)
              ! bounce velocity
              particles% vel(:,i) = -particles% vel(:,i)
           else if (particles% pos(3,i) > pos_max(3)) then
              ! bounce position
              delta = particles% pos(3,i) - pos_max(3)
-             particles% pos(3,i) = pos_max(3) - delta
+             time = delta / particles% vel(3,i)
+             particles% pos(:,i) = particles% pos(:,i) - particles% vel(:,i)*(2*time)
              ! bounce velocity
              particles% vel(:,i) = -particles% vel(:,i)
           end if
