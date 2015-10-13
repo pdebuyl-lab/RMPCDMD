@@ -53,4 +53,4 @@ BSD 3-clause, see [LICENSE](LICENSE).
 
 ## Contributors
 
-Peter Colberg
+Peter Colberg: general programming improvements, OpenCL, debugging
