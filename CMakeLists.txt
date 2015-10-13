@@ -48,6 +48,11 @@ add_executable(test_common_0
 test/test_common_0.f90)
 target_link_libraries(test_common_0 RMPCDMD fortran_tester)
 
+add_executable(test_neighbor_list_0
+test/test_neighbor_list_0.f90)
+target_link_libraries(test_neighbor_list_0 RMPCDMD fortran_tester)
+
 add_test(test_cell_system_0 test_cell_system_0)
 add_test(test_common_0 test_common_0)
-set_tests_properties(test_cell_system_0 test_common_0 PROPERTIES PASS_REGULAR_EXPRESSION "all tests succeeded")
+add_test(test_neighbor_list_0 test_neighbor_list_0)
+set_tests_properties(test_cell_system_0 test_common_0 test_neighbor_list_0 PROPERTIES PASS_REGULAR_EXPRESSION "all tests succeeded")
