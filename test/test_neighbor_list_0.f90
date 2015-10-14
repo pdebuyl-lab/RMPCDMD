@@ -17,9 +17,6 @@ program test_neighbor_list
   integer, parameter :: rho = 20
   integer :: N_solvent, N_colloids
 
-  integer, allocatable :: test_list(:,:)
-  integer, allocatable :: test_n(:)
-
   integer :: L(3)
   integer :: i, j, n_neigh
   integer :: neighbor_list_size
@@ -59,15 +56,10 @@ program test_neighbor_list
   neighbor_list_size = rho * 6 * int(cutoff**3)
 
   call neigh% init(colloids% Nmax, neighbor_list_size)
-  allocate(test_n(solvent% Nmax))
-  allocate(test_list(300, solvent% Nmax))
 
   call neigh% make_stencil(solvent_cells, cutoff)
 
   call neigh% update_list(colloids, solvent, cutoff, solvent_cells)
-
-  test_list = 0
-  test_n = 0
 
   do i = 1, 1
      n_neigh = neigh% n(i)
