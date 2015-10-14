@@ -50,7 +50,6 @@ program test_neighbor_list
   call colloids% random_placement(L*1.d0)
 
   call solvent% sort(solvent_cells)
-  call solvent_cells% count_particles(solvent% pos)
 
   cutoff = 3.6
   neighbor_list_size = rho * 6 * int(cutoff**3)

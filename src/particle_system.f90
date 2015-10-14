@@ -223,6 +223,8 @@ contains
        this% species_old(start) = this% species(i)
     end do
 
+    cells% cell_start = cells% cell_start - cells% cell_count
+
     this% pos_pointer => this% pos
     this% pos => this% pos_old
     this% pos_old => this% pos_pointer
