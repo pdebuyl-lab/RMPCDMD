@@ -65,7 +65,7 @@ contains
     type(cell_system_t), intent(in) :: cells
     double precision, intent(in) :: radius
 
-    integer :: cell(3), neigh_cell(3), M(3), actual_cell(3)
+    integer :: cell(3), M(3), actual_cell(3)
     integer :: neigh_idx, i, cell_i, cell_n, cell_start, list_idx
     integer :: j, stencil_size
     double precision :: x(3), y(3), L(3)
