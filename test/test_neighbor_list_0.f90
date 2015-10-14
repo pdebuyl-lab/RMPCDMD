@@ -22,6 +22,7 @@ program test_neighbor_list
 
   integer :: L(3)
   integer :: i, j, n_neigh
+  integer :: neighbor_list_size
 
   double precision :: xij(3), dist_sq, cutoff
 
@@ -54,11 +55,12 @@ program test_neighbor_list
   call solvent% sort(solvent_cells)
   call solvent_cells% count_particles(solvent% pos)
 
-  call neigh% init(colloids% Nmax, 600)
+  cutoff = 3.6
+  neighbor_list_size = rho * 6 * int(cutoff**3)
+
+  call neigh% init(colloids% Nmax, neighbor_list_size)
   allocate(test_n(solvent% Nmax))
   allocate(test_list(300, solvent% Nmax))
-
-  cutoff = 1.8
 
   call neigh% make_stencil(solvent_cells, cutoff)
 
@@ -67,17 +69,12 @@ program test_neighbor_list
   test_list = 0
   test_n = 0
 
-  write(16,*) neigh% list(:,:)
-  write(18,*) neigh% n
-
   do i = 1, 1
      n_neigh = neigh% n(i)
      do j = 1, solvent% Nmax
         xij = rel_pos(colloids% pos(:, i), solvent% pos(:, j), solvent_cells% edges)
         dist_sq = sum(xij**2)
         if (dist_sq < cutoff**2) then
-           write(*, '(10f6.2)') colloids% pos(:, i), solvent% pos(:, j), xij, dist_sq
-           write(17, *) j
            call test% assert_equal( is_in_list(j, neigh% list(1:n_neigh,i)), .true. )
         end if
      end do
