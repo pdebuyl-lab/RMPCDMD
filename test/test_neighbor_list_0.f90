@@ -61,7 +61,7 @@ program test_neighbor_list
 
   call neigh% update_list(colloids, solvent, cutoff, solvent_cells)
 
-  do i = 1, 1
+  do i = 1, colloids% Nmax
      n_neigh = neigh% n(i)
      do j = 1, solvent% Nmax
         xij = rel_pos(colloids% pos(:, i), solvent% pos(:, j), solvent_cells% edges)
