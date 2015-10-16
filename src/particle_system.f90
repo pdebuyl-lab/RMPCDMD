@@ -234,29 +234,12 @@ contains
 
     cells% cell_start = cells% cell_start - cells% cell_count
 
-    this% pos_pointer => this% pos
-    this% pos => this% pos_old
-    this% pos_old => this% pos_pointer
-
-    this% vel_pointer => this% vel
-    this% vel => this% vel_old
-    this% vel_old => this% vel_pointer
-
-    this% force_pointer => this% force
-    this% force => this% force_store
-    this% force_store => this% force_pointer
-
-    this% force_pointer => this% force_old_store
-    this% force_old => this% force_old_store
-    this% force_old_store => this% force_pointer
-
-    this% id_pointer => this% id
-    this% id => this% id_old
-    this% id_old => this% id_pointer
-
-    this% species_pointer => this% species
-    this% species => this% species_old
-    this% species_old => this% species_pointer
+    call switch(this% pos, this% pos_old)
+    call switch(this% vel, this% vel_old)
+    call switch(this% force, this% force_store)
+    call switch(this% force_old, this% force_old_store)
+    call switch(this% id, this% id_old)
+    call switch(this% species, this% species_old)
 
   end subroutine sort
 
