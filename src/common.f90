@@ -5,6 +5,7 @@ module common
   public :: rel_pos
   public :: profile_t
   public :: histogram_t
+  public :: switch
 
   type profile_t
      double precision, allocatable :: data(:)
@@ -34,6 +35,11 @@ module common
      generic, public :: bin => histogram_bin
      procedure, private :: histogram_bin
   end type histogram_t
+
+  interface switch
+     module procedure :: switch_d2
+     module procedure :: switch_i1
+  end interface switch
 
 contains
 
@@ -128,5 +134,25 @@ contains
     end if
 
   end subroutine histogram_bin
+
+  subroutine switch_d2(p1, p2)
+    double precision, pointer, dimension(:,:), intent(inout) :: p1, p2
+    double precision, pointer, dimension(:,:) :: p
+
+    p => p1
+    p1 => p2
+    p2 => p
+
+  end subroutine switch_d2
+
+  subroutine switch_i1(p1, p2)
+    integer, pointer, dimension(:), intent(inout) :: p1, p2
+    integer, pointer, dimension(:) :: p
+
+    p => p1
+    p1 => p2
+    p2 => p
+
+  end subroutine switch_i1
 
 end module common
