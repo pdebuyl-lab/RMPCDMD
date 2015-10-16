@@ -8,6 +8,7 @@ module neighbor_list
   private
 
   public :: neighbor_list_t, compute_force
+  public :: compute_force_n2
 
   type neighbor_list_t
      integer :: Npoints
@@ -108,12 +109,13 @@ contains
 
   end subroutine update_list
 
-  subroutine compute_force(ps1, ps2, n_list, L, lj_params)
+  function compute_force(ps1, ps2, n_list, L, lj_params) result(e)
     type(particle_system_t), intent(inout) :: ps1
     type(particle_system_t), intent(inout) :: ps2
     type(neighbor_list_t), intent(in) :: n_list
     double precision, intent(in) :: L(3)
     type(lj_params_t), intent(in) :: lj_params
+    double precision :: e
 
     integer :: i, j
     integer :: n_species1, n_species2
@@ -123,6 +125,9 @@ contains
 
     n_species1 = ps1% n_species
     n_species2 = ps2% n_species
+
+    e = 0
+    ps2% force = 0
 
     do i = 1, ps1% Nmax
        if (ps1% species(i) <= 0) continue
@@ -136,6 +141,7 @@ contains
           r_sq = sum(d**2)
           if ( r_sq <= lj_params% cut_sq(s1, s2) ) then
              f = lj_force(d, r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
+             e = e + 1
              f1 = f1 + f
              ps2% force(:, j) = ps2% force(:, j) - f
           end if
@@ -143,7 +149,43 @@ contains
        ps1% force(:, i) = ps1% force(:, i) + f1
     end do
 
-  end subroutine compute_force
+  end function compute_force
+
+  function compute_force_n2(ps, L, lj_params) result(e)
+    type(particle_system_t), intent(inout) :: ps
+    double precision, intent(in) :: L(3)
+    type(lj_params_t), intent(in) :: lj_params
+    double precision :: e
+
+    integer :: i, j
+    integer :: n_species
+    double precision :: x(3), d(3), f(3)
+    integer :: s1, s2
+    double precision :: r_sq
+
+    n_species = ps% n_species
+
+    e = 0
+
+    do i = 1, ps% Nmax
+       s1 = ps% species(i)
+       if (s1 <= 0) continue
+       x = ps% pos(:, i)
+       do j = i + 1, ps% Nmax
+          s2 = ps% species(j)
+          if (s2 <= 0) continue
+          d = rel_pos(x, ps% pos(:, j), L)
+          r_sq = sum(d**2)
+          if ( r_sq <= lj_params% cut_sq(s1, s2) ) then
+             f = lj_force(d, r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
+             ps% force(:, i) = ps% force(:, i) + f
+             ps% force(:, j) = ps% force(:, j) - f
+             e = e + 1
+          end if
+       end do
+    end do
+
+  end function compute_force_n2
 
   !! Prepare a stencil of neighboring cells
   !!

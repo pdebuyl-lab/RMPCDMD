@@ -21,8 +21,12 @@ module particle_system
      double precision, pointer :: vel_pointer(:,:)
      double precision, pointer :: force1(:,:)
      double precision, pointer :: force2(:,:)
+     double precision, pointer :: force3(:,:)
+     double precision, pointer :: force4(:,:)
      double precision, pointer :: force(:,:)
+     double precision, pointer :: force_store(:,:)
      double precision, pointer :: force_old(:,:)
+     double precision, pointer :: force_old_store(:,:)
      double precision, pointer :: force_pointer(:,:)
      integer, pointer :: id1(:)
      integer, pointer :: id2(:)
@@ -67,8 +71,12 @@ contains
 
     allocate(this% force1(3, Nmax))
     allocate(this% force2(3, Nmax))
+    allocate(this% force3(3, Nmax))
+    allocate(this% force4(3, Nmax))
     this% force => this% force1
-    this% force_old => this% force2
+    this% force_store => this% force2
+    this% force_old => this% force3
+    this% force_old_store => this% force4
 
     allocate(this% id1(Nmax))
     allocate(this% id2(Nmax))
@@ -218,7 +226,8 @@ contains
        !$omp end atomic
        this% pos_old(:, start) = this% pos(:, i)
        this% vel_old(:, start) = this% vel(:, i)
-       this% force_old(:, start) = this% force(:, i)
+       this% force_store(:, start) = this% force(:, i)
+       this% force_old_store(:, start) = this% force_old(:, i)
        this% id_old(start) = this% id(i)
        this% species_old(start) = this% species(i)
     end do
@@ -234,8 +243,12 @@ contains
     this% vel_old => this% vel_pointer
 
     this% force_pointer => this% force
-    this% force => this% force_old
-    this% force_old => this% force_pointer
+    this% force => this% force_store
+    this% force_store => this% force_pointer
+
+    this% force_pointer => this% force_old_store
+    this% force_old => this% force_old_store
+    this% force_old_store => this% force_pointer
 
     this% id_pointer => this% id
     this% id => this% id_old
