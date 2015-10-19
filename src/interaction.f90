@@ -1,6 +1,12 @@
 module interaction
   implicit none
 
+  private
+
+  public :: lj_params_t
+  public :: lj_force
+  public :: lj_energy
+
   type lj_params_t
      integer :: n1, n2
      double precision, allocatable :: epsilon(:,:)
@@ -63,5 +69,17 @@ contains
     f = force_over_r*d
 
   end function lj_force
+
+  pure function lj_energy(r_sq, epsilon, sigma) result(e)
+    double precision, intent(in) :: r_sq, epsilon, sigma
+    double precision :: e
+
+    double precision :: sig6_o_r6
+
+    sig6_o_r6 = sigma**6/r_sq**3
+
+    e = 4.d0*epsilon * ((sig6_o_r6**2 - sig6_o_r6) + 0.25d0)
+
+  end function lj_energy
 
 end module interaction
