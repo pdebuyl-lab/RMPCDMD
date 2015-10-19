@@ -127,7 +127,6 @@ contains
     n_species2 = ps2% n_species
 
     e = 0
-    ps2% force = 0
 
     do i = 1, ps1% Nmax
        if (ps1% species(i) <= 0) continue
@@ -141,7 +140,7 @@ contains
           r_sq = sum(d**2)
           if ( r_sq <= lj_params% cut_sq(s1, s2) ) then
              f = lj_force(d, r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
-             e = e + 1
+             e = e + lj_energy(r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
              f1 = f1 + f
              ps2% force(:, j) = ps2% force(:, j) - f
           end if
@@ -180,7 +179,7 @@ contains
              f = lj_force(d, r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
              ps% force(:, i) = ps% force(:, i) + f
              ps% force(:, j) = ps% force(:, j) - f
-             e = e + 1
+             e = e + lj_energy(r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
           end if
        end do
     end do
