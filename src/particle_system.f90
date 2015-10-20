@@ -48,6 +48,8 @@ contains
     integer, intent(in) :: Nmax
     integer, intent(in), optional :: n_species
 
+    integer :: i
+
     this% Nmax = Nmax
     if (present(n_species)) then
        this% n_species = n_species
@@ -74,6 +76,10 @@ contains
     allocate(this% id2(Nmax))
     this% id => this% id1
     this% id_old => this% id2
+
+    do i = 1, this% Nmax
+       this% id(i) = i
+    end do
 
     allocate(this% species1(Nmax))
     allocate(this% species2(Nmax))
