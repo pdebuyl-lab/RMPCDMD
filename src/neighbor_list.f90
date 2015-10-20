@@ -77,6 +77,7 @@ contains
     M = cells% M
     stencil_size = size(this% stencil, dim=2)
 
+    !$omp parallel do private(x, cell, list_idx, j, actual_cell, neigh_idx, cell_n, cell_start, cell_i, y, rsq)
     do i = 1, system1% Nmax
        x = system1% pos(:, i)
        cell = floor( (x - cells% origin) / cells% a ) + 1
@@ -129,6 +130,7 @@ contains
 
     e = 0
 
+    !$omp parallel do private(x, s1, f1, j, idx, s2, d, r_sq, f, e)
     do i = 1, ps1% Nmax
        if (ps1% species(i) <= 0) continue
        x = ps1% pos(:, i)
