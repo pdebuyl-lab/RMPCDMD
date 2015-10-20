@@ -239,14 +239,14 @@ contains
   !! Advance mpcd particles
   !!
   !! If the cell system has a wall in the z direction, a bounce-back collision is used.
-subroutine mpcd_stream(particles, cells, dt)
+subroutine mpcd_stream(particles, cells, dt,g)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
     double precision, intent(in) :: dt
 
     integer :: i
     double precision :: pos_min(3), pos_max(3), delta
-	double precision, dimension(3) :: g =  [0d0,0.0d0, -0.1d0]
+	double precision, dimension(3), intent(in):: g
 	double precision, dimension(3) :: old_pos, old_vel
     double precision :: t_c, t_b, t_ab
     pos_min = 0
