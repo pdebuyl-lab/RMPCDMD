@@ -130,7 +130,8 @@ contains
 
     e = 0
 
-    !$omp parallel do private(x, s1, f1, j, idx, s2, d, r_sq, f, e)
+    !$omp parallel do private(x, s1, f1, j, idx, s2, d, r_sq, f) &
+    !$omp& reduction(+:e)
     do i = 1, ps1% Nmax
        if (ps1% species(i) <= 0) continue
        x = ps1% pos(:, i)
