@@ -38,6 +38,11 @@ module particle_system
      integer, pointer :: species(:)
      integer, pointer :: species_old(:)
      integer, pointer :: species_pointer(:)
+     integer, pointer :: image1(:,:)
+     integer, pointer :: image2(:,:)
+     integer, pointer :: image(:,:)
+     integer, pointer :: image_old(:,:)
+     integer, pointer :: image_pointer(:,:)
    contains
      procedure :: init
      procedure :: init_from_file
@@ -87,6 +92,13 @@ contains
     allocate(this% species2(Nmax))
     this% species => this% species1
     this% species_old => this% species2
+
+    allocate(this% image1(3, Nmax))
+    allocate(this% image2(3, Nmax))
+    this% image => this% image1
+    this% image_old => this% image2
+
+    this% image = 0
 
   end subroutine init
 
