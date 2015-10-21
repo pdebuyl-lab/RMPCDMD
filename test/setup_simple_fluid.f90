@@ -21,6 +21,7 @@ program setup_fluid
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
   type(h5md_element_t) :: e_solvent, e_solvent_v, e_solvent_spec, e_solvent_id
+  type(h5md_element_t) :: e_solvent_image
   integer(HID_T) :: box_group, solvent_group
 
   integer, parameter :: N = 2000
@@ -75,6 +76,7 @@ program setup_fluid
   call e_solvent_v% create_time(solvent_group, 'velocity', solvent% vel, ior(H5MD_TIME, H5MD_STORE_TIME))
   call e_solvent_spec% create_time(solvent_group, 'species', solvent% species, ior(H5MD_TIME, H5MD_STORE_TIME))
   call e_solvent_id% create_time(solvent_group, 'id', solvent% id, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call e_solvent_image% create_time(solvent_group, 'image', solvent% image, ior(H5MD_TIME, H5MD_STORE_TIME))
 
   call solvent% sort(solvent_cells)
   call solvent_cells%count_particles(solvent% pos)
@@ -85,7 +87,7 @@ program setup_fluid
   wall_v = 0
   do i = 1, 200
      call simple_mpcd_step(solvent, solvent_cells, mt)
-     call mpcd_stream(solvent, solvent_cells, 0.1d0,[0d0, 0d0, 0d0])
+     call mpcd_stream_periodic(solvent, solvent_cells, tau)
      solvent_cells% origin(1) = genrand_real1(mt) - 1
      solvent_cells% origin(2) = genrand_real1(mt) - 1
      solvent_cells% origin(3) = genrand_real1(mt) - 1
@@ -98,12 +100,15 @@ program setup_fluid
      else 
         solvent% species(i) = 2
      end if 
-  end do 
+  end do
+
+  solvent% image = 0
+
   do i = 1, 200
      call simple_mpcd_step(solvent, solvent_cells, mt)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
-     call mpcd_stream(solvent, solvent_cells, tau,[0d0, 0d0, 0d0])
+     call mpcd_stream_periodic(solvent, solvent_cells, tau)
 
      solvent_cells% origin(1) = genrand_real1(mt) - 1
      solvent_cells% origin(2) = genrand_real1(mt) - 1
@@ -111,6 +116,7 @@ program setup_fluid
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
      call e_solvent% append(solvent% pos, i, i*tau)
+     call e_solvent_image% append(solvent% image, i, i*tau)
      call e_solvent_v% append(solvent% vel, i, i*tau)
      call e_solvent_spec% append(solvent% species, i, i*tau)
      call e_solvent_id% append(solvent% id, i, i*tau)

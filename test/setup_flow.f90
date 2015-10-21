@@ -99,7 +99,7 @@ program setup_fluid
   do i = 1, 1000
      call wall_mpcd_step(solvent, solvent_cells, mt, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10]) 
-     call mpcd_stream(solvent, solvent_cells, tau,[0d0, 0d0,0d0])
+     call mpcd_stream_zwall(solvent, solvent_cells, tau,[0d0, 0d0,0d0])
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
      call solvent% sort(solvent_cells)
@@ -111,7 +111,7 @@ program setup_fluid
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10])
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
-     call mpcd_stream(solvent, solvent_cells, tau,[0d0, 0d0,0d0])
+     call mpcd_stream_zwall(solvent, solvent_cells, tau,[0d0, 0d0,0d0])
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
 

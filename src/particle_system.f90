@@ -34,6 +34,11 @@ module particle_system
      integer, pointer :: species(:)
      integer, pointer :: species_old(:)
      integer, pointer :: species_pointer(:)
+     integer, pointer :: image1(:,:)
+     integer, pointer :: image2(:,:)
+     integer, pointer :: image(:,:)
+     integer, pointer :: image_old(:,:)
+     integer, pointer :: image_pointer(:,:)
    contains
      procedure :: init
      procedure :: init_from_file
@@ -85,6 +90,13 @@ contains
     allocate(this% species2(Nmax))
     this% species => this% species1
     this% species_old => this% species2
+
+    allocate(this% image1(3, Nmax))
+    allocate(this% image2(3, Nmax))
+    this% image => this% image1
+    this% image_old => this% image2
+
+    this% image = 0
 
   end subroutine init
 
@@ -223,6 +235,7 @@ contains
        cells% cell_start(idx) = cells% cell_start(idx) + 1
        !$omp end atomic
        this% pos_old(:, start) = this% pos(:, i)
+       this% image_old(:,start) = this% image(:,i)
        this% vel_old(:, start) = this% vel(:, i)
        this% force_old(:, start) = this% force(:, i)
        this% id_old(start) = this% id(i)
@@ -232,6 +245,10 @@ contains
     this% pos_pointer => this% pos
     this% pos => this% pos_old
     this% pos_old => this% pos_pointer
+
+    this% image_pointer => this% image
+    this% image => this% image_old
+    this% image_old => this% image_pointer
 
     this% vel_pointer => this% vel
     this% vel => this% vel_old
