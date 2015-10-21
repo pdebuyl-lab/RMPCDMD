@@ -9,7 +9,7 @@ module mpcd
 
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
-  public :: mpcd_stream
+  public :: mpcd_stream_periodic, mpcd_stream_zwall
   public :: compute_rho, compute_vx
 
 contains
@@ -239,7 +239,7 @@ contains
   !! Advance mpcd particles
   !!
   !! If the cell system has a wall in the z direction, a bounce-back collision is used.
-subroutine mpcd_stream(particles, cells, dt,g)
+subroutine mpcd_stream_zwall(particles, cells, dt,g)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
     double precision, intent(in) :: dt
@@ -326,6 +326,25 @@ subroutine mpcd_stream(particles, cells, dt,g)
        end if
     end do
 
-  end subroutine mpcd_stream
+  end subroutine mpcd_stream_zwall
+
+  subroutine mpcd_stream_periodic(particles, cells, dt)
+    type(particle_system_t), intent(inout) :: particles
+    type(cell_system_t), intent(in) :: cells
+    double precision, intent(in) :: dt
+
+    integer :: i, jump(3)
+    double precision :: edges(3)
+
+    edges = cells% edges
+
+    do i = 1, particles% Nmax
+       particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt
+       jump = floor(particles% pos(:,i) / edges)
+       particles% image(:,i) = particles% image(:,i) + jump
+       particles% pos(:,i) = particles% pos(:,i) - jump * edges
+    end do
+
+  end subroutine mpcd_stream_periodic
 
 end module mpcd
