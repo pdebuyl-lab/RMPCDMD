@@ -33,6 +33,7 @@ program setup_simple_colloids
   type(mt19937ar_t), target :: mt
 
   integer :: i, L(3), seed_size, clock
+  integer :: jump(3)
   integer :: j, k
   integer, allocatable :: seed(:)
 
@@ -108,12 +109,15 @@ program setup_simple_colloids
      co_max = 0
      md: do j = 1, N_MD_steps
         solvent% pos_old = solvent% pos + dt * solvent% vel + dt**2 * solvent% force / 2
+        !$omp parallel do private(k)
         do k = 1, solvent% Nmax
            solvent% pos(:,k) = modulo(solvent% pos_old(:,k), solvent_cells% edges)
         end do
         colloids% pos_old = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
         do k = 1, colloids% Nmax
-           colloids% pos(:,k) = modulo(colloids% pos_old(:,k), solvent_cells% edges)
+           jump = floor(colloids% pos_old(:,k) / solvent_cells% edges)
+           colloids% image(:,k) = colloids% image(:,k) + jump
+           colloids% pos(:,k) = colloids% pos_old(:,k) - jump*solvent_cells% edges
         end do
         so_max = max(maxval(sqrt(sum((solvent% pos - solvent% pos_old)**2, dim=1))), so_max)
         co_max = max(maxval(sqrt(sum((colloids% pos - colloids% pos_old)**2, dim=1))), co_max)
@@ -125,13 +129,18 @@ program setup_simple_colloids
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
-        solvent% vel = solvent% vel + dt * ( solvent% force + solvent% force_old ) / 2
+        !$omp parallel do private(k)
+        do k = 1, solvent% Nmax
+           solvent% vel(:,k) = solvent% vel(:,k) + dt * ( solvent% force(:,k) + solvent% force_old(:,k) ) / 2
+        end do
         colloids% vel = colloids% vel + dt * ( colloids% force + colloids% force_old ) / (2 * mass)
 
-        call solvent% sort(solvent_cells)
-        call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
+        write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax)
 
      end do md
+
+     call solvent% sort(solvent_cells)
+     call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
