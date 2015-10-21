@@ -235,7 +235,7 @@ contains
        cells% cell_start(idx) = cells% cell_start(idx) + 1
        !$omp end atomic
        this% pos_old(:, start) = this% pos(:, i)
-       this% image_old(start) = this% image(i)
+       this% image_old(:,start) = this% image(:,i)
        this% vel_old(:, start) = this% vel(:, i)
        this% force_old(:, start) = this% force(:, i)
        this% id_old(start) = this% id(i)
@@ -245,6 +245,10 @@ contains
     this% pos_pointer => this% pos
     this% pos => this% pos_old
     this% pos_old => this% pos_pointer
+
+    this% image_pointer => this% image
+    this% image => this% image_old
+    this% image_old => this% image_pointer
 
     this% vel_pointer => this% vel
     this% vel => this% vel_old
