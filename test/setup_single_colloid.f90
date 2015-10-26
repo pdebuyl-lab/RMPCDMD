@@ -1,4 +1,4 @@
-program setup_simple_colloids
+program setup_simple_colloid
   use common
   use cell_system
   use particle_system
@@ -19,7 +19,8 @@ program setup_simple_colloids
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
 
-  integer, parameter :: N = 3000
+  integer, parameter :: rho = 10
+  integer :: N
   integer :: error
 
   double precision :: epsilon, sigma, sigma_cut
@@ -50,6 +51,7 @@ program setup_simple_colloids
   call h5open_f(error)
 
   L = [12, 12, 12]
+  N = rho *L(1)*L(2)*L(3)
 
   epsilon = 1
   sigma = 1
@@ -65,15 +67,19 @@ program setup_simple_colloids
   call colloid_lj% init( reshape( [ epsilon ], [1, 1] ), &
        reshape( [ sigma ], [1, 1] ), reshape( [ sigma_cut ], [1, 1] ) )
 
-  mass = 3000.d0 / (L(1)*L(2)*L(3)) * sigma**3 * 4 * 3.141/3
+  mass = rho * sigma**3 * 4 * 3.141/3
+  write(*,*) 'mass =', mass
 
   call solvent% init(N)
 
-  call colloids% init_from_file('input_data.h5', 'colloids', H5MD_LINEAR, 4)
+  call colloids% init(1)
+  
+  open(15,file ='data14.txt')
+  
   write(*, *) colloids% pos
   colloids% species = 1
   colloids% vel = 0
-
+  
   call random_number(solvent% vel(:, :))
   solvent% vel = (solvent% vel - 0.5d0)*sqrt(6.d0*2)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
@@ -81,7 +87,8 @@ program setup_simple_colloids
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-
+  colloids% pos(:,1) = solvent_cells% edges
+  
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
@@ -104,7 +111,7 @@ program setup_simple_colloids
   write(*,*) '    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
-  do i = 1, 100
+  do i = 1, 350
      so_max = 0
      co_max = 0
      md: do j = 1, N_MD_steps
@@ -135,9 +142,9 @@ program setup_simple_colloids
         end do
         colloids% vel = colloids% vel + dt * ( colloids% force + colloids% force_old ) / (2 * mass)
 
-        write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax)
-
      end do md
+
+     write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax)
 
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
@@ -153,4 +160,4 @@ program setup_simple_colloids
 
   call h5close_f(error)
 
-end program setup_simple_colloids
+end program setup_simple_colloid
