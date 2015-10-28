@@ -48,6 +48,7 @@ module particle_system
      procedure :: init_from_file
      procedure :: random_placement
      procedure :: sort
+     procedure :: maximum_displacement
   end type particle_system_t
 
 contains
@@ -255,5 +256,28 @@ contains
 
   end subroutine sort
 
+  function maximum_displacement(this, L) result(r)
+    implicit none
+    class(particle_system_t), intent(in) :: this
+    double precision, intent(in) :: L(3)
+    double precision :: r
+
+    integer :: i
+    double precision :: r_sq, rmax_sq
+
+    rmax_sq = 0
+
+    do i = 1, this% Nmax
+       if (this% species(i) >= 0) then
+          r_sq = sum(rel_pos(this% pos(:, i), this% pos_old(:, i), L)**2)
+          if (r_sq > rmax_sq) then
+             rmax_sq = r_sq
+          end if
+       end if
+    end do
+
+    r = sqrt(rmax_sq)
+
+  end function maximum_displacement
 
 end module particle_system
