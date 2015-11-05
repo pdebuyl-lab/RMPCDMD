@@ -74,7 +74,7 @@ program setup_single_dimer
   call solvent% init(N)
 
   call colloids% init(2)
-  allocate(pos_rattle(3, colloids% Nmax)
+  allocate(pos_rattle(3, colloids% Nmax))
   
   open(15,file ='dimerdata.txt')
   
@@ -169,20 +169,22 @@ program setup_single_dimer
   
   call h5close_f(error)
   
-  contains
+contains
   
   subroutine rattle_pos
   double precision :: g !correction factor 
-  double precision :: s(3,1) !direction vector 
-  double precision :: r(3,1) !old direction vector
-  double precision :: d  = sigma*4.d0!distance between the particles in the dimer
+  double precision :: s(3) !direction vector 
+  double precision :: r(3) !old direction vector
+  double precision :: d
   
+  d  = sigma*4.d0 !distance between the particles in the dimer
+
   s = colloids% pos_old(:,1) - colloids% pos_old(:,2)
   r = pos_rattle(:,1) - pos_rattle(:,2)
-  g = (dot_product(s,s) - d**2)/(2.d0*dt*(dot_product(s,r)*(2.d0/mass))
+  g = (dot_product(s,s) - d**2)/(2.d0*dt*(dot_product(s,r)*(2.d0/mass)))
   
   colloids% pos_old(:,1) = colloids% pos_old(:,1) - dt*g*r/mass
-  colloids% pos_old(:,2) = colloids% pos_old(2) + dt*g*r/mass
+  colloids% pos_old(:,2) = colloids% pos_old(:,2) + dt*g*r/mass
   
   end subroutine rattle_pos
   
@@ -190,15 +192,17 @@ program setup_single_dimer
   subroutine rattle_vel
   double precision :: g !correction factor 
   double precision :: k !second correction factor
-  double precision :: s(3,1) !direction vector 
-  double precision :: r(3,1) !old direction vector
-  double precision :: r_new(3,1) !new direction vector
-  double precision :: d  = sigma*4.d0!distance between the particles in the dimer
+  double precision :: s(3) !direction vector 
+  double precision :: r(3) !old direction vector
+  double precision :: r_new(3) !new direction vector
+  double precision :: d
+
+  d = sigma*4.d0 !distance between the particles in the dimer
   
   s = colloids% pos_old(:,1) - colloids% pos_old(:,2)
   r = pos_rattle(:,1) - pos_rattle(:,2)
   r_new = colloids% pos(:,1) - colloids% pos(:,2)
-  g = (dot_product(s,s) - d**2)/(2.d0*dt*(dot_product(s,r)*(2.d0/mass))
+  g = (dot_product(s,s) - d**2)/(2.d0*dt*(dot_product(s,r)*(2.d0/mass)))
   
   ! is het mogelijk dit naar rattle_pos te verhuizen?
   colloids% vel(:,1) = colloids% vel(:,1) - dt*g*r/mass
