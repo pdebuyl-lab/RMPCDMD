@@ -44,6 +44,10 @@ add_executable(setup_single_colloid
 test/setup_single_colloid.f90)
 target_link_libraries(setup_single_colloid RMPCDMD fortran_h5md ParseText)
 
+add_executable(setup_single_dimer
+test/setup_single_dimer.f90)
+target_link_libraries(setup_single_dimer RMPCDMD fortran_h5md ParseText)
+
 add_executable(test_cell_system_0
 test/test_cell_system_0.f90)
 target_link_libraries(test_cell_system_0 RMPCDMD fortran_tester)
