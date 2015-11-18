@@ -43,6 +43,11 @@ module particle_system
      integer, pointer :: image(:,:)
      integer, pointer :: image_old(:,:)
      integer, pointer :: image_pointer(:,:)
+     integer, pointer :: flag1(:)
+     integer, pointer :: flag2(:)
+     integer, pointer :: flag(:)
+     integer, pointer :: flag_old(:)
+     integer, pointer :: flag_pointer(:)
    contains
      procedure :: init
      procedure :: init_from_file
@@ -106,6 +111,13 @@ contains
     this% image_old => this% image2
 
     this% image = 0
+    
+    allocate(this% flag1(Nmax))
+    allocate(this% flag2(Nmax))
+    this% flag => this% flag1
+    this% flag_old => this% flag2
+    
+    this% flag = 0
 
   end subroutine init
 

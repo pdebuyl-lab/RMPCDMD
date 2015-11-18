@@ -74,7 +74,7 @@ program setup_simple_colloid
 
   call colloids% init(1)
   
-  open(15,file ='data14.txt')
+  open(15,file ='data56.txt')
   
   write(*, *) colloids% pos
   colloids% species = 1
@@ -87,7 +87,7 @@ program setup_simple_colloid
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-  colloids% pos(:,1) = solvent_cells% edges
+  colloids% pos(:,1) = solvent_cells% edges/2.0
   
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
