@@ -21,8 +21,12 @@ module particle_system
      double precision, pointer :: vel_pointer(:,:)
      double precision, pointer :: force1(:,:)
      double precision, pointer :: force2(:,:)
+     double precision, pointer :: force3(:,:)
+     double precision, pointer :: force4(:,:)
      double precision, pointer :: force(:,:)
+     double precision, pointer :: force_store(:,:)
      double precision, pointer :: force_old(:,:)
+     double precision, pointer :: force_old_store(:,:)
      double precision, pointer :: force_pointer(:,:)
      integer, pointer :: id1(:)
      integer, pointer :: id2(:)
@@ -44,6 +48,7 @@ module particle_system
      procedure :: init_from_file
      procedure :: random_placement
      procedure :: sort
+     procedure :: maximum_displacement
   end type particle_system_t
 
 contains
@@ -74,8 +79,12 @@ contains
 
     allocate(this% force1(3, Nmax))
     allocate(this% force2(3, Nmax))
+    allocate(this% force3(3, Nmax))
+    allocate(this% force4(3, Nmax))
     this% force => this% force1
-    this% force_old => this% force2
+    this% force_store => this% force2
+    this% force_old => this% force3
+    this% force_old_store => this% force4
 
     allocate(this% id1(Nmax))
     allocate(this% id2(Nmax))
@@ -237,36 +246,46 @@ contains
        this% pos_old(:, start) = this% pos(:, i)
        this% image_old(:,start) = this% image(:,i)
        this% vel_old(:, start) = this% vel(:, i)
-       this% force_old(:, start) = this% force(:, i)
+       this% force_store(:, start) = this% force(:, i)
+       this% force_old_store(:, start) = this% force_old(:, i)
        this% id_old(start) = this% id(i)
        this% species_old(start) = this% species(i)
     end do
 
-    this% pos_pointer => this% pos
-    this% pos => this% pos_old
-    this% pos_old => this% pos_pointer
+    cells% cell_start = cells% cell_start - cells% cell_count
 
-    this% image_pointer => this% image
-    this% image => this% image_old
-    this% image_old => this% image_pointer
-
-    this% vel_pointer => this% vel
-    this% vel => this% vel_old
-    this% vel_old => this% vel_pointer
-
-    this% force_pointer => this% force
-    this% force => this% force_old
-    this% force_old => this% force_pointer
-
-    this% id_pointer => this% id
-    this% id => this% id_old
-    this% id_old => this% id_pointer
-
-    this% species_pointer => this% species
-    this% species => this% species_old
-    this% species_old => this% species_pointer
+    call switch(this% pos, this% pos_old)
+    call switch(this% image, this% image_old)
+    call switch(this% vel, this% vel_old)
+    call switch(this% force, this% force_store)
+    call switch(this% force_old, this% force_old_store)
+    call switch(this% id, this% id_old)
+    call switch(this% species, this% species_old)
 
   end subroutine sort
 
+  function maximum_displacement(this, L) result(r)
+    implicit none
+    class(particle_system_t), intent(in) :: this
+    double precision, intent(in) :: L(3)
+    double precision :: r
+
+    integer :: i
+    double precision :: r_sq, rmax_sq
+
+    rmax_sq = 0
+
+    do i = 1, this% Nmax
+       if (this% species(i) >= 0) then
+          r_sq = sum(rel_pos(this% pos(:, i), this% pos_old(:, i), L)**2)
+          if (r_sq > rmax_sq) then
+             rmax_sq = r_sq
+          end if
+       end if
+    end do
+
+    r = sqrt(rmax_sq)
+
+  end function maximum_displacement
 
 end module particle_system

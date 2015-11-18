@@ -239,86 +239,88 @@ contains
   !! Advance mpcd particles
   !!
   !! If the cell system has a wall in the z direction, a bounce-back collision is used.
-subroutine mpcd_stream_zwall(particles, cells, dt,g)
+  subroutine mpcd_stream_zwall(particles, cells, dt,g)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
     double precision, intent(in) :: dt
 
     integer :: i
     double precision :: pos_min(3), pos_max(3), delta
-	double precision, dimension(3), intent(in):: g
-	double precision, dimension(3) :: old_pos, old_vel
+    double precision, dimension(3), intent(in):: g
+    double precision, dimension(3) :: old_pos, old_vel
     double precision :: t_c, t_b, t_ab
+    double precision :: time
+
     pos_min = 0
     pos_max = cells% edges
 
     do i = 1, particles% Nmax
-	   old_pos = particles% pos(:,i) 
-	   old_vel = particles% vel(:,i)
+       old_pos = particles% pos(:,i) 
+       old_vel = particles% vel(:,i)
        particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt + g*dt**2/2
        particles% pos(1,i) = modulo( particles% pos(1,i) , cells% edges(1) )
        particles% pos(2,i) = modulo( particles% pos(2,i) , cells% edges(2) )
        particles% vel(:,i) = particles% vel(:,i) + g*dt
        if (cells% has_walls) then
           if (particles% pos(3,i) < pos_min(3)) then
-			if (g(3)<0) then
-				t_c = (-old_vel(3) - sqrt(old_vel(3)**2 - 2*g(3)*old_pos(3)))/g(3)
-				t_b = -2*(old_pos(3) + g(3)*t_c)/g(3)
-				t_ab = modulo(t_b,dt-t_c)
-				! bounce velocity
-			    particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*t_ab
-			    particles% vel(2,i) = -particles% vel(2,i)
-			    particles% vel(1,i) = -particles% vel(1,i)
-				! bounce position
-				particles% pos(3,i) = -(old_vel(3) + g(3)*t_c)*t_ab + g(3)*t_ab**2/2
-				particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*t_ab
-				particles% pos(1,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(1,i)*t_ab
+             if (g(3)<0) then
+                t_c = (-old_vel(3) - sqrt(old_vel(3)**2 - 2*g(3)*old_pos(3)))/g(3)
+                t_b = -2*(old_pos(3) + g(3)*t_c)/g(3)
+                t_ab = modulo(t_b,dt-t_c)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*t_ab
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = -(old_vel(3) + g(3)*t_c)*t_ab + g(3)*t_ab**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*t_ab
+                particles% pos(1,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(1,i)*t_ab
              else if (g(3)>0) then
-				t_c = (-old_vel(3) - sqrt(old_vel(3)**2 - 2*g(3)*old_pos(3)))/g(3)
-				! bounce velocity
-			    particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(dt - t_c)
-			    particles% vel(2,i) = -particles% vel(2,i)
-			    particles% vel(1,i) = -particles% vel(1,i)
-				! bounce position
-				particles% pos(3,i) = -(old_vel(3) + g(3)*t_c)*(dt - t_c) + g(3)*(dt - t_c)**2/2
-				particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*(dt-t_c)
-				particles% pos(1,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(1,i)*(dt-t_c)
-			 else !no gravity in this direction
-			    ! bounce velocity
-				particles% vel(:,i) = -particles% vel(:,i)
-				! bounce position
-				t_c = abs(old_pos(3)/old_vel(3))
-				particles% pos(:,i) = old_pos + old_vel*t_c + particles% vel(:,i)*(dt - t_c)
-             end if 
+                t_c = (-old_vel(3) - sqrt(old_vel(3)**2 - 2*g(3)*old_pos(3)))/g(3)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(dt - t_c)
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = -(old_vel(3) + g(3)*t_c)*(dt - t_c) + g(3)*(dt - t_c)**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*(dt-t_c)
+                particles% pos(1,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(1,i)*(dt-t_c)
+             else !no gravity in this direction
+                ! bounce velocity
+                particles% vel(:,i) = -particles% vel(:,i)
+                ! bounce position
+                t_c = abs(old_pos(3)/old_vel(3))
+                particles% pos(:,i) = old_pos + old_vel*t_c + particles% vel(:,i)*(dt - t_c)
+             end if
           else if (particles% pos(3,i) > pos_max(3)) then
-			 if (g(3)>0) then
-             t_c = (-old_vel(3) + sqrt(old_vel(3)**2 - 2*g(3)*(old_pos(3)-pos_max(3))))/g(3)
-			 t_b = -2*(old_pos(3) + g(3)*t_c)/g(3)
-		     t_ab =  modulo(t_b,dt-t_c)
-		     ! bounce velocity
-             particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(t_ab)
-             particles% vel(2,i) = -particles% vel(2,i)
-			 particles% vel(1,i) = -particles% vel(1,i)
-			 ! bounce position
-			 particles% pos(3,i) = pos_max(3) -(old_vel(3) + g(3)*t_c)*(t_ab) + g(3)*(t_ab)**2/2
-			 particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*t_ab
-			 particles% pos(1,i) = old_pos(1) + old_vel(1)*t_c + particles% vel(1,i)*t_ab
+             if (g(3)>0) then
+                t_c = (-old_vel(3) + sqrt(old_vel(3)**2 - 2*g(3)*(old_pos(3)-pos_max(3))))/g(3)
+                t_b = -2*(old_pos(3) + g(3)*t_c)/g(3)
+                t_ab =  modulo(t_b,dt-t_c)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(t_ab)
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = pos_max(3) -(old_vel(3) + g(3)*t_c)*(t_ab) + g(3)*(t_ab)**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*t_ab
+                particles% pos(1,i) = old_pos(1) + old_vel(1)*t_c + particles% vel(1,i)*t_ab
              else if (g(3)<0) then
-             t_c = (-old_vel(3) + sqrt(old_vel(3)**2 - 2*g(3)*(old_pos(3)-pos_max(3))))/g(3)
-             ! bounce velocity
-             particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(dt - t_c)
-             particles% vel(2,i) = -particles% vel(2,i)
-			 particles% vel(1,i) = -particles% vel(1,i)
-             ! bounce position
-			 particles% pos(3,i) = pos_max(3) -(old_vel(3) + g(3)*t_c)*(dt - t_c) + g(3)*(dt - t_c)**2/2
-		     particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*(dt - t_c)
-		     particles% pos(1,i) = old_pos(1) + old_vel(2)*t_c + particles% vel(1,i)*(dt - t_c)
+                t_c = (-old_vel(3) + sqrt(old_vel(3)**2 - 2*g(3)*(old_pos(3)-pos_max(3))))/g(3)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(dt - t_c)
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = pos_max(3) -(old_vel(3) + g(3)*t_c)*(dt - t_c) + g(3)*(dt - t_c)**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*(dt - t_c)
+                particles% pos(1,i) = old_pos(1) + old_vel(2)*t_c + particles% vel(1,i)*(dt - t_c)
              else ! no gravity in this direction
-             ! bounce velocity
-             particles% vel(:,i) = -particles% vel(:,i)
-             ! particle position
-             t_c = abs((pos_max(3) - old_pos(3))/old_vel(3)) 
-             particles% pos(:,i) = old_pos + old_vel*t_c + particles% vel(:,i)*(dt - t_c)
+                ! bounce velocity
+                particles% vel(:,i) = -particles% vel(:,i)
+                ! particle position
+                t_c = abs((pos_max(3) - old_pos(3))/old_vel(3)) 
+                particles% pos(:,i) = old_pos + old_vel*t_c + particles% vel(:,i)*(dt - t_c)
              end if
           end if
        else
