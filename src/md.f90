@@ -39,7 +39,8 @@ contains
 
     !$omp parallel do
     do k = 1, particles% Nmax
-       particles% vel(:,k) = particles% vel(:,k) + dt * ( particles% force(:,k) + particles% force_old(:,k) ) / 2
+       particles% vel(:,k) = particles% vel(:,k) + &
+            dt * ( particles% force(:,k) + particles% force_old(:,k) ) / 2
     end do
 
   end subroutine md_vel
