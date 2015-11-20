@@ -9,11 +9,13 @@ module particle_system
   type particle_system_t
      integer :: Nmax
      integer :: n_species
+     double precision, allocatable :: mass(:)
      double precision, pointer :: pos1(:,:)
      double precision, pointer :: pos2(:,:)
      double precision, pointer :: pos(:,:)
      double precision, pointer :: pos_old(:,:)
      double precision, pointer :: pos_pointer(:,:)
+     double precision, allocatable :: pos_rattle(:,:)
      double precision, pointer :: vel1(:,:)
      double precision, pointer :: vel2(:,:)
      double precision, pointer :: vel(:,:)
@@ -58,10 +60,11 @@ module particle_system
 
 contains
 
-  subroutine init(this, Nmax, n_species)
+  subroutine init(this, Nmax, n_species, mass)
     class(particle_system_t), intent(out) :: this
     integer, intent(in) :: Nmax
     integer, intent(in), optional :: n_species
+    double precision, intent(in), optional :: mass(:)
 
     integer :: i
 
@@ -71,11 +74,16 @@ contains
     else
        this% n_species = 1
     end if
+    allocate(this% mass(this% n_species))
+    if (present(mass)) then
+       this% mass = mass
+    end if
 
     allocate(this% pos1(3, Nmax))
     allocate(this% pos2(3, Nmax))
     this% pos => this% pos1
     this% pos_old => this% pos2
+    allocate(this% pos_rattle(3, Nmax))
 
     allocate(this% vel1(3, Nmax))
     allocate(this% vel2(3, Nmax))

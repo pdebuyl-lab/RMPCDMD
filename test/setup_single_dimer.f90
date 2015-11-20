@@ -23,7 +23,6 @@ program setup_single_dimer
   integer, parameter :: rho = 9
   integer :: N
   integer :: error
-  double precision, allocatable :: pos_rattle(:,:)
 
   double precision :: sigma, sigma_cut, epsilon1
   double precision, allocatable :: epsilon(:,:)
@@ -31,6 +30,7 @@ program setup_single_dimer
 
   double precision :: e1, e2
   double precision :: tau, dt
+  double precision :: d
   integer :: N_MD_steps
 
   type(mt19937ar_t), target :: mt
@@ -76,8 +76,7 @@ program setup_single_dimer
 
   call solvent% init(N,2) !there will be 2 species of solvent particles
 
-  call colloids% init(2,2) !there will be 2 species of colloids
-  allocate(pos_rattle(3, colloids% Nmax))
+  call colloids% init(2,2, mass=[mass, mass]) !there will be 2 species of colloids
   
   open(15,file ='dimerdata_chem01.txt')
   
@@ -93,9 +92,10 @@ program setup_single_dimer
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
+  d = 2.0d0*sigma + 0.5d0
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
-  colloids% pos(1,2) = colloids% pos(1,2) + 2.0d0*sigma + 0.5d0
+  colloids% pos(1,2) = colloids% pos(1,2) + d
   
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
@@ -116,22 +116,23 @@ program setup_single_dimer
   colloids% force_old = colloids% force
 
   write(*,*) ''
-  write(*,*) '    i   |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
+  write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
   do i = 1, 500
      md: do j = 1, N_MD_steps
         call md_pos(solvent, solvent_cells% edges, dt)
-        
-        pos_rattle = colloids% pos
-        colloids% pos_old = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
-        
-        call rattle_pos
+
+        ! Extra copy for rattle
+        colloids% pos_rattle = colloids% pos
+        colloids% pos = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
+
+        call rattle_dimer_pos(colloids, d, dt)
 
         do k = 1, colloids% Nmax
-           jump = floor(colloids% pos_old(:,k) / solvent_cells% edges)
+           jump = floor(colloids% pos(:,k) / solvent_cells% edges)
            colloids% image(:,k) = colloids% image(:,k) + jump
-           colloids% pos(:,k) = colloids% pos_old(:,k) - jump*solvent_cells% edges
+           colloids% pos(:,k) = colloids% pos(:,k) - jump*solvent_cells% edges
         end do
 
         call switch(solvent% force, solvent% force_old)
@@ -143,9 +144,10 @@ program setup_single_dimer
 
         call md_vel(solvent, solvent_cells% edges, dt)
         
-        colloids% vel = colloids% vel + dt * ( colloids% force + colloids% force_old ) / (2 * mass)
+        colloids% vel = colloids% vel + &
+             dt * ( colloids% force + colloids% force_old ) / (2 * mass)
         
-        call rattle_vel
+        call rattle_dimer_vel(colloids, d, dt)
         
         call flag_particles
         
@@ -170,50 +172,7 @@ program setup_single_dimer
   call h5close_f(error)
   
 contains
-  
-  subroutine rattle_pos
-  double precision :: g !correction factor 
-  double precision :: s(3) !direction vector 
-  double precision :: r(3) !old direction vector
-  double precision :: d
-  
-  d  = 2.d0*sigma + 0.5d0 !distance between the colloids in the dimer
 
-  s = colloids% pos_old(:,1) - colloids% pos_old(:,2)
-  r = pos_rattle(:,1) - pos_rattle(:,2)
-  g = (dot_product(s,s) - d**2)/(2.d0*dt*(dot_product(s,r)*(2.d0/mass)))
-  
-  colloids% pos_old(:,1) = colloids% pos_old(:,1) - dt*g*r/mass
-  colloids% pos_old(:,2) = colloids% pos_old(:,2) + dt*g*r/mass
-  
-  end subroutine rattle_pos
-
-
-  subroutine rattle_vel
-  double precision :: g !correction factor 
-  double precision :: k !second correction factor
-  double precision :: r_new(3) !new direction vector
-  double precision :: s(3) !direction vector 
-  double precision :: r(3) !old direction vector
-  double precision :: d
-
-  d = 2.d0*sigma + 0.5d0 !distance between the colloids in the dimer
-  r_new = colloids% pos(:,1) - colloids% pos(:,2)
-  s = colloids% pos_old(:,1) - colloids% pos_old(:,2)
-  r = pos_rattle(:,1) - pos_rattle(:,2)
-  g = (dot_product(s,s) - d**2)/(2.d0*dt*(dot_product(s,r)*(2.d0/mass)))
-  
-  colloids% vel(:,1) = colloids% vel(:,1) - dt*g*r/mass
-  colloids% vel(:,2) = colloids% vel(:,2) + dt*g*r/mass
-  
-  k = dot_product(r_new,colloids% vel(:,1) - colloids% vel(:,2))/(d**2*(2.d0/mass))
-  
-  colloids% vel(:,1) = colloids% vel(:,1) - k*r_new/mass
-  colloids% vel(:,2) = colloids% vel(:,2) + k*r_new/mass
-  
-  end subroutine rattle_vel
-  
-  
   subroutine flag_particles
   double precision :: dist_to_C_sq
   real :: prob 
