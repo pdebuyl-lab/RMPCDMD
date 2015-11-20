@@ -20,7 +20,7 @@ program setup_single_dimer
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
 
-  integer, parameter :: rho = 10
+  integer, parameter :: rho = 9
   integer :: N
   integer :: error
   double precision, allocatable :: pos_rattle(:,:)
@@ -52,20 +52,20 @@ program setup_single_dimer
 
   call h5open_f(error)
 
-  L = [20, 20, 20]
+  L = [32, 32, 32]
   N = rho *L(1)*L(2)*L(3)
   
   allocate(epsilon(2,2))
 
   epsilon = reshape((/ 1.d0, 1.d0, 1.d0, 0.5d0 /),shape(epsilon))
-  sigma = 1
+  sigma = 2.d0
   sigma_cut = sigma*2**(1.d0/6.d0)
 
   call solvent_colloid_lj% init( epsilon, &
        reshape( [ sigma, sigma, sigma, sigma ], [2, 2] ), reshape( [ sigma_cut,sigma_cut,sigma_cut,sigma_cut ], [2, 2] ) )
   
-  epsilon1 = 1
-  sigma = 1
+  epsilon1 = 1.d0
+  sigma = 2.d0
   sigma_cut = sigma*2**(1.d0/6.d0)
 
   call colloid_lj% init( reshape( [ epsilon1,epsilon1,epsilon1,epsilon1 ], [2, 2] ), &
@@ -79,7 +79,7 @@ program setup_single_dimer
   call colloids% init(2,2) !there will be 2 species of colloids
   allocate(pos_rattle(3, colloids% Nmax))
   
-  open(15,file ='dimerdata_chem9.txt')
+  open(15,file ='dimerdata_chem01.txt')
   
   write(*, *) colloids% pos
   colloids% species(1) = 1
@@ -95,16 +95,16 @@ program setup_single_dimer
   call solvent_cells%init(L, 1.d0)
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
-  colloids% pos(1,2) = colloids% pos(1,2) + 2.0*sigma + 0.5d0
+  colloids% pos(1,2) = colloids% pos(1,2) + 2.0d0*sigma + 0.5d0
   
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
 
-  call neigh% init(colloids% Nmax, 300)
-  call neigh% make_stencil(solvent_cells, 1.5d0)
+  call neigh% init(colloids% Nmax, int(300*sigma**3))
+  call neigh% make_stencil(solvent_cells, 1.5d0*sigma)
 
-  call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
+  call neigh% update_list(colloids, solvent, 1.5d0*sigma, solvent_cells)
 
   tau = 0.1d0 !was 0.1d0 but we changed it to Kaprals' value 
   N_MD_steps = 100
@@ -119,7 +119,7 @@ program setup_single_dimer
   write(*,*) '    i   |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
-  do i = 1, 1000
+  do i = 1, 500
      md: do j = 1, N_MD_steps
         call md_pos(solvent, solvent_cells% edges, dt)
         
@@ -157,7 +157,7 @@ program setup_single_dimer
                  colloids% vel
 
      call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
+     call neigh% update_list(colloids, solvent, 1.5d0*sigma, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
@@ -177,7 +177,7 @@ contains
   double precision :: r(3) !old direction vector
   double precision :: d
   
-  d  = sigma*2.d0 + 0.5d0!distance between the colloids in the dimer
+  d  = 2.d0*sigma + 0.5d0 !distance between the colloids in the dimer
 
   s = colloids% pos_old(:,1) - colloids% pos_old(:,2)
   r = pos_rattle(:,1) - pos_rattle(:,2)
@@ -197,7 +197,7 @@ contains
   double precision :: r(3) !old direction vector
   double precision :: d
 
-  d = sigma*2.d0 + 0.5d0!distance between the colloids in the dimer
+  d = 2.d0*sigma + 0.5d0 !distance between the colloids in the dimer
   r_new = colloids% pos(:,1) - colloids% pos(:,2)
   s = colloids% pos_old(:,1) - colloids% pos_old(:,2)
   r = pos_rattle(:,1) - pos_rattle(:,2)
@@ -246,7 +246,7 @@ contains
      if (solvent% flag(m) == 1) then
        dist_to_C_sq = dot_product(colloids% pos(:,1) - solvent% pos(:,m),colloids% pos(:,1) - solvent% pos(:,m))
        dist_to_N_sq = dot_product(colloids% pos(:,2) - solvent% pos(:,m),colloids% pos(:,2) - solvent% pos(:,m))
-       if ((dist_to_C_sq > 1.1d0*(sigma_cut)**2) .and. (dist_to_N_sq > 1.1d0*(sigma_cut)**2)) then
+       if ((dist_to_C_sq > (sigma_cut)**2) .and. (dist_to_N_sq > (sigma_cut)**2)) then
          solvent% species(m) = 2
          solvent% flag(m) = 0
        end if
