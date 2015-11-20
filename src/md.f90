@@ -62,7 +62,7 @@ contains
     mass2 = p%mass(p%species(2))
     inv_mass = 1/mass1 + 1/mass2
 
-    g = (dot_product(s, s) - d**2) / (inv_mass * dot_product(r, s))
+    g = (dot_product(s, s) - d**2) / (2 * inv_mass * dot_product(r, s))
 
     p% pos_old(:,1) = p% pos_old(:,1) - g*r/mass1
     p% pos_old(:,2) = p% pos_old(:,2) + g*r/mass2
