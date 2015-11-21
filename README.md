@@ -53,5 +53,5 @@ BSD 3-clause, see [LICENSE](LICENSE).
 
 ## Contributors
 
-Peter Colberg: general programming improvements, OpenCL, debugging  
-Laurens Deprez: single colloid setup, gravity field and corresponding bounce-back
+Peter Colberg: general programming improvements, OpenMP, debugging  
+Laurens Deprez: single colloid setup, gravity field and corresponding bounce-back, shake/rattle for dimers
