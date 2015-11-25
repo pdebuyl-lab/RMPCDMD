@@ -39,6 +39,7 @@ module common
   interface switch
      module procedure :: switch_d2
      module procedure :: switch_i1
+     module procedure :: switch_i2
   end interface switch
 
 contains
@@ -154,5 +155,15 @@ contains
     p2 => p
 
   end subroutine switch_i1
+
+  subroutine switch_i2(p1, p2)
+    integer, pointer, dimension(:,:), intent(inout) :: p1, p2
+    integer, pointer, dimension(:,:) :: p
+
+    p => p1
+    p1 => p2
+    p2 => p
+
+  end subroutine switch_i2
 
 end module common

@@ -29,8 +29,12 @@ program setup_simple_colloids
   double precision :: e1, e2
   double precision :: tau, dt
   integer :: N_MD_steps
+  integer :: n_extra_sorting
 
   type(mt19937ar_t), target :: mt
+
+  double precision :: tmp_x(3)
+  double precision :: skin
 
   integer :: i, L(3), seed_size, clock
   integer :: jump(3)
@@ -89,11 +93,15 @@ program setup_simple_colloids
   call neigh% init(colloids% Nmax, 300)
   call neigh% make_stencil(solvent_cells, 1.5d0)
 
-  call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
 
   tau = 0.1d0
   N_MD_steps = 100
   dt = tau / N_MD_steps
+
+  skin = 0.8
+  n_extra_sorting = 0
+
+  call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -104,23 +112,34 @@ program setup_simple_colloids
   write(*,*) '    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
+  solvent% pos_old = solvent% pos
+  colloids% pos_old = colloids% pos
   do i = 1, 100
      so_max = 0
      co_max = 0
      md: do j = 1, N_MD_steps
-        solvent% pos_old = solvent% pos + dt * solvent% vel + dt**2 * solvent% force / 2
-        !$omp parallel do private(k)
+        !$omp parallel do private(k, tmp_x)
         do k = 1, solvent% Nmax
-           solvent% pos(:,k) = modulo(solvent% pos_old(:,k), solvent_cells% edges)
+           tmp_x = solvent% pos(:,k) + dt * solvent% vel(:,k) + dt**2 * solvent% force(:,k) / 2
+           solvent% pos(:,k) = modulo(tmp_x, solvent_cells% edges)
         end do
-        colloids% pos_old = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
         do k = 1, colloids% Nmax
-           jump = floor(colloids% pos_old(:,k) / solvent_cells% edges)
+           tmp_x = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
+           jump = floor(tmp_x / solvent_cells% edges)
            colloids% image(:,k) = colloids% image(:,k) + jump
-           colloids% pos(:,k) = colloids% pos_old(:,k) - jump*solvent_cells% edges
+           colloids% pos(:,k) = tmp_x - jump*solvent_cells% edges
         end do
-        so_max = max(maxval(sqrt(sum((solvent% pos - solvent% pos_old)**2, dim=1))), so_max)
-        co_max = max(maxval(sqrt(sum((colloids% pos - colloids% pos_old)**2, dim=1))), co_max)
+        so_max = solvent% maximum_displacement(solvent_cells% edges)
+        co_max = colloids% maximum_displacement(solvent_cells% edges)
+
+        if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call solvent% sort(solvent_cells)
+           call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
+           solvent% pos_old = solvent% pos
+           colloids% pos_old = colloids% pos
+           n_extra_sorting = n_extra_sorting + 1
+           write(*,*) 'extra sorting'
+        end if
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
@@ -140,7 +159,9 @@ program setup_simple_colloids
      end do md
 
      call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
+     call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
+     solvent% pos_old = solvent% pos
+     colloids% pos_old = colloids% pos
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
@@ -150,6 +171,7 @@ program setup_simple_colloids
 
   end do
 
+  write(*,*) 'n extra sorting', n_extra_sorting
 
   call h5close_f(error)
 

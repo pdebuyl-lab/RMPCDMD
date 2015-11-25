@@ -9,6 +9,7 @@ program setup_single_dimer
   use interaction
   use mt19937ar_module
   use mpcd
+  use md
   use iso_c_binding
   implicit none
 
@@ -22,16 +23,17 @@ program setup_single_dimer
   integer, parameter :: rho = 9
   integer :: N
   integer :: error
-  double precision, allocatable :: pos_rattle(:,:)
 
   double precision :: sigma, sigma_cut, epsilon1
   double precision, allocatable :: epsilon(:,:)
   double precision :: mass
-  double precision :: so_max, co_max
 
   double precision :: e1, e2
   double precision :: tau, dt
+  double precision :: d
+  double precision :: skin, co_max, so_max
   integer :: N_MD_steps
+  integer :: n_extra_sorting
 
   type(mt19937ar_t), target :: mt
 
@@ -76,8 +78,7 @@ program setup_single_dimer
 
   call solvent% init(N,2) !there will be 2 species of solvent particles
 
-  call colloids% init(2,2) !there will be 2 species of colloids
-  allocate(pos_rattle(3, colloids% Nmax))
+  call colloids% init(2,2, mass=[mass, mass]) !there will be 2 species of colloids
   
   open(15,file ='dimerdata_chemKapNewer.txt')
   
@@ -93,20 +94,27 @@ program setup_single_dimer
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
+  d = 2.0d0*sigma + 0.5d0
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
-  colloids% pos(1,2) = colloids% pos(1,2) + 2.0d0*sigma + 0.5d0
+  colloids% pos(1,2) = colloids% pos(1,2) + d
   
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
 
   call neigh% init(colloids% Nmax, int(300*sigma**3))
-  call neigh% make_stencil(solvent_cells, 1.5d0*sigma)
 
-  call neigh% update_list(colloids, solvent, 1.5d0*sigma, solvent_cells)
+  skin = 1.5
+  n_extra_sorting = 0
 
-  tau = 0.1d0 !was 0.1d0 but we changed it to Kaprals' value(1.0) => doesn't work
+  call neigh% make_stencil(solvent_cells, sigma_cut+skin)
+
+  call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
+
+
+  tau = 1.d0
+
   N_MD_steps = 100
   dt = tau / N_MD_steps
 
@@ -116,31 +124,36 @@ program setup_single_dimer
   colloids% force_old = colloids% force
 
   write(*,*) ''
-  write(*,*) '    i   |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
+  write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
-  do i = 1, 1000
-     so_max = 0
-     co_max = 0
+
+  do i = 1, 500
      md: do j = 1, N_MD_steps
-        solvent% pos_old = solvent% pos + dt * solvent% vel + dt**2 * solvent% force / 2
-        !$omp parallel do private(k)
-        do k = 1, solvent% Nmax
-           solvent% pos(:,k) = modulo(solvent% pos_old(:,k), solvent_cells% edges)
-        end do
-        
-        pos_rattle = colloids% pos
-        colloids% pos_old = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
-        
-        call rattle_pos
-        
+        call md_pos(solvent, solvent_cells% edges, dt)
+
+        ! Extra copy for rattle
+        colloids% pos_rattle = colloids% pos
+        colloids% pos = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
+
+        call rattle_dimer_pos(colloids, d, dt)
+
+        so_max = solvent% maximum_displacement(solvent_cells% edges)
+        co_max = colloids% maximum_displacement(solvent_cells% edges)
+
+        if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call solvent% sort(solvent_cells)
+           call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
+           solvent% pos_old = solvent% pos
+           colloids% pos_old = colloids% pos
+           n_extra_sorting = n_extra_sorting + 1
+        end if
+
         do k = 1, colloids% Nmax
-           jump = floor(colloids% pos_old(:,k) / solvent_cells% edges)
+           jump = floor(colloids% pos(:,k) / solvent_cells% edges)
            colloids% image(:,k) = colloids% image(:,k) + jump
-           colloids% pos(:,k) = colloids% pos_old(:,k) - jump*solvent_cells% edges
+           colloids% pos(:,k) = colloids% pos(:,k) - jump*solvent_cells% edges
         end do
-        so_max = max(maxval(sqrt(sum((solvent% pos - solvent% pos_old)**2, dim=1))), so_max)
-        co_max = max(maxval(sqrt(sum((colloids% pos - colloids% pos_old)**2, dim=1))), co_max)
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
@@ -149,17 +162,14 @@ program setup_single_dimer
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
-        !$omp parallel do private(k)
-        do k = 1, solvent% Nmax
-           solvent% vel(:,k) = solvent% vel(:,k) + dt * ( solvent% force(:,k) + solvent% force_old(:,k) ) / 2
-        end do
+        call md_vel(solvent, solvent_cells% edges, dt)
         
-        colloids% vel = colloids% vel + dt * ( colloids% force + colloids% force_old ) / (2 * mass)
-        
-        call rattle_vel
-        
+        colloids% vel = colloids% vel + &
+             dt * ( colloids% force + colloids% force_old ) / (2 * mass)
+
+        call rattle_dimer_vel(colloids, d, dt)
+
         call flag_particles
-        
         call change_species
 
      end do md
@@ -168,56 +178,24 @@ program setup_single_dimer
                  colloids% vel, e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2
 
      call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, 1.5d0*sigma, solvent_cells)
+     call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
-     write(*,'(7f16.3)') real(i),e1, e2, mass*sum(colloids% vel**2)/2, sum(solvent% vel**2)/2, &
+     write(*,'(1i16,6f16.3,1e16.8)') i,e1, e2, mass*sum(colloids% vel**2)/2, sum(solvent% vel**2)/2, &
          e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2, &
-         compute_temperature(solvent, solvent_cells)
+         compute_temperature(solvent, solvent_cells), &
+         sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
+
 
   end do
+
+  write(*,*) 'n extra sorting', n_extra_sorting
   
   call h5close_f(error)
   
 contains
-  
-  subroutine rattle_pos
-  double precision :: g !correction factor 
-  double precision :: s(3) !direction vector 
-  double precision :: r(3) !old direction vector
-  double precision :: d
-  
-  d  = 2.d0*sigma + 0.5d0 !distance between the colloids in the dimer
 
-  s = colloids% pos_old(:,1) - colloids% pos_old(:,2)
-  r = pos_rattle(:,1) - pos_rattle(:,2)
-  g = (dot_product(s,s) - d**2)/(2.d0*(dot_product(s,r)*(2.d0/mass)))
-  
-  colloids% pos_old(:,1) = colloids% pos_old(:,1) - g*r/mass
-  colloids% pos_old(:,2) = colloids% pos_old(:,2) + g*r/mass
-  
-  colloids% vel(:,1) = colloids% vel(:,1) - g*r/dt/mass
-  colloids% vel(:,2) = colloids% vel(:,2) - g*r/dt/mass
-  end subroutine rattle_pos
-
-
-  subroutine rattle_vel
-  double precision :: k !second correction factor
-  double precision :: r_new(3) !new direction vector
-  double precision :: d
-
-  d = 2.d0*sigma + 0.5d0 !distance between the colloids in the dimer
-  r_new = colloids% pos(:,1) - colloids% pos(:,2)
-  
-  k = dot_product(r_new,colloids% vel(:,1) - colloids% vel(:,2))/(d**2*(2.d0/mass))
-  
-  colloids% vel(:,1) = colloids% vel(:,1) - k*r_new/mass
-  colloids% vel(:,2) = colloids% vel(:,2) + k*r_new/mass
-  
-  end subroutine rattle_vel
-  
-  
   subroutine flag_particles
   double precision :: dist_to_C_sq
   real :: prob 
