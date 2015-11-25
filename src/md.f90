@@ -54,6 +54,7 @@ contains
     double precision :: g
     double precision :: s(3) ! direction vector
     double precision :: r(3) ! old direction vector
+    double precision :: rsq, ssq, rs
     double precision :: mass1, mass2, inv_mass
 
     r = p% pos_rattle(:,1) - p% pos_rattle(:,2)
@@ -62,10 +63,18 @@ contains
     mass2 = p%mass(p%species(2))
     inv_mass = 1/mass1 + 1/mass2
 
-    g = (dot_product(s, s) - d**2) / (2 * inv_mass * dot_product(r, s))
+    rsq = dot_product(r,r)
+    ssq = dot_product(s,s)
+    rs = dot_product(r,s)
 
-    p% pos_old(:,1) = p% pos_old(:,1) - g*r/mass1
-    p% pos_old(:,2) = p% pos_old(:,2) + g*r/mass2
+    g = rs - sqrt(rs**2 - rsq*(ssq-d**2))
+    g = g / (dt * inv_mass * rsq)
+
+    p% pos(:,1) = p% pos(:,1) - g*dt*r/mass1
+    p% pos(:,2) = p% pos(:,2) + g*dt*r/mass2
+
+    p% vel(:,1) = p% vel(:,1) - g*r/mass1
+    p% vel(:,2) = p% vel(:,2) + g*r/mass2
 
   end subroutine rattle_dimer_pos
 
