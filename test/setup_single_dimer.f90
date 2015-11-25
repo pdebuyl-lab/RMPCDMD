@@ -31,7 +31,9 @@ program setup_single_dimer
   double precision :: e1, e2
   double precision :: tau, dt
   double precision :: d
+  double precision :: skin, co_max, so_max
   integer :: N_MD_steps
+  integer :: n_extra_sorting
 
   type(mt19937ar_t), target :: mt
 
@@ -102,11 +104,15 @@ program setup_single_dimer
   call solvent% sort(solvent_cells)
 
   call neigh% init(colloids% Nmax, int(300*sigma**3))
-  call neigh% make_stencil(solvent_cells, 1.5d0*sigma)
 
-  call neigh% update_list(colloids, solvent, 1.5d0*sigma, solvent_cells)
+  skin = 1.5
+  n_extra_sorting = 0
 
-  tau = 0.1d0 !was 0.1d0 but we changed it to Kaprals' value 
+  call neigh% make_stencil(solvent_cells, sigma_cut+skin)
+
+  call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
+
+  tau = 1.d0
   N_MD_steps = 100
   dt = tau / N_MD_steps
 
@@ -129,6 +135,17 @@ program setup_single_dimer
 
         call rattle_dimer_pos(colloids, d, dt)
 
+        so_max = solvent% maximum_displacement(solvent_cells% edges)
+        co_max = colloids% maximum_displacement(solvent_cells% edges)
+
+        if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call solvent% sort(solvent_cells)
+           call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
+           solvent% pos_old = solvent% pos
+           colloids% pos_old = colloids% pos
+           n_extra_sorting = n_extra_sorting + 1
+        end if
+
         do k = 1, colloids% Nmax
            jump = floor(colloids% pos(:,k) / solvent_cells% edges)
            colloids% image(:,k) = colloids% image(:,k) + jump
@@ -146,11 +163,10 @@ program setup_single_dimer
         
         colloids% vel = colloids% vel + &
              dt * ( colloids% force + colloids% force_old ) / (2 * mass)
-        
+
         call rattle_dimer_vel(colloids, d, dt)
-        
+
         call flag_particles
-        
         call change_species
 
      end do md
@@ -159,15 +175,19 @@ program setup_single_dimer
                  colloids% vel
 
      call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, 1.5d0*sigma, solvent_cells)
+     call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
-     write(*,'(7f16.3)') real(i),e1, e2, mass*sum(colloids% vel**2)/2, sum(solvent% vel**2)/2, &
+     write(*,'(1i16,6f16.3,1e16.8)') i,e1, e2, mass*sum(colloids% vel**2)/2, sum(solvent% vel**2)/2, &
          e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2, &
-         compute_temperature(solvent, solvent_cells)
+         compute_temperature(solvent, solvent_cells), &
+         sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
+
 
   end do
+
+  write(*,*) 'n extra sorting', n_extra_sorting
   
   call h5close_f(error)
   
