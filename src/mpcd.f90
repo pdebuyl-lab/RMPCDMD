@@ -9,8 +9,8 @@ module mpcd
 
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
-  public :: mpcd_stream
-  public :: compute_rho
+  public :: mpcd_stream_periodic, mpcd_stream_zwall
+  public :: compute_rho, compute_vx
 
 contains
 
@@ -84,9 +84,9 @@ contains
     class(particle_system_t), intent(in) :: particles
     class(cell_system_t), intent(in) :: cells
     type(mt19937ar_t), intent(inout) :: state
-    double precision, intent(in) :: wall_temperature(2)
-    double precision, intent(in) :: wall_v(3,2)
-    integer, intent(in) :: wall_n(2)
+    double precision, optional, intent(in) :: wall_temperature(2)
+    double precision, optional, intent(in) :: wall_v(3,2)
+    integer, optional, intent(in) :: wall_n(2)
 
     integer :: i, start, n
     integer :: cell_idx
@@ -95,6 +95,12 @@ contains
     integer :: cell(3)
     integer :: wall_idx
     double precision :: virtual_v(3)
+    logical :: all_present, all_absent
+
+    all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
+    all_absent = .not. present(wall_temperature) .and. .not. present(wall_v) .and. .not. present(wall_n)
+    if ( .not. (all_present .or. all_absent) ) &
+         error stop 'wall parameters must be all present or all absent in wall_mpcd_step'
 
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
@@ -105,9 +111,9 @@ contains
 
        ! Find whether we are in a wall cell
        cell = compact_h_to_p(cell_idx - 1, cells% M) + 1
-       if (cell(3) == 1) then
+       if (all_present .and. (cell(3) == 1)) then
           wall_idx = 1
-       else if (cell(3) == cells% L(3)) then
+       else if (all_present .and. (cell(3) == cells% L(3))) then
           wall_idx = 2
        else
           wall_idx = -1
@@ -215,46 +221,132 @@ contains
     end do
 
   end subroutine compute_rho
+  
+  subroutine compute_vx(particles, vx)
+    type(particle_system_t), intent(in) :: particles
+    type(profile_t), intent(inout) :: vx
+
+    integer :: i
+
+    if (.not. allocated(vx% data)) error stop 'histogram_t: data not allocated'
+
+    do i = 1, particles% Nmax
+       call vx% bin(particles% pos(3, i), particles% vel(1, i))
+    end do
+
+  end subroutine compute_vx
 
   !! Advance mpcd particles
   !!
   !! If the cell system has a wall in the z direction, a bounce-back collision is used.
-  subroutine mpcd_stream(particles, cells, dt)
+  subroutine mpcd_stream_zwall(particles, cells, dt,g)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
     double precision, intent(in) :: dt
 
     integer :: i
-    double precision :: pos_min(3), pos_max(3), delta, time
+    double precision :: pos_min(3), pos_max(3), delta
+    double precision, dimension(3), intent(in):: g
+    double precision, dimension(3) :: old_pos, old_vel
+    double precision :: t_c, t_b, t_ab
+    double precision :: time
 
     pos_min = 0
     pos_max = cells% edges
 
     do i = 1, particles% Nmax
-       particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt
+       old_pos = particles% pos(:,i) 
+       old_vel = particles% vel(:,i)
+       particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt + g*dt**2/2
        particles% pos(1,i) = modulo( particles% pos(1,i) , cells% edges(1) )
        particles% pos(2,i) = modulo( particles% pos(2,i) , cells% edges(2) )
+       particles% vel(:,i) = particles% vel(:,i) + g*dt
        if (cells% has_walls) then
           if (particles% pos(3,i) < pos_min(3)) then
-             ! bounce position
-             delta = particles% pos(3,i) - pos_min(3)
-             time = delta / particles% vel(3,i)
-             particles% pos(:,i) = particles% pos(:,i) - particles% vel(:,i)*(2*time)
-             ! bounce velocity
-             particles% vel(:,i) = -particles% vel(:,i)
+             if (g(3)<0) then
+                t_c = (-old_vel(3) - sqrt(old_vel(3)**2 - 2*g(3)*old_pos(3)))/g(3)
+                t_b = -2*(old_pos(3) + g(3)*t_c)/g(3)
+                t_ab = modulo(t_b,dt-t_c)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*t_ab
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = -(old_vel(3) + g(3)*t_c)*t_ab + g(3)*t_ab**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*t_ab
+                particles% pos(1,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(1,i)*t_ab
+             else if (g(3)>0) then
+                t_c = (-old_vel(3) - sqrt(old_vel(3)**2 - 2*g(3)*old_pos(3)))/g(3)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(dt - t_c)
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = -(old_vel(3) + g(3)*t_c)*(dt - t_c) + g(3)*(dt - t_c)**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*(dt-t_c)
+                particles% pos(1,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(1,i)*(dt-t_c)
+             else !no gravity in this direction
+                ! bounce velocity
+                particles% vel(:,i) = -particles% vel(:,i)
+                ! bounce position
+                t_c = abs(old_pos(3)/old_vel(3))
+                particles% pos(:,i) = old_pos + old_vel*t_c + particles% vel(:,i)*(dt - t_c)
+             end if
           else if (particles% pos(3,i) > pos_max(3)) then
-             ! bounce position
-             delta = particles% pos(3,i) - pos_max(3)
-             time = delta / particles% vel(3,i)
-             particles% pos(:,i) = particles% pos(:,i) - particles% vel(:,i)*(2*time)
-             ! bounce velocity
-             particles% vel(:,i) = -particles% vel(:,i)
+             if (g(3)>0) then
+                t_c = (-old_vel(3) + sqrt(old_vel(3)**2 - 2*g(3)*(old_pos(3)-pos_max(3))))/g(3)
+                t_b = -2*(old_pos(3) + g(3)*t_c)/g(3)
+                t_ab =  modulo(t_b,dt-t_c)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(t_ab)
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = pos_max(3) -(old_vel(3) + g(3)*t_c)*(t_ab) + g(3)*(t_ab)**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*t_ab
+                particles% pos(1,i) = old_pos(1) + old_vel(1)*t_c + particles% vel(1,i)*t_ab
+             else if (g(3)<0) then
+                t_c = (-old_vel(3) + sqrt(old_vel(3)**2 - 2*g(3)*(old_pos(3)-pos_max(3))))/g(3)
+                ! bounce velocity
+                particles% vel(3,i) = -(old_vel(3) + g(3)*t_c) + g(3)*(dt - t_c)
+                particles% vel(2,i) = -particles% vel(2,i)
+                particles% vel(1,i) = -particles% vel(1,i)
+                ! bounce position
+                particles% pos(3,i) = pos_max(3) -(old_vel(3) + g(3)*t_c)*(dt - t_c) + g(3)*(dt - t_c)**2/2
+                particles% pos(2,i) = old_pos(2) + old_vel(2)*t_c + particles% vel(2,i)*(dt - t_c)
+                particles% pos(1,i) = old_pos(1) + old_vel(2)*t_c + particles% vel(1,i)*(dt - t_c)
+             else ! no gravity in this direction
+                ! bounce velocity
+                particles% vel(:,i) = -particles% vel(:,i)
+                ! particle position
+                t_c = abs((pos_max(3) - old_pos(3))/old_vel(3)) 
+                particles% pos(:,i) = old_pos + old_vel*t_c + particles% vel(:,i)*(dt - t_c)
+             end if
           end if
        else
           particles% pos(3,i) = modulo( particles% pos(3,i) , cells% edges(3) )
        end if
     end do
 
-  end subroutine mpcd_stream
+  end subroutine mpcd_stream_zwall
+
+  subroutine mpcd_stream_periodic(particles, cells, dt)
+    type(particle_system_t), intent(inout) :: particles
+    type(cell_system_t), intent(in) :: cells
+    double precision, intent(in) :: dt
+
+    integer :: i, jump(3)
+    double precision :: edges(3)
+
+    edges = cells% edges
+
+    do i = 1, particles% Nmax
+       particles% pos(:,i) = particles% pos(:,i) + particles% vel(:,i)*dt
+       jump = floor(particles% pos(:,i) / edges)
+       particles% image(:,i) = particles% image(:,i) + jump
+       particles% pos(:,i) = particles% pos(:,i) - jump * edges
+    end do
+
+  end subroutine mpcd_stream_periodic
 
 end module mpcd

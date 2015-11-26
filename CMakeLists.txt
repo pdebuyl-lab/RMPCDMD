@@ -21,6 +21,7 @@ src/hilbert.f90
 src/interaction.f90
 src/particle_system.f90
 src/mpcd.f90
+src/md.f90
 src/neighbor_list.f90)
 target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module)
 
@@ -35,6 +36,10 @@ target_link_libraries(setup_simple_fluid RMPCDMD fortran_h5md ParseText)
 add_executable(setup_thermal_fluid
 test/setup_thermal_fluid.f90)
 target_link_libraries(setup_thermal_fluid RMPCDMD fortran_h5md ParseText)
+
+add_executable(setup_flow
+test/setup_flow.f90)
+target_link_libraries(setup_flow RMPCDMD fortran_h5md ParseText)
 
 add_executable(setup_simple_colloids
 test/setup_simple_colloids.f90)
@@ -64,9 +69,14 @@ add_executable(test_neighbor_list_1
 test/test_neighbor_list_1.f90)
 target_link_libraries(test_neighbor_list_1 RMPCDMD fortran_tester)
 
+add_executable(test_particle_system_0
+test/test_particle_system_0.f90)
+target_link_libraries(test_particle_system_0 RMPCDMD fortran_tester)
+
 add_test(test_cell_system_0 test_cell_system_0)
 add_test(test_common_0 test_common_0)
 add_test(test_neighbor_list_0 test_neighbor_list_0)
 add_test(test_neighbor_list_1 test_neighbor_list_1)
+add_test(test_particle_system_0 test_particle_system_0)
 
 set_tests_properties(test_neighbor_list_1 PROPERTIES WILL_FAIL TRUE)

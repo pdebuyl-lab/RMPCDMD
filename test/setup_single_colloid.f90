@@ -107,11 +107,46 @@ program setup_simple_colloid
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
 
+  do i = 1, 100
+     md_equil: do j = 1, N_MD_steps
+        solvent% pos_old = solvent% pos + dt * solvent% vel + dt**2 * solvent% force / 2
+        !$omp parallel do private(k)
+        do k = 1, solvent% Nmax
+           solvent% pos(:,k) = modulo(solvent% pos_old(:,k), solvent_cells% edges)
+        end do
+        colloids% pos_old = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
+        do k = 1, colloids% Nmax
+           jump = floor(colloids% pos_old(:,k) / solvent_cells% edges)
+           colloids% image(:,k) = colloids% image(:,k) + jump
+           colloids% pos(:,k) = colloids% pos_old(:,k) - jump*solvent_cells% edges
+        end do
+
+        call switch(solvent% force, solvent% force_old)
+        call switch(colloids% force, colloids% force_old)
+        solvent% force = 0
+        colloids% force = 0
+        e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
+        e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
+
+        !$omp parallel do private(k)
+        do k = 1, solvent% Nmax
+           solvent% vel(:,k) = solvent% vel(:,k) + dt * ( solvent% force(:,k) + solvent% force_old(:,k) ) / 2
+        end do
+        colloids% vel = colloids% vel + dt * ( colloids% force + colloids% force_old ) / (2 * mass)
+
+     end do md_equil
+
+     call solvent% sort(solvent_cells)
+     call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
+     call simple_mpcd_step(solvent, solvent_cells, mt)
+
+  end do
+
   write(*,*) ''
   write(*,*) '    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
-  do i = 1, 350
+  do i = 1, 750
      so_max = 0
      co_max = 0
      md: do j = 1, N_MD_steps
