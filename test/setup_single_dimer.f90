@@ -127,7 +127,7 @@ program setup_single_dimer
 
   do i = 1, 500
      md: do j = 1, N_MD_steps
-        call md_pos(solvent, solvent_cells% edges, dt)
+        call md_pos(solvent, dt)
 
         ! Extra copy for rattle
         colloids% pos_rattle = colloids% pos
@@ -139,6 +139,7 @@ program setup_single_dimer
         co_max = colloids% maximum_displacement(solvent_cells% edges)
 
         if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call apply_pbc(solvent, solvent_cells% edges)
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
            solvent% pos_old = solvent% pos

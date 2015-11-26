@@ -5,15 +5,15 @@ module md
   private
 
   public :: md_pos
+  public :: apply_pbc
   public :: md_vel
   public :: rattle_dimer_pos
   public :: rattle_dimer_vel
 
 contains
 
-  subroutine md_pos(particles, edges, dt)
+  subroutine md_pos(particles, dt)
     type(particle_system_t), intent(inout) :: particles
-    double precision, intent(in) :: edges(3)
     double precision, intent(in) :: dt
 
     integer :: k, jump(3)
@@ -21,15 +21,25 @@ contains
 
     !$omp parallel do private(tmp_x, jump)
     do k = 1, particles% Nmax
-       tmp_x = particles% pos(:,k) + dt * particles% vel(:,k) + dt**2 * particles% force(:,k) / 2
-
-       jump = floor(particles% pos(:,k) / edges)
-       particles% image(:,k) = particles% image(:,k) + jump
-
-       particles% pos(:,k) = tmp_x - jump * edges
+       particles% pos(:,k) = particles% pos(:,k) + dt * particles% vel(:,k) + dt**2 * particles% force(:,k) / 2
     end do
 
   end subroutine md_pos
+
+  subroutine apply_pbc(particles, edges)
+    type(particle_system_t), intent(inout) :: particles
+    double precision, intent(in) :: edges(3)
+
+    integer :: k, jump(3)
+
+    !$omp parallel do private(jump)
+    do k = 1, particles% Nmax
+       jump = floor(particles% pos(:,k) / edges)
+       particles% image(:,k) = particles% image(:,k) + jump
+       particles% pos(:,k) = particles% pos(:,k) - jump*edges
+    end do
+
+  end subroutine apply_pbc
 
   subroutine md_vel(particles, edges, dt)
     type(particle_system_t), intent(inout) :: particles
