@@ -1,0 +1,6 @@
+
+* Setup of basic MD features
+<2015-11-26 Thu>
+
+Velocity verlet and RATTLE for the dimer are working properly and most of the MD code is
+moved to modules.
