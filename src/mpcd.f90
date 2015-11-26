@@ -49,6 +49,7 @@ contains
     thermostat = present(temperature)
     if (thermostat) error stop 'thermostatting not implemented'
 
+    !$omp parallel do private(start, n, local_v, vec, omega)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
