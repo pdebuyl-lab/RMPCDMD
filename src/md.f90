@@ -16,10 +16,9 @@ contains
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: dt
 
-    integer :: k, jump(3)
-    double precision :: tmp_x(3)
+    integer :: k
 
-    !$omp parallel do private(tmp_x, jump)
+    !$omp parallel do
     do k = 1, particles% Nmax
        particles% pos(:,k) = particles% pos(:,k) + dt * particles% vel(:,k) + dt**2 * particles% force(:,k) / 2
     end do
