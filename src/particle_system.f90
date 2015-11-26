@@ -293,8 +293,9 @@ contains
     integer :: i
     double precision :: r_sq, rmax_sq
 
+    !$omp parallel
     rmax_sq = 0
-
+    !$omp do private(r_sq) reduction(MAX:rmax_sq)
     do i = 1, this% Nmax
        if (this% species(i) >= 0) then
           r_sq = sum(rel_pos(this% pos(:, i), this% pos_old(:, i), L)**2)
@@ -303,6 +304,8 @@ contains
           end if
        end if
     end do
+    !$omp end do
+    !$omp end parallel
 
     r = sqrt(rmax_sq)
 
