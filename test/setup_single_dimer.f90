@@ -38,8 +38,7 @@ program setup_single_dimer
   type(mt19937ar_t), target :: mt
 
   integer :: i, L(3), seed_size, clock
-  integer :: jump(3)
-  integer :: j, k
+  integer :: j
   integer, allocatable :: seed(:)
 
   call random_seed(size = seed_size)
@@ -128,9 +127,9 @@ program setup_single_dimer
   write(*,*) ''
 
 
-  do i = 1, 500
+  do i = 1, 50
      md: do j = 1, N_MD_steps
-        call md_pos(solvent, solvent_cells% edges, dt)
+        call md_pos(solvent, dt)
 
         ! Extra copy for rattle
         colloids% pos_rattle = colloids% pos
@@ -138,22 +137,18 @@ program setup_single_dimer
 
         call rattle_dimer_pos(colloids, d, dt)
 
-        so_max = solvent% maximum_displacement(solvent_cells% edges)
-        co_max = colloids% maximum_displacement(solvent_cells% edges)
+        so_max = solvent% maximum_displacement()
+        co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call apply_pbc(solvent, solvent_cells% edges)
+           call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
            n_extra_sorting = n_extra_sorting + 1
         end if
-
-        do k = 1, colloids% Nmax
-           jump = floor(colloids% pos(:,k) / solvent_cells% edges)
-           colloids% image(:,k) = colloids% image(:,k) + jump
-           colloids% pos(:,k) = colloids% pos(:,k) - jump*solvent_cells% edges
-        end do
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)

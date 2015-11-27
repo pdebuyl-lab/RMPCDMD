@@ -27,16 +27,11 @@ program test_particle_system_0
   i = modulo(int(genrand_int31(mt)), N) + 1
   x = [ genrand_real1(mt), genrand_real1(mt), genrand_real1(mt) ]
   p% pos(:,i) = p% pos(:,i) + x
-  call test% assert_positive( sqrt(3.d0) - p% maximum_displacement(L) )
+  call test% assert_positive( sqrt(3.d0) - p% maximum_displacement() )
 
   ! Restore particle i
   p% pos(:,i) = p% pos(:,i) - x
-  call test% assert_close( p% maximum_displacement(L), 0.d0 )
-
-  ! Move a particle of one edge
-  i = modulo(int(genrand_int31(mt)), N) + 1
-  p% pos(:,i) = p% pos(:,i) + L
-  call test% assert_close( p% maximum_displacement(L), 0.d0 )
+  call test% assert_close( p% maximum_displacement(), 0.d0 )
 
   call test% print()
 
