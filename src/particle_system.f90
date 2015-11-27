@@ -284,10 +284,9 @@ contains
 
   end subroutine sort
 
-  function maximum_displacement(this, L) result(r)
+  function maximum_displacement(this) result(r)
     implicit none
     class(particle_system_t), intent(in) :: this
-    double precision, intent(in) :: L(3)
     double precision :: r
 
     integer :: i
@@ -298,7 +297,7 @@ contains
     !$omp do private(r_sq) reduction(MAX:rmax_sq)
     do i = 1, this% Nmax
        if (this% species(i) >= 0) then
-          r_sq = sum(rel_pos(this% pos(:, i), this% pos_old(:, i), L)**2)
+          r_sq = sum((this%pos(:, i)-this%pos_old(:, i))**2)
           if (r_sq > rmax_sq) then
              rmax_sq = r_sq
           end if

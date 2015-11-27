@@ -9,6 +9,7 @@ program setup_simple_colloids
   use interaction
   use mt19937ar_module
   use mpcd
+  use md
   use iso_c_binding
   implicit none
 
@@ -37,7 +38,6 @@ program setup_simple_colloids
   double precision :: skin
 
   integer :: i, L(3), seed_size, clock
-  integer :: jump(3)
   integer :: j, k
   integer, allocatable :: seed(:)
 
@@ -120,19 +120,17 @@ program setup_simple_colloids
      md: do j = 1, N_MD_steps
         !$omp parallel do private(k, tmp_x)
         do k = 1, solvent% Nmax
-           tmp_x = solvent% pos(:,k) + dt * solvent% vel(:,k) + dt**2 * solvent% force(:,k) / 2
-           solvent% pos(:,k) = modulo(tmp_x, solvent_cells% edges)
+           solvent% pos(:,k) = solvent% pos(:,k) + dt * solvent% vel(:,k) + dt**2 * solvent% force(:,k) / 2
         end do
         do k = 1, colloids% Nmax
-           tmp_x = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
-           jump = floor(tmp_x / solvent_cells% edges)
-           colloids% image(:,k) = colloids% image(:,k) + jump
-           colloids% pos(:,k) = tmp_x - jump*solvent_cells% edges
+           colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
         end do
-        so_max = solvent% maximum_displacement(solvent_cells% edges)
-        co_max = colloids% maximum_displacement(solvent_cells% edges)
+        so_max = solvent% maximum_displacement()
+        co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call apply_pbc(solvent, solvent_cells% edges)
+           call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
            solvent% pos_old = solvent% pos
