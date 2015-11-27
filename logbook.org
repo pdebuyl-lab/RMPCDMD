@@ -5,3 +5,19 @@
 
 Velocity verlet and RATTLE for the dimer are working properly and most of the MD code is
 moved to modules.
+
+* A round of profiling
+<2015-11-27 Fri>
+
+Using =test/setup_single_dimer.f90= as a basis, identify most time-consuming parts of the
+code:
+- simple_mpcd_step
+- maximum_displacement
+- compact_p_to_h
+
+The MPCD step requires line profiling and/or a parallel RNG to speed things up.
+
+The displacement routine has been accelerated by resetting particles in the PBC box only
+upon resorting, so that the call to =rel_pos= can be removed.
+
+No idea yet for compact_p_to_h.
