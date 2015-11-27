@@ -41,6 +41,7 @@ program setup_single_dimer
   integer :: j
   integer, allocatable :: seed(:)
 
+
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
   call system_clock(count=clock)
@@ -79,7 +80,7 @@ program setup_single_dimer
 
   call colloids% init(2,2, mass=[mass, mass]) !there will be 2 species of colloids
   
-  open(15,file ='dimerdata_chemKapNewer.txt')
+  open(15,file ='dimerdata_chemKapTEST.txt')
   
   write(*, *) colloids% pos
   colloids% species(1) = 1
@@ -113,7 +114,6 @@ program setup_single_dimer
 
 
   tau = 1.d0
-
   N_MD_steps = 100
   dt = tau / N_MD_steps
 
@@ -152,13 +152,14 @@ program setup_single_dimer
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
+
         solvent% force = 0
         colloids% force = 0
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
         call md_vel(solvent, solvent_cells% edges, dt)
-        
+   
         colloids% vel = colloids% vel + &
              dt * ( colloids% force + colloids% force_old ) / (2 * mass)
 
@@ -167,12 +168,19 @@ program setup_single_dimer
         call flag_particles
         call change_species
 
+
      end do md
+
 
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
                  colloids% vel, e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2
+     
+     solvent_cells% origin(1) = genrand_real1(mt) - 1
+     solvent_cells% origin(2) = genrand_real1(mt) - 1
+     solvent_cells% origin(3) = genrand_real1(mt) - 1
 
      call solvent% sort(solvent_cells)
+   
      call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
