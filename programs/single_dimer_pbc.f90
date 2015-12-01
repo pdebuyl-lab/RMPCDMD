@@ -25,7 +25,7 @@ program setup_single_dimer
   integer :: N
   integer :: error
 
-  double precision :: sigma_N, sigma_C, epsilon1, max_cut
+  double precision :: sigma_N, sigma_C, max_cut
   double precision :: epsilon(2,2)
   double precision :: sigma(2,2), sigma_cut(2,2)
   double precision :: mass(2)
@@ -84,15 +84,16 @@ program setup_single_dimer
 
   call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
 
-  epsilon1 = 1.d0
+  epsilon(1,1) = PTread_d(config, 'epsilon_C_C')
+  epsilon(1,2) = PTread_d(config, 'epsilon_N_C')
+  epsilon(2,1) = PTread_d(config, 'epsilon_N_C')
+  epsilon(2,2) = PTread_d(config, 'epsilon_N_N')
 
   sigma(1,1) = 2*sigma_C
   sigma(1,2) = sigma_C + sigma_N
   sigma(2,1) = sigma_C + sigma_N
   sigma(2,2) = 2*sigma_N
   sigma_cut = sigma*2**(1.d0/6.d0)
-
-  epsilon = 1
 
   call colloid_lj% init(epsilon, sigma, sigma_cut)
 
@@ -102,7 +103,7 @@ program setup_single_dimer
 
   call solvent% init(N,2) !there will be 2 species of solvent particles
 
-  call colloids% init(2,2, mass=[mass, mass]) !there will be 2 species of colloids
+  call colloids% init(2,2, mass) !there will be 2 species of colloids
 
   call PTkill(config)
   
@@ -158,10 +159,10 @@ program setup_single_dimer
         colloids% pos_rattle = colloids% pos
         do k=1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
-                dt**2 * colloids% force(:,k) / (2 * mass(colloids%species(k)))
+                dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
         end do
 
-        call rattle_dimer_pos(colloids, d, dt)
+        call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -188,10 +189,10 @@ program setup_single_dimer
 
         do k=1, colloids% Nmax
            colloids% vel(:,k) = colloids% vel(:,k) + &
-             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * mass(colloids%species(k)))
+             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids% mass(k))
         end do
 
-        call rattle_dimer_vel(colloids, d, dt)
+        call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
 
         call flag_particles
         call change_species
@@ -201,7 +202,9 @@ program setup_single_dimer
 
 
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
-                 colloids% vel, e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2
+                 colloids% vel, e1+e2+(colloids% mass(1)*sum(colloids% vel(:,1)**2) &
+                 +colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 &
+                 +sum(solvent% vel**2)/2
      
      solvent_cells% origin(1) = genrand_real1(mt) - 1
      solvent_cells% origin(2) = genrand_real1(mt) - 1
@@ -212,8 +215,13 @@ program setup_single_dimer
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
-     kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
-     call thermo_write
+     kin_co = (colloids% mass(1)*sum(colloids% vel(:,1)**2)+ colloids% mass(2)*sum(colloids% vel(:,2)**2))/2
+     write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
+          kin_co, sum(solvent% vel**2)/2, &
+          e1+e2+kin_co+sum(solvent% vel**2)/2, &
+          compute_temperature(solvent, solvent_cells), &
+          sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
+
 
   end do
 

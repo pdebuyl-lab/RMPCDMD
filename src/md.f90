@@ -1,5 +1,6 @@
 module md
   use particle_system
+  use common
   implicit none
 
   private
@@ -55,10 +56,11 @@ contains
 
   end subroutine md_vel
 
-  subroutine rattle_dimer_pos(p, d, dt)
+  subroutine rattle_dimer_pos(p, d, dt,edges)
     type(particle_system_t), intent(inout) :: p
     double precision, intent(in) :: d
     double precision, intent(in) :: dt
+    double precision, intent(in) :: edges(3)
 
     double precision :: g
     double precision :: s(3) ! direction vector
@@ -66,8 +68,8 @@ contains
     double precision :: rsq, ssq, rs
     double precision :: mass1, mass2, inv_mass
 
-    r = p% pos_rattle(:,1) - p% pos_rattle(:,2)
-    s = p% pos(:,1) - p% pos(:,2)
+    r = rel_pos(p% pos_rattle(:,1),p% pos_rattle(:,2), edges)
+    s = rel_pos(p% pos(:,1),p% pos(:,2), edges)
     mass1 = p%mass(p%species(1))
     mass2 = p%mass(p%species(2))
     inv_mass = 1/mass1 + 1/mass2
@@ -87,10 +89,11 @@ contains
 
   end subroutine rattle_dimer_pos
 
-  subroutine rattle_dimer_vel(p, d, dt)
+  subroutine rattle_dimer_vel(p, d, dt,edges)
     type(particle_system_t), intent(inout) :: p
     double precision, intent(in) :: d
     double precision, intent(in) :: dt
+    double precision, intent(in) :: edges(3)
 
     double precision :: k !second correction factor
     double precision :: s(3) !direction vector
@@ -100,7 +103,7 @@ contains
     mass2 = p%mass(p%species(2))
     inv_mass = 1/mass1 + 1/mass2
 
-    s = p% pos(:,1) - p% pos(:,2)
+    s = rel_pos(p% pos(:,1), p% pos(:,2), edges)
 
     k = dot_product(p%vel(:,1)-p%vel(:,2), s) / (d**2*inv_mass)
 
