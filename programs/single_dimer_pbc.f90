@@ -31,7 +31,7 @@ program setup_single_dimer
   double precision :: mass(2)
 
   double precision :: e1, e2
-  double precision :: tau, dt
+  double precision :: tau, dt , T
   double precision :: d
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
@@ -63,6 +63,9 @@ program setup_single_dimer
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
 
+  T = PTread_d(config, 'T')
+  d = PTread_d(config, 'd')
+  
   tau = PTread_d(config, 'tau')
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
@@ -103,7 +106,7 @@ program setup_single_dimer
 
   call PTkill(config)
   
-  open(15,file ='dimerdata_chem01.txt')
+  open(15,file ='dimerdata_chemKapTEST.txt')
   
   write(*, *) colloids% pos
   colloids% species(1) = 1
@@ -111,13 +114,13 @@ program setup_single_dimer
   colloids% vel = 0
   
   call random_number(solvent% vel(:, :))
-  solvent% vel = (solvent% vel - 0.5d0)*sqrt(6.d0*2)
+  solvent% vel = (solvent% vel - 0.5d0)*sqrt(4.d0*3.d0*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-  d = sigma_C + sigma_N + 0.5d0
+  !d = sigma_C + sigma_N + 0.8d0
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
@@ -144,6 +147,7 @@ program setup_single_dimer
   write(*,*) ''
   write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
+
 
   do i = 1, N_loop
      md: do j = 1, N_MD_steps
@@ -173,13 +177,14 @@ program setup_single_dimer
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
+
         solvent% force = 0
         colloids% force = 0
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
         call md_vel(solvent, solvent_cells% edges, dt)
-        
+
         do k=1, colloids% Nmax
            colloids% vel(:,k) = colloids% vel(:,k) + &
              dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * mass(colloids%species(k)))
@@ -190,10 +195,16 @@ program setup_single_dimer
         call flag_particles
         call change_species
 
+
      end do md
 
+
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
-                 colloids% vel
+                 colloids% vel, e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2
+     
+     solvent_cells% origin(1) = genrand_real1(mt) - 1
+     solvent_cells% origin(2) = genrand_real1(mt) - 1
+     solvent_cells% origin(3) = genrand_real1(mt) - 1
 
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
