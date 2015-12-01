@@ -9,6 +9,8 @@ probability = 1.0
 N_MD = 100
 N_loop = 100
 
+# link length
+d = 4.5
 # interaction parameters
 sigma_N = 2.0
 sigma_C = 2.0
