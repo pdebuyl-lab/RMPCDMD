@@ -1,0 +1,22 @@
+# physical parameters
+T = 0.333333
+L = 24 24 24
+rho = 9 
+tau = 1.0
+probability = 1.0
+
+# simulation parameters
+N_MD = 100
+N_loop = 100
+
+# interaction parameters
+sigma_N = 2.0
+sigma_C = 2.0
+
+epsilon_N = 1.0 5.0
+epsilon_C = 1.0 1.0
+
+epsilon_N_N = 1.0
+epsilon_N_C = 1.0
+epsilon_C_C = 1.0
+

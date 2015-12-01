@@ -10,6 +10,7 @@ program setup_single_dimer
   use mt19937ar_module
   use mpcd
   use md
+  use ParseText
   use iso_c_binding
   implicit none
 
@@ -20,27 +21,31 @@ program setup_single_dimer
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
 
-  integer, parameter :: rho = 9
+  integer :: rho
   integer :: N
   integer :: error
 
-  double precision :: sigma, sigma_cut, epsilon1
-  double precision, allocatable :: epsilon(:,:)
-  double precision :: mass
+  double precision :: sigma_N, sigma_C, epsilon1, max_cut
+  double precision :: epsilon(2,2)
+  double precision :: sigma(2,2), sigma_cut(2,2)
+  double precision :: mass(2)
 
   double precision :: e1, e2
   double precision :: tau, dt
   double precision :: d
   double precision :: skin, co_max, so_max
-  integer :: N_MD_steps
+  integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
+  double precision :: kin_co
 
   type(mt19937ar_t), target :: mt
+  type(PTo) :: config
 
   integer :: i, L(3), seed_size, clock
-  integer :: j
+  integer :: j, k
   integer, allocatable :: seed(:)
 
+  call PTparse(config,'dimer.parameters',11)
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
@@ -54,31 +59,49 @@ program setup_single_dimer
 
   call h5open_f(error)
 
-  L = [32, 32, 32]
+  L = PTread_ivec(config, 'L', 3)
+  rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
-  
-  allocate(epsilon(2,2))
 
-  epsilon = reshape((/ 1.d0, 1.d0, 1.d0, 0.5d0 /),shape(epsilon))
-  sigma = 2.d0
+  tau = PTread_d(config, 'tau')
+  N_MD_steps = PTread_i(config, 'N_MD')
+  dt = tau / N_MD_steps
+  N_loop = PTread_i(config, 'N_loop')
+
+  sigma_C = PTread_d(config, 'sigma_C')
+  sigma_N = PTread_d(config, 'sigma_N')
+  
+  epsilon(1,:) = PTread_dvec(config, 'epsilon_C', 2)
+  epsilon(2,:) = PTread_dvec(config, 'epsilon_N', 2)
+
+  sigma(1,:) = sigma_C
+  sigma(2,:) = sigma_N
   sigma_cut = sigma*2**(1.d0/6.d0)
+  max_cut = maxval(sigma_cut)
 
-  call solvent_colloid_lj% init( epsilon, &
-       reshape( [ sigma, sigma, sigma, sigma ], [2, 2] ), reshape( [ sigma_cut,sigma_cut,sigma_cut,sigma_cut ], [2, 2] ) )
-  
+  call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
+
   epsilon1 = 1.d0
-  sigma = 2.d0
+
+  sigma(1,1) = 2*sigma_C
+  sigma(1,2) = sigma_C + sigma_N
+  sigma(2,1) = sigma_C + sigma_N
+  sigma(2,2) = 2*sigma_N
   sigma_cut = sigma*2**(1.d0/6.d0)
 
-  call colloid_lj% init( reshape( [ epsilon1,epsilon1,epsilon1,epsilon1 ], [2, 2] ), &
-       reshape( [ sigma,sigma,sigma,sigma ], [2, 2] ), reshape( [ sigma_cut,sigma_cut,sigma_cut,sigma_cut ], [2, 2] ) )
+  epsilon = 1
 
-  mass = rho * sigma**3 * 4 * 3.141/3
+  call colloid_lj% init(epsilon, sigma, sigma_cut)
+
+  mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
+  mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   write(*,*) 'mass =', mass
 
   call solvent% init(N,2) !there will be 2 species of solvent particles
 
   call colloids% init(2,2, mass=[mass, mass]) !there will be 2 species of colloids
+
+  call PTkill(config)
   
   open(15,file ='dimerdata_chemKapTEST.txt')
   
@@ -94,7 +117,7 @@ program setup_single_dimer
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-  d = 2.0d0*sigma + 0.5d0
+  d = sigma_C + sigma_N + 0.5d0
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
@@ -103,19 +126,15 @@ program setup_single_dimer
 
   call solvent% sort(solvent_cells)
 
-  call neigh% init(colloids% Nmax, int(300*sigma**3))
+  call neigh% init(colloids% Nmax, int(300*max(sigma_C,sigma_N)**3))
 
   skin = 1.5
   n_extra_sorting = 0
 
-  call neigh% make_stencil(solvent_cells, sigma_cut+skin)
+  call neigh% make_stencil(solvent_cells, max_cut+skin)
 
-  call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
+  call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
-
-  tau = 1.d0
-  N_MD_steps = 100
-  dt = tau / N_MD_steps
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -126,14 +145,21 @@ program setup_single_dimer
   write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
+<<<<<<< HEAD:test/setup_single_dimer.f90
 
   do i = 1, 50
+=======
+  do i = 1, N_loop
+>>>>>>> 796980c2014233008a081ce56f1e1deac8d906f0:programs/single_dimer_pbc.f90
      md: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
         ! Extra copy for rattle
         colloids% pos_rattle = colloids% pos
-        colloids% pos = colloids% pos + dt * colloids% vel + dt**2 * colloids% force / (2 * mass)
+        do k=1, colloids% Nmax
+           colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
+                dt**2 * colloids% force(:,k) / (2 * mass(colloids%species(k)))
+        end do
 
         call rattle_dimer_pos(colloids, d, dt)
 
@@ -144,7 +170,7 @@ program setup_single_dimer
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
-           call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
+           call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
            n_extra_sorting = n_extra_sorting + 1
@@ -159,9 +185,11 @@ program setup_single_dimer
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
         call md_vel(solvent, solvent_cells% edges, dt)
-   
-        colloids% vel = colloids% vel + &
-             dt * ( colloids% force + colloids% force_old ) / (2 * mass)
+
+        do k=1, colloids% Nmax
+           colloids% vel(:,k) = colloids% vel(:,k) + &
+             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * mass(colloids%species(k)))
+        end do
 
         call rattle_dimer_vel(colloids, d, dt)
 
@@ -180,16 +208,16 @@ program setup_single_dimer
      solvent_cells% origin(3) = genrand_real1(mt) - 1
 
      call solvent% sort(solvent_cells)
-   
-     call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
+     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
-     write(*,'(1i16,6f16.3,1e16.8)') i,e1, e2, mass*sum(colloids% vel**2)/2, sum(solvent% vel**2)/2, &
-         e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2, &
-         compute_temperature(solvent, solvent_cells), &
-         sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
-
+     kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
+     write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
+          kin_co, sum(solvent% vel**2)/2, &
+          e1+e2+kin_co+sum(solvent% vel**2)/2, &
+          compute_temperature(solvent, solvent_cells), &
+          sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
 
   end do
 
@@ -211,7 +239,7 @@ contains
   do  r = 1,solvent% Nmax
      if (solvent% species(r) == 1) then
        dist_to_C_sq = dot_product(colloids% pos(:,1) - solvent% pos(:,r),colloids% pos(:,1) - solvent% pos(:,r))
-       if (dist_to_C_sq < (sigma_cut)**2) then
+       if (dist_to_C_sq < 3**2) then
          if (rndnumbers(r) <= prob) then
            solvent% flag(r) = 1 
          end if
@@ -231,7 +259,7 @@ contains
      if (solvent% flag(m) == 1) then
        dist_to_C_sq = dot_product(colloids% pos(:,1) - solvent% pos(:,m),colloids% pos(:,1) - solvent% pos(:,m))
        dist_to_N_sq = dot_product(colloids% pos(:,2) - solvent% pos(:,m),colloids% pos(:,2) - solvent% pos(:,m))
-       if ((dist_to_C_sq > (sigma_cut)**2) .and. (dist_to_N_sq > (sigma_cut)**2)) then
+       if ((dist_to_C_sq > (3)**2) .and. (dist_to_N_sq > (3)**2)) then
          solvent% species(m) = 2
          solvent% flag(m) = 0
        end if
