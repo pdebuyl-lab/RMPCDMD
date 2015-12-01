@@ -114,7 +114,7 @@ program setup_single_dimer
   colloids% vel = 0
   
   call random_number(solvent% vel(:, :))
-  solvent% vel = (solvent% vel - 0.5d0)*sqrt(4.d0*3.d0*T)
+  solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
   solvent% species = 1
@@ -147,6 +147,8 @@ program setup_single_dimer
   write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
+  kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
+  call thermo_write
 
   do i = 1, N_loop
      md: do j = 1, N_MD_steps
@@ -211,11 +213,7 @@ program setup_single_dimer
      call simple_mpcd_step(solvent, solvent_cells, mt)
 
      kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
-     write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
-          kin_co, sum(solvent% vel**2)/2, &
-          e1+e2+kin_co+sum(solvent% vel**2)/2, &
-          compute_temperature(solvent, solvent_cells), &
-          sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
+     call thermo_write
 
   end do
 
@@ -224,6 +222,15 @@ program setup_single_dimer
   call h5close_f(error)
   
 contains
+
+  subroutine thermo_write
+    write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
+         kin_co, sum(solvent% vel**2)/2, &
+         e1+e2+kin_co+sum(solvent% vel**2)/2, &
+         compute_temperature(solvent, solvent_cells), &
+         sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
+  end subroutine thermo_write
+
 
   subroutine flag_particles
   double precision :: dist_to_C_sq
