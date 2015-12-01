@@ -120,7 +120,6 @@ program setup_single_dimer
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-  !d = sigma_C + sigma_N + 0.8d0
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
