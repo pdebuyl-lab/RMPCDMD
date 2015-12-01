@@ -31,7 +31,7 @@ program setup_single_dimer
   double precision :: mass(2)
 
   double precision :: e1, e2
-  double precision :: tau, dt
+  double precision :: tau, dt , T
   double precision :: d
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
@@ -63,6 +63,9 @@ program setup_single_dimer
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
 
+  T = PTread_d(config, 'T')
+  d = PTread_d(config, 'd')
+  
   tau = PTread_d(config, 'tau')
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
@@ -111,13 +114,13 @@ program setup_single_dimer
   colloids% vel = 0
   
   call random_number(solvent% vel(:, :))
-  solvent% vel = (solvent% vel - 0.5d0)*sqrt(6.d0*2.d0/3.d0)
+  solvent% vel = (solvent% vel - 0.5d0)*sqrt(4.d0*3.d0*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-  d = sigma_C + sigma_N + 0.5d0
+  !d = sigma_C + sigma_N + 0.8d0
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
@@ -145,12 +148,8 @@ program setup_single_dimer
   write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
   write(*,*) ''
 
-<<<<<<< HEAD:test/setup_single_dimer.f90
 
-  do i = 1, 50
-=======
   do i = 1, N_loop
->>>>>>> 796980c2014233008a081ce56f1e1deac8d906f0:programs/single_dimer_pbc.f90
      md: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
