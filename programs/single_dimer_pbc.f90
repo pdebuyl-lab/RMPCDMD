@@ -45,7 +45,7 @@ program setup_single_dimer
   integer :: j, k
   integer, allocatable :: seed(:)
 
-  call PTparse(config,'dimer.parameters',11)
+  call PTparse(config,get_input_filename(),11)
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
