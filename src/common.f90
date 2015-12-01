@@ -6,6 +6,9 @@ module common
   public :: profile_t
   public :: histogram_t
   public :: switch
+  public :: get_input_filename
+
+  integer, parameter :: max_path_length = 255
 
   type profile_t
      double precision, allocatable :: data(:)
@@ -165,5 +168,15 @@ contains
     p2 => p
 
   end subroutine switch_i2
+
+  character(len=max_path_length) function get_input_filename() result(r)
+
+    if (command_argument_count() < 1) then
+       error stop 'missing argument for parameter file'
+    end if
+
+    call get_command_argument(1, r)
+
+  end function get_input_filename
 
 end module common
