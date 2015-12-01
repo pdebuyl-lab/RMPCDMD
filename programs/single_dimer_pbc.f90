@@ -25,7 +25,7 @@ program setup_single_dimer
   integer :: N
   integer :: error
 
-  double precision :: sigma_N, sigma_C, epsilon1, max_cut
+  double precision :: sigma_N, sigma_C, max_cut
   double precision :: epsilon(2,2)
   double precision :: sigma(2,2), sigma_cut(2,2)
   double precision :: mass(2)
@@ -84,7 +84,7 @@ program setup_single_dimer
 
   call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
 
-  epsilon1 = 1.d0
+  
 
   sigma(1,1) = 2*sigma_C
   sigma(1,2) = sigma_C + sigma_N
@@ -92,7 +92,7 @@ program setup_single_dimer
   sigma(2,2) = 2*sigma_N
   sigma_cut = sigma*2**(1.d0/6.d0)
 
-  epsilon = 1
+  
 
   call colloid_lj% init(epsilon, sigma, sigma_cut)
 
@@ -120,7 +120,6 @@ program setup_single_dimer
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-  !d = sigma_C + sigma_N + 0.8d0
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
@@ -160,7 +159,7 @@ program setup_single_dimer
                 dt**2 * colloids% force(:,k) / (2 * mass(colloids%species(k)))
         end do
 
-        call rattle_dimer_pos(colloids, d, dt)
+        call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -190,7 +189,7 @@ program setup_single_dimer
              dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * mass(colloids%species(k)))
         end do
 
-        call rattle_dimer_vel(colloids, d, dt)
+        call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
 
         call flag_particles
         call change_species
