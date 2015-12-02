@@ -32,7 +32,7 @@ program setup_single_dimer
 
   double precision :: e1, e2
   double precision :: tau, dt , T
-  double precision :: d
+  double precision :: d,prob
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
@@ -58,6 +58,8 @@ program setup_single_dimer
   call init_genrand(mt, int(clock, c_long))
 
   call h5open_f(error)
+
+  prob = PTread_d(config,'probability')
 
   L = PTread_ivec(config, 'L', 3)
   rho = PTread_i(config, 'rho')
@@ -242,17 +244,17 @@ contains
 
   subroutine flag_particles
   double precision :: dist_to_C_sq
-  real :: prob 
   real :: rndnumbers(solvent% Nmax)
   integer :: r
-  prob = 1.0
+  double precision :: x(3)
   
-  call random_number(prob)
+  call random_number(rndnumbers)
   
   do  r = 1,solvent% Nmax
      if (solvent% species(r) == 1) then
-       dist_to_C_sq = dot_product(colloids% pos(:,1) - solvent% pos(:,r),colloids% pos(:,1) - solvent% pos(:,r))
-       if (dist_to_C_sq < 3**2) then
+       x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges) 
+       dist_to_C_sq = dot_product(x, x)
+       if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
          if (rndnumbers(r) <= prob) then
            solvent% flag(r) = 1 
          end if
@@ -296,7 +298,8 @@ contains
     double precision :: x(3)
     integer :: n
 
-    far = 25.d0
+    far = (L(1)/2)**2
+
 
     do n = 1,solvent% Nmax
        if (solvent% species(n) == 2) then
