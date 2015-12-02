@@ -17,11 +17,14 @@ contains
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: dt
 
+    double precision :: dt_sq
     integer :: k
+
+    dt_sq = dt**2/2
 
     !$omp parallel do
     do k = 1, particles% Nmax
-       particles% pos(:,k) = particles% pos(:,k) + dt * particles% vel(:,k) + dt**2 * particles% force(:,k) / 2
+       particles% pos(:,k) = particles% pos(:,k) + dt * particles% vel(:,k) + dt_sq * particles% force(:,k)
     end do
 
   end subroutine md_pos
