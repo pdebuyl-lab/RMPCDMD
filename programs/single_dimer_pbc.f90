@@ -264,41 +264,51 @@ contains
   
   
   subroutine change_species
-  double precision :: dist_to_C_sq
-  double precision :: dist_to_N_sq
-  integer :: m
-  
-  do m = 1, solvent% Nmax
-     if (solvent% flag(m) == 1) then
-       dist_to_C_sq = dot_product(colloids% pos(:,1) - solvent% pos(:,m),colloids% pos(:,1) - solvent% pos(:,m))
-       dist_to_N_sq = dot_product(colloids% pos(:,2) - solvent% pos(:,m),colloids% pos(:,2) - solvent% pos(:,m))
-       if ((dist_to_C_sq > (3)**2) .and. (dist_to_N_sq > (3)**2)) then
-         solvent% species(m) = 2
-         solvent% flag(m) = 0
+    double precision :: dist_to_C_sq
+    double precision :: dist_to_N_sq
+    integer :: m
+    double precision :: x(3)
+
+    do m = 1, solvent% Nmax
+       if (solvent% flag(m) == 1) then
+          x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
+          dist_to_C_sq = dot_product(x, x)
+          x = rel_pos(colloids% pos(:,2), solvent% pos(:,m), solvent_cells% edges)
+          dist_to_N_sq = dot_product(x, x)
+          if ( &
+               (dist_to_C_sq > solvent_colloid_lj%cut_sq(1, 1)) &
+               .and. &
+               (dist_to_N_sq > solvent_colloid_lj%cut_sq(2, 1)) &
+               ) &
+               then
+             solvent% species(m) = 2
+             solvent% flag(m) = 0
+          end if
        end if
-     end if  
-  end do
-  
+    end do
+
   end subroutine change_species
   
   subroutine refuel
-  double precision :: dist_to_C_sq
-  double precision :: dist_to_N_sq
-  double precision :: far
-  integer :: n
-  
-  far = 25.d0
-  
-  do n = 1,solvent% Nmax
-    if (solvent% species(i) == 2) then
-      dist_to_C_sq = dot_product(colloids% pos(:,1) - solvent% pos(:,n),colloids% pos(:,1) - solvent% pos(:,n))
-      dist_to_N_sq = dot_product(colloids% pos(:,2) - solvent% pos(:,n),colloids% pos(:,2) - solvent% pos(:,n))
-      if ((dist_to_C_sq > far) .and. (dist_to_N_sq > far)) then
-        solvent% species(n) = 1
-      end if
-    end if 
-  end do
-  
+    double precision :: dist_to_C_sq
+    double precision :: dist_to_N_sq
+    double precision :: far
+    double precision :: x(3)
+    integer :: n
+
+    far = 25.d0
+
+    do n = 1,solvent% Nmax
+       if (solvent% species(n) == 2) then
+          x = rel_pos(colloids% pos(:,1), solvent% pos(:,n), solvent_cells% edges)
+          dist_to_C_sq = dot_product(x, x)
+          x= rel_pos(colloids% pos(:,2), solvent% pos(:,n), solvent_cells% edges)
+          dist_to_N_sq = dot_product(x, x)
+          if ((dist_to_C_sq > far) .and. (dist_to_N_sq > far)) then
+             solvent% species(n) = 1
+          end if
+       end if
+    end do
   end subroutine refuel
 
 end program setup_single_dimer
