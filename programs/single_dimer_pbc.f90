@@ -38,6 +38,9 @@ program setup_single_dimer
   integer :: n_extra_sorting
   double precision :: kin_co
 
+  double precision :: conc_z(400)
+  double precision :: colloid_pos(3,2)
+
   type(mt19937ar_t), target :: mt
   type(PTo) :: config
 
@@ -109,9 +112,9 @@ program setup_single_dimer
 
   call PTkill(config)
   
-  open(15,file ='dimerdata_chemKapTEST.txt')
+  open(15,file ='dimerdata_chemConc.txt')
+  open(16,file ='dimerdata_Conc.txt')
   
-  write(*, *) colloids% pos
   colloids% species(1) = 1
   colloids% species(2) = 2
   colloids% vel = 0
@@ -127,6 +130,8 @@ program setup_single_dimer
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
   
+  write(*, *) colloids% pos  
+
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
@@ -216,6 +221,13 @@ program setup_single_dimer
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
+     
+     call refuel
+     
+     if (modulo(i,100)==0) then
+        call concentration_field
+        write(16,*) conc_z, colloid_pos
+     end if
 
      kin_co = (colloids% mass(1)*sum(colloids% vel(:,1)**2)+ colloids% mass(2)*sum(colloids% vel(:,2)**2))/2
      write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
@@ -223,9 +235,10 @@ program setup_single_dimer
           e1+e2+kin_co+sum(solvent% vel**2)/2, &
           compute_temperature(solvent, solvent_cells), &
           sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
-
+     
 
   end do
+  
 
   write(*,*) 'n extra sorting', n_extra_sorting
   
@@ -298,7 +311,7 @@ contains
     double precision :: x(3)
     integer :: n
 
-    far = (L(1)/2)**2
+    far = (L(1)*0.45)**2
 
 
     do n = 1,solvent% Nmax
@@ -313,5 +326,44 @@ contains
        end if
     end do
   end subroutine refuel
+
+  subroutine concentration_field
+    double precision :: dimer_orient(3),x(3),y(3),z(3)
+    double precision :: solvent_pos(3,solvent% Nmax)
+    double precision :: dz,r,theta,x_pos,y_pos,z_pos
+    integer :: o
+    integer :: check
+
+    dz = solvent_cells% edges(3)/400.d0
+    dimer_orient = colloids% pos(:,2) - colloids% pos(:,1)
+    z = dimer_orient/sqrt(dot_product(dimer_orient,dimer_orient))
+    x = (/0.d0, 1.d0, -dimer_orient(2)/dimer_orient(3)/)
+    x = x/sqrt(dot_product(x,x))
+    y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
+    conc_z = 0
+
+    do o = 1, solvent% Nmax
+       solvent_pos(:,o) = solvent% pos(:,o) - colloids% pos(:,1)
+       x_pos = dot_product(x,solvent_pos(:,o))
+       y_pos = dot_product(y, solvent_pos(:,o))
+       z_pos = dot_product(z, solvent_pos(:,o))
+       solvent_pos(:,o) = (/x_pos,y_pos,z_pos/)
+    end do
+    do o = 1, solvent% Nmax
+       r = sqrt(solvent_pos(1,o)**2 + solvent_pos(2,o)**2)
+       theta = atan(solvent_pos(2,o)/solvent_pos(1,o))
+       solvent_pos(1,o) = r
+       solvent_pos(2,o) = theta
+       solvent_pos(3,o) = solvent_pos(3,o)+colloids% pos(3,1)
+       if (solvent% species(o)==2) then
+          check = floor(solvent_pos(3,o)/dz)
+          conc_z(check) = conc_z(check) + 1
+       end if 
+    end do
+    colloid_pos(:,1) = 0
+    colloid_pos(3,1) = colloids% pos(3,1)
+    colloid_pos(:,2) = 0
+    colloid_pos(3,2) = d + colloids% pos(3,1)
+  end subroutine concentration_field
 
 end program setup_single_dimer
