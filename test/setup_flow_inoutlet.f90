@@ -22,7 +22,7 @@ program setup_fluid
 
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
-  type(h5md_element_t) :: e_solvent, e_solvent_v
+  type(h5md_element_t) :: e_solvent, e_solvent_v, e_solvent_species
   type(h5md_element_t) :: elem_tz, elem_tz_count, elem_vx_count
   type(h5md_element_t) :: elem_rhoz
   type(h5md_element_t) :: elem_vx
@@ -96,6 +96,7 @@ program setup_fluid
 
   call e_solvent% create_time(solvent_group, 'position', solvent% pos, ior(H5MD_TIME, H5MD_STORE_TIME))
   call e_solvent_v% create_time(solvent_group, 'velocity', solvent% vel, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call e_solvent_species% create_time(solvent_group, 'species', solvent% species, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_tz% create_time(datafile% observables, 'tz', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_tz_count% create_time(datafile% observables, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_vx% create_time(datafile% observables, 'vx', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
@@ -158,6 +159,7 @@ program setup_fluid
 
   call e_solvent% append(solvent% pos, i, i*tau)
   call e_solvent_v% append(solvent% vel, i, i*tau)
+  call e_solvent_species% append(solvent% species, i, i*tau)
 
   clock = 0
   do i = 1 , solvent_cells% N
@@ -168,6 +170,7 @@ program setup_fluid
 
   call e_solvent% close()
   call e_solvent_v% close()
+  call e_solvent_species% close()
   call elem_tz% close()
   call elem_tz_count% close()
   call elem_rhoz% close()
