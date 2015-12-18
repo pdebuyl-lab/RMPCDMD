@@ -38,6 +38,7 @@ program setup_fluid
   double precision, parameter :: gravity_field(3) = [ 0.001d0, 0.d0, 0.d0 ]
   double precision :: T
 
+  double precision, parameter :: set_temperature = 1
   double precision, parameter :: tau = 0.1d0
 
   call random_seed(size = seed_size)
@@ -99,7 +100,7 @@ program setup_fluid
   wall_t = [1.0d0, 1.0d0]
   do i = 1, 1000
      call wall_mpcd_step(solvent, solvent_cells, mt, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10]) 
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], bulk_temperature=set_temperature)
      call mpcd_stream_zwall(solvent, solvent_cells, tau, gravity_field)
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
@@ -109,7 +110,7 @@ program setup_fluid
 
   do i = 1, 1000
      call wall_mpcd_step(solvent, solvent_cells, mt, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10])
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], bulk_temperature=set_temperature)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
      call mpcd_stream_zwall(solvent, solvent_cells, tau, gravity_field)

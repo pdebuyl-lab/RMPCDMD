@@ -79,7 +79,7 @@ contains
 
   !! Lamura, Gompper, Ihle and Kroll, EPL 56, 319-325 (2001)
   !! http://dx.doi.org/10.1209/epl/i2001-00522-9
-  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n)
+  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, bulk_temperature)
     use hilbert
     class(particle_system_t), intent(in) :: particles
     class(cell_system_t), intent(in) :: cells
@@ -87,6 +87,7 @@ contains
     double precision, optional, intent(in) :: wall_temperature(2)
     double precision, optional, intent(in) :: wall_v(3,2)
     integer, optional, intent(in) :: wall_n(2)
+    double precision, intent(in), optional :: bulk_temperature
 
     integer :: i, start, n
     integer :: cell_idx
@@ -94,13 +95,21 @@ contains
     integer :: n_virtual
     integer :: cell(3)
     integer :: wall_idx
-    double precision :: virtual_v(3)
+    double precision :: virtual_v(3), t_factor
     logical :: all_present, all_absent
+    logical :: bulk_thermostat
 
     all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
     all_absent = .not. present(wall_temperature) .and. .not. present(wall_v) .and. .not. present(wall_n)
     if ( .not. (all_present .or. all_absent) ) &
          error stop 'wall parameters must be all present or all absent in wall_mpcd_step'
+
+    if (present(bulk_temperature)) then
+       bulk_thermostat = .true.
+       t_factor = sqrt(bulk_temperature)
+    else
+       bulk_thermostat = .false.
+    end if
 
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
@@ -137,18 +146,26 @@ contains
           local_v = local_v / n
        end if
 
-       vec = rand_sphere(state)
-       omega = &
-            reshape( (/ &
-            vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
-            vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
-            vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
-            /), (/3, 3/))
-
-       do i = start, start + n - 1
-          particles% vel(:, i) = local_v + matmul(omega, (particles% vel(:, i)-local_v))
-       end do
-
+       if (bulk_thermostat) then
+          virtual_v = 0
+          do i = start, start + n - 1
+             call mt_normal_data(particles% vel(:, i), state)
+             particles% vel(:, i) = particles% vel(:, i)*t_factor
+             virtual_v = virtual_v + particles% vel(:, i)
+          end do
+          virtual_v = local_v - virtual_v / dble(n)
+          do i = start, start + n - 1
+             particles% vel(:, i) = particles% vel(:, i) + virtual_v
+          end do
+       else
+          vec = rand_sphere(state)
+          omega = &
+               reshape( (/ &
+               vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
+               vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
+               vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
+               /), (/3, 3/))
+       end if
     end do
 
   end subroutine wall_mpcd_step
