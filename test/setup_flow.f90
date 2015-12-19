@@ -94,7 +94,6 @@ program setup_fluid
   call elem_T% create_time(datafile% observables, 'temperature', T, ior(H5MD_TIME, H5MD_STORE_TIME))
 
   call solvent% sort(solvent_cells)
-  call solvent_cells%count_particles(solvent% pos)
 
   wall_v = 0
   wall_t = [1.0d0, 1.0d0]
@@ -105,7 +104,6 @@ program setup_fluid
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
      call solvent% sort(solvent_cells)
-     call solvent_cells%count_particles(solvent% pos)
   end do
 
   do i = 1, 1000
@@ -118,7 +116,6 @@ program setup_fluid
      solvent_cells% origin = solvent_cells% origin - 1
 
      call solvent% sort(solvent_cells)
-     call solvent_cells%count_particles(solvent% pos)
 
      T = compute_temperature(solvent, solvent_cells, tz)
      write(13,*) T, sum(solvent% vel**2)/(3*solvent% Nmax), v_com
