@@ -165,6 +165,9 @@ contains
                vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
                vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
                /), (/3, 3/))
+          do i = start, start + n - 1
+             particles%vel(:,i) = local_v + matmul(omega, particles%vel(:,i)-local_v)
+          end do
        end if
     end do
 
