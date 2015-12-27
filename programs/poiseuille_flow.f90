@@ -8,10 +8,12 @@ program setup_fluid
   use h5md_module
   use mpcd
   use mt19937ar_module
+  use ParseText
   use iso_c_binding
   implicit none
 
   type(mt19937ar_t), target :: mt
+  type(PTo) :: config
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
@@ -27,18 +29,20 @@ program setup_fluid
   type(h5md_element_t) :: elem_rhoz
   type(h5md_element_t) :: elem_vx
   type(h5md_element_t) :: elem_T
+  type(h5md_element_t) :: elem_v_com
   integer(HID_T) :: box_group, solvent_group
 
-  integer, parameter :: N = 10800
-
-  integer :: i, L(3), seed_size, clock, error
+  integer :: i, L(3), seed_size, clock, error, N
+  integer :: rho
+  integer :: N_loop, N_therm
   integer, allocatable :: seed(:)
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
-  double precision, parameter :: gravity_field(3) = [ 0.001d0, 0.d0, 0.d0 ]
-  double precision :: T
+  double precision :: gravity_field(3)
+  double precision :: T, set_temperature, tau
+  logical :: thermostat
 
-  double precision, parameter :: tau = 0.1d0
+  call PTparse(config,get_input_filename(),11)
 
   call random_seed(size = seed_size)
   allocate(seed(seed_size))
@@ -52,11 +56,23 @@ program setup_fluid
 
   call h5open_f(error)
 
-  L = [6, 6, 30]
+  L = PTread_ivec(config, 'L', 3)
+  rho = PTread_i(config, 'rho')
+  N = rho *L(1)*L(2)*L(3)
+
+  set_temperature = PTread_d(config, 'T')
+  thermostat = PTread_l(config, 'thermostat')
+  
+  tau = PTread_d(config, 'tau')
+  N_therm = PTread_i(config, 'N_therm')
+  N_loop = PTread_i(config, 'N_loop')
+  gravity_field = 0
+  gravity_field(1) = PTread_d(config, 'g')
 
   call solvent% init(N)
 
   call mt_normal_data(solvent% vel, mt)
+  solvent%vel = solvent%vel*sqrt(set_temperature)
   v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
   solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
 
@@ -66,6 +82,8 @@ program setup_fluid
 
   call solvent_cells%init(L, 1.d0, has_walls=.true.)
   solvent_cells% origin(3) = -0.5d0
+
+  call PTkill(config)
 
   call solvent_cells%count_particles(solvent% pos)
 
@@ -91,25 +109,26 @@ program setup_fluid
   call elem_vx_count% create_time(datafile% observables, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_rhoz% create_time(datafile% observables, 'rhoz', rhoz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_T% create_time(datafile% observables, 'temperature', T, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_v_com% create_time(datafile% observables, 'center_of_mass_velocity', v_com, ior(H5MD_TIME, H5MD_STORE_TIME))
 
   call solvent% sort(solvent_cells)
-  call solvent_cells%count_particles(solvent% pos)
 
   wall_v = 0
   wall_t = [1.0d0, 1.0d0]
-  do i = 1, 1000
+  do i = 1, N_therm
      call wall_mpcd_step(solvent, solvent_cells, mt, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10]) 
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
+          bulk_temperature=set_temperature)
      call mpcd_stream_zwall(solvent, solvent_cells, tau, gravity_field)
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
      call solvent% sort(solvent_cells)
-     call solvent_cells%count_particles(solvent% pos)
   end do
 
-  do i = 1, 1000
+  do i = 1, N_loop
      call wall_mpcd_step(solvent, solvent_cells, mt, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10])
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
+          bulk_temperature=set_temperature)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
      call mpcd_stream_zwall(solvent, solvent_cells, tau, gravity_field)
@@ -117,10 +136,9 @@ program setup_fluid
      solvent_cells% origin = solvent_cells% origin - 1
 
      call solvent% sort(solvent_cells)
-     call solvent_cells%count_particles(solvent% pos)
 
      T = compute_temperature(solvent, solvent_cells, tz)
-     write(13,*) T, sum(solvent% vel**2)/(3*solvent% Nmax), v_com
+     call elem_v_com%append(v_com, i, i*tau)
      call elem_T% append(T, i, i*tau)
 
      call compute_rho(solvent, rhoz)
@@ -149,8 +167,6 @@ program setup_fluid
   do i = 1 , solvent_cells% N
      if ( solvent_cells% cell_count(i) > 0 ) clock = clock + 1
   end do
-  write(*,*) clock, 'filled cells'
-  write(*,*) L(1)*L(2)*(L(3)+1), 'actual cells'
 
   call e_solvent% close()
   call e_solvent_v% close()
@@ -160,6 +176,7 @@ program setup_fluid
   call elem_vx% close()
   call elem_vx_count% close()
   call elem_T% close()
+  call elem_v_com% close()
 
   call h5gclose_f(solvent_group, error)
 
@@ -168,5 +185,14 @@ program setup_fluid
   call datafile% close()
 
   call h5close_f(error)
+
+  write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
+  write(*,'(a16,f8.3)') solvent%time_step%name, solvent%time_step%total
+  write(*,'(a16,f8.3)') solvent%time_count%name, solvent%time_count%total
+  write(*,'(a16,f8.3)') solvent%time_sort%name, solvent%time_sort%total
+  write(*,'(a16,f8.3)') solvent%time_ct%name, solvent%time_ct%total
+  write(*,'(a16,f8.3)') 'total                          ', &
+       solvent%time_stream%total + solvent%time_step%total + solvent%time_count%total +&
+       solvent%time_sort%total + solvent%time_ct%total
 
 end program setup_fluid

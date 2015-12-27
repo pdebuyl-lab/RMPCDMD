@@ -79,14 +79,16 @@ contains
 
   !! Lamura, Gompper, Ihle and Kroll, EPL 56, 319-325 (2001)
   !! http://dx.doi.org/10.1209/epl/i2001-00522-9
-  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n)
+  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, thermostat, bulk_temperature)
     use hilbert
-    class(particle_system_t), intent(in) :: particles
+    class(particle_system_t), intent(inout) :: particles
     class(cell_system_t), intent(in) :: cells
     type(mt19937ar_t), intent(inout) :: state
     double precision, optional, intent(in) :: wall_temperature(2)
     double precision, optional, intent(in) :: wall_v(3,2)
     integer, optional, intent(in) :: wall_n(2)
+    logical, intent(in), optional :: thermostat
+    double precision, intent(in), optional :: bulk_temperature
 
     integer :: i, start, n
     integer :: cell_idx
@@ -94,14 +96,29 @@ contains
     integer :: n_virtual
     integer :: cell(3)
     integer :: wall_idx
-    double precision :: virtual_v(3)
+    double precision :: virtual_v(3), t_factor
     logical :: all_present, all_absent
+    logical :: do_thermostat
 
     all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
     all_absent = .not. present(wall_temperature) .and. .not. present(wall_v) .and. .not. present(wall_n)
     if ( .not. (all_present .or. all_absent) ) &
          error stop 'wall parameters must be all present or all absent in wall_mpcd_step'
 
+    if (present(thermostat)) then
+       do_thermostat = thermostat
+       if (do_thermostat) then
+          if (present(bulk_temperature)) then
+             t_factor = sqrt(bulk_temperature)
+          else
+             error stop 'thermostat requested but no temperature given in wall_mpcd_step'
+          end if
+       end if
+    else
+       do_thermostat = .false.
+    end if
+
+    call particles%time_step%tic()
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -137,25 +154,37 @@ contains
           local_v = local_v / n
        end if
 
-       vec = rand_sphere(state)
-       omega = &
-            reshape( (/ &
-            vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
-            vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
-            vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
-            /), (/3, 3/))
-
-       do i = start, start + n - 1
-          particles% vel(:, i) = local_v + matmul(omega, (particles% vel(:, i)-local_v))
-       end do
-
+       if (do_thermostat) then
+          virtual_v = 0
+          do i = start, start + n - 1
+             call mt_normal_data(particles% vel(:, i), state)
+             particles% vel(:, i) = particles% vel(:, i)*t_factor
+             virtual_v = virtual_v + particles% vel(:, i)
+          end do
+          virtual_v = local_v - virtual_v / dble(n)
+          do i = start, start + n - 1
+             particles% vel(:, i) = particles% vel(:, i) + virtual_v
+          end do
+       else
+          vec = rand_sphere(state)
+          omega = &
+               reshape( (/ &
+               vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
+               vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
+               vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
+               /), (/3, 3/))
+          do i = start, start + n - 1
+             particles%vel(:,i) = local_v + matmul(omega, particles%vel(:,i)-local_v)
+          end do
+       end if
     end do
+    call particles%time_step%tac()
 
   end subroutine wall_mpcd_step
 
   function compute_temperature(particles, cells, tz) result(te)
     use hilbert, only : compact_h_to_p
-    type(particle_system_t), intent(in) :: particles
+    type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
     type(profile_t), intent(inout), optional :: tz
 
@@ -174,9 +203,12 @@ contains
        do_tz = .false.
     end if
 
+    call particles%time_ct%tic()
     cell_idx = 1
     count = 0
     te = 0
+    !$omp parallel do private(start, n, local_v, local_kin, i, cell) &
+    !$omp& reduction(+:count) reduction(+:te)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -202,6 +234,7 @@ contains
        end if
 
     end do
+    call particles%time_ct%tac()
 
     te = te / count
 
@@ -254,6 +287,8 @@ contains
     pos_min = 0
     pos_max = cells% edges
 
+    call particles%time_stream%tic()
+    !$omp parallel do private(old_pos, old_vel, t_c, t_b, t_ab)
     do i = 1, particles% Nmax
        old_pos = particles% pos(:,i) 
        old_vel = particles% vel(:,i)
@@ -327,6 +362,7 @@ contains
           particles% pos(3,i) = modulo( particles% pos(3,i) , cells% edges(3) )
        end if
     end do
+    call particles%time_stream%tac()
 
   end subroutine mpcd_stream_zwall
 

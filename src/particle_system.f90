@@ -50,6 +50,7 @@ module particle_system
      integer, pointer :: flag(:)
      integer, pointer :: flag_old(:)
      integer, pointer :: flag_pointer(:)
+     type(timer_t) :: time_stream, time_step, time_sort, time_count, time_ct
    contains
      procedure :: init
      procedure :: init_from_file
@@ -126,6 +127,12 @@ contains
     this% flag_old => this% flag2
     
     this% flag = 0
+
+    call this%time_stream%init('stream')
+    call this%time_step%init('step')
+    call this%time_sort%init('sort')
+    call this%time_count%init('count')
+    call this%time_ct%init('compute_temperature')
 
   end subroutine init
 
@@ -248,8 +255,11 @@ contains
     L = cells% L
     nowalls = .not. cells% has_walls
 
+    call this%time_count%tic()
     call cells%count_particles(this% pos)
+    call this%time_count%tac()
 
+    call this%time_sort%tic()
     !$omp parallel do private(p, idx, start)
     do i=1, this% Nmax
        if (this% species(i) == 0) continue
@@ -274,6 +284,7 @@ contains
     end do
 
     cells% cell_start = cells% cell_start - cells% cell_count
+    call this%time_sort%tac()
 
     call switch(this% pos, this% pos_old)
     call switch(this% image, this% image_old)

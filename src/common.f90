@@ -7,6 +7,7 @@ module common
   public :: histogram_t
   public :: switch
   public :: get_input_filename
+  public :: timer_t
 
   integer, parameter :: max_path_length = 255
 
@@ -38,6 +39,17 @@ module common
      generic, public :: bin => histogram_bin
      procedure, private :: histogram_bin
   end type histogram_t
+
+  type timer_t
+     double precision :: tic_time
+     double precision :: total
+     character(len=32) :: name
+   contains
+     generic, public :: init => timer_init
+     procedure, private :: timer_init
+     procedure :: tic
+     procedure :: tac
+  end type timer_t
 
   interface switch
      module procedure :: switch_d2
@@ -178,5 +190,26 @@ contains
     call get_command_argument(1, r)
 
   end function get_input_filename
+
+  subroutine timer_init(this, name)
+    class(timer_t), intent(out) :: this
+    character(len=*), intent(in) :: name
+
+    this%name = name
+    this%total = 0
+
+  end subroutine timer_init
+
+  subroutine tic(this)
+    use omp_lib
+    class(timer_t), intent(inout) :: this
+    this%tic_time = omp_get_wtime()
+  end subroutine tic
+
+  subroutine tac(this)
+    use omp_lib
+    class(timer_t), intent(inout) :: this
+    this%total = this%total + omp_get_wtime() - this%tic_time
+  end subroutine tac
 
 end module common
