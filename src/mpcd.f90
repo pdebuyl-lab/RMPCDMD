@@ -81,7 +81,7 @@ contains
   !! http://dx.doi.org/10.1209/epl/i2001-00522-9
   subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, thermostat, bulk_temperature)
     use hilbert
-    class(particle_system_t), intent(in) :: particles
+    class(particle_system_t), intent(inout) :: particles
     class(cell_system_t), intent(in) :: cells
     type(mt19937ar_t), intent(inout) :: state
     double precision, optional, intent(in) :: wall_temperature(2)
@@ -118,6 +118,7 @@ contains
        do_thermostat = .false.
     end if
 
+    call particles%time_step%tic()
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -177,12 +178,13 @@ contains
           end do
        end if
     end do
+    call particles%time_step%tac()
 
   end subroutine wall_mpcd_step
 
   function compute_temperature(particles, cells, tz) result(te)
     use hilbert, only : compact_h_to_p
-    type(particle_system_t), intent(in) :: particles
+    type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
     type(profile_t), intent(inout), optional :: tz
 
@@ -201,6 +203,7 @@ contains
        do_tz = .false.
     end if
 
+    call particles%time_ct%tic()
     cell_idx = 1
     count = 0
     te = 0
@@ -231,6 +234,7 @@ contains
        end if
 
     end do
+    call particles%time_ct%tac()
 
     te = te / count
 
@@ -283,6 +287,7 @@ contains
     pos_min = 0
     pos_max = cells% edges
 
+    call particles%time_stream%tic()
     !$omp parallel do private(old_pos, old_vel, t_c, t_b, t_ab)
     do i = 1, particles% Nmax
        old_pos = particles% pos(:,i) 
@@ -357,6 +362,7 @@ contains
           particles% pos(3,i) = modulo( particles% pos(3,i) , cells% edges(3) )
        end if
     end do
+    call particles%time_stream%tac()
 
   end subroutine mpcd_stream_zwall
 

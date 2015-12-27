@@ -186,4 +186,13 @@ program setup_fluid
 
   call h5close_f(error)
 
+  write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
+  write(*,'(a16,f8.3)') solvent%time_step%name, solvent%time_step%total
+  write(*,'(a16,f8.3)') solvent%time_count%name, solvent%time_count%total
+  write(*,'(a16,f8.3)') solvent%time_sort%name, solvent%time_sort%total
+  write(*,'(a16,f8.3)') solvent%time_ct%name, solvent%time_ct%total
+  write(*,'(a16,f8.3)') 'total                          ', &
+       solvent%time_stream%total + solvent%time_step%total + solvent%time_count%total +&
+       solvent%time_sort%total + solvent%time_ct%total
+
 end program setup_fluid
