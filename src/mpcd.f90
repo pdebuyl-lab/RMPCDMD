@@ -79,7 +79,7 @@ contains
 
   !! Lamura, Gompper, Ihle and Kroll, EPL 56, 319-325 (2001)
   !! http://dx.doi.org/10.1209/epl/i2001-00522-9
-  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, bulk_temperature)
+  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, thermostat, bulk_temperature)
     use hilbert
     class(particle_system_t), intent(in) :: particles
     class(cell_system_t), intent(in) :: cells
@@ -87,6 +87,7 @@ contains
     double precision, optional, intent(in) :: wall_temperature(2)
     double precision, optional, intent(in) :: wall_v(3,2)
     integer, optional, intent(in) :: wall_n(2)
+    logical, intent(in), optional :: thermostat
     double precision, intent(in), optional :: bulk_temperature
 
     integer :: i, start, n
@@ -97,18 +98,24 @@ contains
     integer :: wall_idx
     double precision :: virtual_v(3), t_factor
     logical :: all_present, all_absent
-    logical :: bulk_thermostat
+    logical :: do_thermostat
 
     all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
     all_absent = .not. present(wall_temperature) .and. .not. present(wall_v) .and. .not. present(wall_n)
     if ( .not. (all_present .or. all_absent) ) &
          error stop 'wall parameters must be all present or all absent in wall_mpcd_step'
 
-    if (present(bulk_temperature)) then
-       bulk_thermostat = .true.
-       t_factor = sqrt(bulk_temperature)
+    if (present(thermostat)) then
+       do_thermostat = thermostat
+       if (do_thermostat) then
+          if (present(bulk_temperature)) then
+             t_factor = sqrt(bulk_temperature)
+          else
+             error stop 'thermostat requested but no temperature given in wall_mpcd_step'
+          end if
+       end if
     else
-       bulk_thermostat = .false.
+       do_thermostat = .false.
     end if
 
     do cell_idx = 1, cells% N
@@ -146,7 +153,7 @@ contains
           local_v = local_v / n
        end if
 
-       if (bulk_thermostat) then
+       if (do_thermostat) then
           virtual_v = 0
           do i = start, start + n - 1
              call mt_normal_data(particles% vel(:, i), state)
