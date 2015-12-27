@@ -37,9 +37,9 @@ add_executable(setup_thermal_fluid
 test/setup_thermal_fluid.f90)
 target_link_libraries(setup_thermal_fluid RMPCDMD fortran_h5md ParseText)
 
-add_executable(setup_flow
-test/setup_flow.f90)
-target_link_libraries(setup_flow RMPCDMD fortran_h5md ParseText)
+add_executable(poiseuille_flow
+programs/poiseuille_flow.f90)
+target_link_libraries(poiseuille_flow RMPCDMD fortran_h5md ParseText)
 
 add_executable(setup_simple_colloids
 test/setup_simple_colloids.f90)
