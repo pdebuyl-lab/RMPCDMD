@@ -204,6 +204,8 @@ contains
     cell_idx = 1
     count = 0
     te = 0
+    !$omp parallel do private(start, n, local_v, local_kin, i, cell) &
+    !$omp& reduction(+:count) reduction(+:te)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -281,6 +283,7 @@ contains
     pos_min = 0
     pos_max = cells% edges
 
+    !$omp parallel do private(old_pos, old_vel, t_c, t_b, t_ab)
     do i = 1, particles% Nmax
        old_pos = particles% pos(:,i) 
        old_vel = particles% vel(:,i)
