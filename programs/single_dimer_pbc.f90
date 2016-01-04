@@ -262,7 +262,8 @@ contains
   double precision :: x(3)
   
   call random_number(rndnumbers)
-  
+
+  !$omp parallel do private(x, dist_to_C_sq)
   do  r = 1,solvent% Nmax
      if (solvent% species(r) == 1) then
        x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges) 
@@ -284,6 +285,7 @@ contains
     integer :: m
     double precision :: x(3)
 
+    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
     do m = 1, solvent% Nmax
        if (solvent% flag(m) == 1) then
           x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
@@ -313,7 +315,7 @@ contains
 
     far = (L(1)*0.45)**2
 
-
+    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
     do n = 1,solvent% Nmax
        if (solvent% species(n) == 2) then
           x = rel_pos(colloids% pos(:,1), solvent% pos(:,n), solvent_cells% edges)
@@ -342,6 +344,7 @@ contains
     y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
     conc_z = 0
 
+    !$omp parallel do private(x_pos, y_pos, z_pos)
     do o = 1, solvent% Nmax
        solvent_pos(:,o) = solvent% pos(:,o) - colloids% pos(:,1)
        x_pos = dot_product(x,solvent_pos(:,o))
@@ -349,6 +352,7 @@ contains
        z_pos = dot_product(z, solvent_pos(:,o))
        solvent_pos(:,o) = (/x_pos,y_pos,z_pos/)
     end do
+    !$omp parallel do private(r, theta, check)
     do o = 1, solvent% Nmax
        r = sqrt(solvent_pos(1,o)**2 + solvent_pos(2,o)**2)
        theta = atan(solvent_pos(2,o)/solvent_pos(1,o))
@@ -357,9 +361,11 @@ contains
        solvent_pos(3,o) = solvent_pos(3,o)+colloids% pos(3,1)
        if (solvent% species(o)==2) then
           check = floor(solvent_pos(3,o)/dz)
+          !$omp atomic
           conc_z(check) = conc_z(check) + 1
        end if 
     end do
+
     colloid_pos(:,1) = 0
     colloid_pos(3,1) = colloids% pos(3,1)
     colloid_pos(:,2) = 0
