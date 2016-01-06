@@ -36,7 +36,7 @@ contains
   end function rand_sphere
 
   subroutine simple_mpcd_step(particles, cells, state, temperature)
-    class(particle_system_t), intent(in) :: particles
+    class(particle_system_t), intent(inout) :: particles
     class(cell_system_t), intent(in) :: cells
     type(mt19937ar_t), intent(inout) :: state
     double precision, intent(in), optional :: temperature
@@ -49,6 +49,7 @@ contains
     thermostat = present(temperature)
     if (thermostat) error stop 'thermostatting not implemented'
 
+    call particles%time_step%tic()
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -74,6 +75,7 @@ contains
        end do
 
     end do
+    call particles%time_step%tac()
 
   end subroutine simple_mpcd_step
 

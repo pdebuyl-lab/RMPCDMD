@@ -47,6 +47,8 @@ program setup_single_dimer
   integer :: i, L(3), seed_size, clock
   integer :: j, k
   integer, allocatable :: seed(:)
+  type(timer_t) :: varia, main
+  type(timer_t) :: time_flag, time_refuel, time_change
 
   call PTparse(config,get_input_filename(),11)
 
@@ -59,6 +61,12 @@ program setup_single_dimer
 
   call system_clock(count=clock)
   call init_genrand(mt, int(clock, c_long))
+
+  call main%init('main')
+  call varia%init('varia')
+  call time_flag%init('flag')
+  call time_refuel%init('refuel')
+  call time_change%init('change')
 
   call h5open_f(error)
 
@@ -158,10 +166,12 @@ program setup_single_dimer
   kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
   call thermo_write
 
+  call main%tic()
   do i = 1, N_loop
      md: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
+        call varia%tic()
         ! Extra copy for rattle
         colloids% pos_rattle = colloids% pos
         do k=1, colloids% Nmax
@@ -170,44 +180,59 @@ program setup_single_dimer
         end do
 
         call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
+        call varia%tac()
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call varia%tic()
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
+           call varia%tac()
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
+           call varia%tic()
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
            n_extra_sorting = n_extra_sorting + 1
+           call varia%tac()
         end if
 
+        call varia%tic()
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
 
-        solvent% force = 0
+        !$omp parallel do
+        do k = 1, solvent%Nmax
+           solvent% force(:,k) = 0
+        end do
         colloids% force = 0
+        call varia%tac()
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
         call md_vel(solvent, solvent_cells% edges, dt)
 
+        call varia%tic()
         do k=1, colloids% Nmax
            colloids% vel(:,k) = colloids% vel(:,k) + &
              dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids% mass(k))
         end do
 
         call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
+        call varia%tac()
 
+        call time_flag%tic()
         call flag_particles
+        call time_flag%tac()
+        call time_change%tic()
         call change_species
-
+        call time_change%tac()
 
      end do md
 
-
+     call varia%tic()
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
                  colloids% vel, e1+e2+(colloids% mass(1)*sum(colloids% vel(:,1)**2) &
                  +colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 &
@@ -216,34 +241,65 @@ program setup_single_dimer
      solvent_cells% origin(1) = genrand_real1(mt) - 1
      solvent_cells% origin(2) = genrand_real1(mt) - 1
      solvent_cells% origin(3) = genrand_real1(mt) - 1
+     call varia%tac()
 
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
      call simple_mpcd_step(solvent, solvent_cells, mt)
      
+     call time_refuel%tic()
      call refuel
+     call time_refuel%tac()
      
      if (modulo(i,100)==0) then
         call concentration_field
         write(16,*) conc_z, colloid_pos
      end if
 
+     call varia%tic()
      kin_co = (colloids% mass(1)*sum(colloids% vel(:,1)**2)+ colloids% mass(2)*sum(colloids% vel(:,2)**2))/2
-     write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
+
+     write(12,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
           kin_co, sum(solvent% vel**2)/2, &
           e1+e2+kin_co+sum(solvent% vel**2)/2, &
           compute_temperature(solvent, solvent_cells), &
-          sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
-     
+          sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d  
+     call varia%tac()
 
   end do
-  
+  call main%tac()
 
   write(*,*) 'n extra sorting', n_extra_sorting
   
   call h5close_f(error)
-  
+
+  write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
+  write(*,'(a16,f8.3)') solvent%time_step%name, solvent%time_step%total
+  write(*,'(a16,f8.3)') solvent%time_count%name, solvent%time_count%total
+  write(*,'(a16,f8.3)') solvent%time_sort%name, solvent%time_sort%total
+  write(*,'(a16,f8.3)') solvent%time_ct%name, solvent%time_ct%total
+  write(*,'(a16,f8.3)') solvent%time_md_pos%name, solvent%time_md_pos%total
+  write(*,'(a16,f8.3)') solvent%time_md_vel%name, solvent%time_md_vel%total
+  write(*,'(a16,f8.3)') solvent%time_max_disp%name, solvent%time_max_disp%total
+  write(*,'(a16,f8.3)') colloids%time_self_force%name, solvent%time_self_force%total
+  write(*,'(a16,f8.3)') neigh%time_update%name, neigh%time_update%total
+  write(*,'(a16,f8.3)') neigh%time_force%name, neigh%time_force%total
+  write(*,'(a16,f8.3)') colloids%time_max_disp%name, colloids%time_max_disp%total
+  write(*,'(a16,f8.3)') time_flag%name, time_flag%total
+  write(*,'(a16,f8.3)') time_change%name, time_change%total
+  write(*,'(a16,f8.3)') time_refuel%name, time_refuel%total
+
+  write(*,'(a16,f8.3)') 'total', solvent%time_stream%total + solvent%time_step%total + &
+       solvent%time_count%total + solvent%time_sort%total + solvent%time_ct%total + &
+       solvent%time_md_pos%total + solvent%time_md_vel%total + &
+       solvent%time_max_disp%total + solvent%time_self_force%total + &
+       neigh%time_update%total + neigh%time_force%total + colloids%time_max_disp%total + &
+       time_flag%total + time_change%total + time_refuel%total
+
+  write(*,'(a16,f8.3)') varia%name, varia%total
+  write(*,'(a16,f8.3)') main%name, main%total
+
 contains
 
   subroutine thermo_write

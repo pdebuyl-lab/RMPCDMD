@@ -16,6 +16,7 @@ module neighbor_list
      integer, allocatable :: list(:, :)
      integer, allocatable :: n(:)
      integer, allocatable :: stencil(:,:)
+     type(timer_t) :: time_update, time_force
    contains
      procedure :: init
      procedure :: update_list
@@ -35,6 +36,9 @@ contains
     allocate(this% n(Npoints))
     this% list = 0
     this% n = 0
+
+    call this%time_update%init('neigh list update')
+    call this%time_force%init('neigh list force')
 
   end subroutine init
 
@@ -77,6 +81,7 @@ contains
     M = cells% M
     stencil_size = size(this% stencil, dim=2)
 
+    call this%time_update%tic()
     !$omp parallel do private(x, cell, list_idx, j, actual_cell, neigh_idx, cell_n, cell_start, cell_i, y, rsq)
     do i = 1, system1% Nmax
        x = system1% pos(:, i)
@@ -107,13 +112,14 @@ contains
        this% n(i) = list_idx
 
     end do
+    call this%time_update%tac()
 
   end subroutine update_list
 
   function compute_force(ps1, ps2, n_list, L, lj_params) result(e)
     type(particle_system_t), intent(inout) :: ps1
     type(particle_system_t), intent(inout) :: ps2
-    type(neighbor_list_t), intent(in) :: n_list
+    type(neighbor_list_t), intent(inout) :: n_list
     double precision, intent(in) :: L(3)
     type(lj_params_t), intent(in) :: lj_params
     double precision :: e
@@ -130,6 +136,7 @@ contains
 
     e = 0
 
+    call n_list%time_force%tic()
     !$omp parallel do private(x, s1, f1, j, idx, s2, d, r_sq, f) &
     !$omp& reduction(+:e)
     do i = 1, ps1% Nmax
@@ -152,6 +159,7 @@ contains
        end do
        ps1% force(:, i) = ps1% force(:, i) + f1
     end do
+    call n_list%time_force%tac()
 
   end function compute_force
 
@@ -171,6 +179,7 @@ contains
 
     e = 0
 
+    call ps%time_self_force%tic()
     do i = 1, ps% Nmax
        s1 = ps% species(i)
        if (s1 <= 0) continue
@@ -188,6 +197,7 @@ contains
           end if
        end do
     end do
+    call ps%time_self_force%tac()
 
   end function compute_force_n2
 
