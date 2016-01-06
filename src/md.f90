@@ -22,10 +22,12 @@ contains
 
     dt_sq = dt**2/2
 
+    call particles%time_md_pos%tic()
     !$omp parallel do
     do k = 1, particles% Nmax
        particles% pos(:,k) = particles% pos(:,k) + dt * particles% vel(:,k) + dt_sq * particles% force(:,k)
     end do
+    call particles%time_md_pos%tac()
 
   end subroutine md_pos
 
@@ -51,11 +53,13 @@ contains
 
     integer :: k
 
+    call particles%time_md_vel%tic()
     !$omp parallel do
     do k = 1, particles% Nmax
        particles% vel(:,k) = particles% vel(:,k) + &
             dt * ( particles% force(:,k) + particles% force_old(:,k) ) / 2
     end do
+    call particles%time_md_vel%tac()
 
   end subroutine md_vel
 
