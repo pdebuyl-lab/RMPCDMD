@@ -117,7 +117,7 @@ program setup_simple_colloids
   do i = 1, 100
      so_max = 0
      co_max = 0
-     md: do j = 1, N_MD_steps
+     md_loop: do j = 1, N_MD_steps
         !$omp parallel do private(k, tmp_x)
         do k = 1, solvent% Nmax
            solvent% pos(:,k) = solvent% pos(:,k) + dt * solvent% vel(:,k) + dt**2 * solvent% force(:,k) / 2
@@ -154,7 +154,7 @@ program setup_simple_colloids
 
         write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax)
 
-     end do md
+     end do md_loop
 
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)

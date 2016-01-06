@@ -168,7 +168,7 @@ program setup_single_dimer
 
   call main%tic()
   do i = 1, N_loop
-     md: do j = 1, N_MD_steps
+     md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
         call varia%tic()
@@ -230,7 +230,7 @@ program setup_single_dimer
         call change_species
         call time_change%tac()
 
-     end do md
+     end do md_loop
 
      call varia%tic()
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
