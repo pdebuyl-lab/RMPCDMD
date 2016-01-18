@@ -184,7 +184,7 @@ contains
              particles% vel(:, i) = particles% vel(:, i) + virtual_v
           end do
        else
-          vec = 0
+          vec = rand_sphere(state(thread_id))
           omega = &
                reshape( (/ &
                vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
