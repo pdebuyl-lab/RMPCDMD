@@ -7,9 +7,10 @@ program setup_simple_colloid
   use hdf5
   use h5md_module
   use interaction
-  use mt19937ar_module
+  use threefry_module
   use mpcd
   use iso_c_binding
+  use omp_lib
   implicit none
 
   type(cell_system_t) :: solvent_cells
@@ -31,22 +32,21 @@ program setup_simple_colloid
   double precision :: tau, dt
   integer :: N_MD_steps
 
-  type(mt19937ar_t), target :: mt
-
-  integer :: i, L(3), seed_size, clock
+  integer :: i, L(3)
   integer :: jump(3)
   integer :: j, k
-  integer, allocatable :: seed(:)
+  type(threefry_rng_t), allocatable :: state(:)
+  integer :: n_threads
 
-  call random_seed(size = seed_size)
-  allocate(seed(seed_size))
-  call system_clock(count=clock)
-  seed = clock + 37 * [ (i - 1, i = 1, seed_size) ]
-  call random_seed(put = seed)
-  deallocate(seed)
+  n_threads = omp_get_max_threads()
+  allocate(state(n_threads))
 
-  call system_clock(count=clock)
-  call init_genrand(mt, int(clock, c_long))
+  do i = 1, n_threads
+     state(i)%counter%c0 = 0
+     state(i)%counter%c1 = 0
+     state(i)%key%c0 = 0
+     state(i)%key%c1 = 719287321987291_c_long
+  end do
 
   call h5open_f(error)
 
@@ -138,7 +138,7 @@ program setup_simple_colloid
 
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
-     call simple_mpcd_step(solvent, solvent_cells, mt)
+     call simple_mpcd_step(solvent, solvent_cells, state)
 
   end do
 
@@ -184,7 +184,7 @@ program setup_simple_colloid
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, 1.5d0, solvent_cells)
 
-     call simple_mpcd_step(solvent, solvent_cells, mt)
+     call simple_mpcd_step(solvent, solvent_cells, state)
 
      write(*,'(6f16.3)') e1, e2, mass*sum(colloids% vel**2)/2, sum(solvent% vel**2)/2, &
          e1+e2+mass*sum(colloids% vel**2)/2+sum(solvent% vel**2)/2, &

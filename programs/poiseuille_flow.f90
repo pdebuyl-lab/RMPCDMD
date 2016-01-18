@@ -7,12 +7,13 @@ program setup_fluid
   use hdf5
   use h5md_module
   use mpcd
-  use mt19937ar_module
+  use threefry_module
   use ParseText
   use iso_c_binding
+  use omp_lib
   implicit none
 
-  type(mt19937ar_t), target :: mt
+  type(threefry_rng_t), allocatable :: state(:)
   type(PTo) :: config
 
   type(cell_system_t) :: solvent_cells
@@ -32,7 +33,7 @@ program setup_fluid
   type(h5md_element_t) :: elem_v_com
   integer(HID_T) :: box_group, solvent_group
 
-  integer :: i, L(3), seed_size, clock, error, N
+  integer :: i, L(3), seed_size, clock, error, N, n_threads
   integer :: rho
   integer :: N_loop, N_therm
   integer, allocatable :: seed(:)
@@ -44,15 +45,15 @@ program setup_fluid
 
   call PTparse(config,get_input_filename(),11)
 
-  call random_seed(size = seed_size)
-  allocate(seed(seed_size))
-  call system_clock(count=clock)
-  seed = clock + 37 * [ (i - 1, i = 1, seed_size) ]
-  call random_seed(put = seed)
-  deallocate(seed)
+  n_threads = omp_get_max_threads()
+  allocate(state(n_threads))
 
-  call system_clock(count=clock)
-  call init_genrand(mt, int(clock, c_long))
+  do i = 1, n_threads
+     state(i)%counter%c0 = 0
+     state(i)%counter%c1 = 0
+     state(i)%key%c0 = 0
+     state(i)%key%c1 = 1110987654321_c_long
+  end do
 
   call h5open_f(error)
 
@@ -71,7 +72,11 @@ program setup_fluid
 
   call solvent% init(N)
 
-  call mt_normal_data(solvent% vel, mt)
+  do i=1, solvent% Nmax
+     solvent% vel(1,i) = threefry_normal(state(1))
+     solvent% vel(2,i) = threefry_normal(state(1))
+     solvent% vel(3,i) = threefry_normal(state(1))
+  end do
   solvent%vel = solvent%vel*sqrt(set_temperature)
   v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
   solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
@@ -116,7 +121,7 @@ program setup_fluid
   wall_v = 0
   wall_t = [1.0d0, 1.0d0]
   do i = 1, N_therm
-     call wall_mpcd_step(solvent, solvent_cells, mt, &
+     call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
           bulk_temperature=set_temperature)
      call mpcd_stream_zwall(solvent, solvent_cells, tau, gravity_field)
@@ -126,7 +131,7 @@ program setup_fluid
   end do
 
   do i = 1, N_loop
-     call wall_mpcd_step(solvent, solvent_cells, mt, &
+     call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
           bulk_temperature=set_temperature)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)

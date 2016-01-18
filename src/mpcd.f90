@@ -2,7 +2,7 @@ module mpcd
   use common
   use particle_system
   use cell_system
-  use mt19937ar_module
+  use threefry_module
   implicit none
 
   private
@@ -15,7 +15,7 @@ module mpcd
 contains
 
   function rand_sphere(state) result(n)
-    type(mt19937ar_t), intent(inout) :: state
+    type(threefry_rng_t), intent(inout) :: state
     double precision :: n(3)
 
     logical :: s_lt_one
@@ -23,8 +23,8 @@ contains
 
     s_lt_one = .false.
     do while (.not. s_lt_one)
-       n(1) = genrand_real1(state)
-       n(2) = genrand_real1(state)
+       n(1) = threefry_double(state)
+       n(2) = threefry_double(state)
        n(1:2) = 2*n(1:2) - 1
        s = n(1)**2 + n(2)**2
        if ( s<1.d0 ) s_lt_one = .true.
@@ -36,20 +36,25 @@ contains
   end function rand_sphere
 
   subroutine simple_mpcd_step(particles, cells, state, temperature)
+    use omp_lib
     class(particle_system_t), intent(inout) :: particles
     class(cell_system_t), intent(in) :: cells
-    type(mt19937ar_t), intent(inout) :: state
+    type(threefry_rng_t), intent(inout) :: state(:)
     double precision, intent(in), optional :: temperature
 
     integer :: i, start, n
     integer :: cell_idx
     double precision :: local_v(3), omega(3,3), vec(3)
     logical :: thermostat
+    integer :: thread_id
 
     thermostat = present(temperature)
     if (thermostat) error stop 'thermostatting not implemented'
 
     call particles%time_step%tic()
+    !$omp parallel
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(start, n, local_v, i, vec, omega)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -62,7 +67,7 @@ contains
        end do
        local_v = local_v / n
 
-       vec = rand_sphere(state)
+       vec = rand_sphere(state(thread_id))
        omega = &
             reshape( (/ &
             vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
@@ -75,6 +80,8 @@ contains
        end do
 
     end do
+    !$omp end do
+    !$omp end parallel
     call particles%time_step%tac()
 
   end subroutine simple_mpcd_step
@@ -83,9 +90,10 @@ contains
   !! http://dx.doi.org/10.1209/epl/i2001-00522-9
   subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, thermostat, bulk_temperature)
     use hilbert
+    use omp_lib
     class(particle_system_t), intent(inout) :: particles
     class(cell_system_t), intent(in) :: cells
-    type(mt19937ar_t), intent(inout) :: state
+    type(threefry_rng_t), intent(inout) :: state(:)
     double precision, optional, intent(in) :: wall_temperature(2)
     double precision, optional, intent(in) :: wall_v(3,2)
     integer, optional, intent(in) :: wall_n(2)
@@ -101,6 +109,7 @@ contains
     double precision :: virtual_v(3), t_factor
     logical :: all_present, all_absent
     logical :: do_thermostat
+    integer :: thread_id
 
     all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
     all_absent = .not. present(wall_temperature) .and. .not. present(wall_v) .and. .not. present(wall_n)
@@ -121,6 +130,9 @@ contains
     end if
 
     call particles%time_step%tic()
+    !$omp parallel
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(start, n, n_virtual, virtual_v, cell, wall_idx, local_v, i, vec, omega)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -141,7 +153,9 @@ contains
        if (wall_idx > 0) then
           if (n < wall_n(wall_idx)) then
              n_virtual = wall_n(wall_idx) - n
-             call mt_normal_data(virtual_v, state)
+             virtual_v(1) = threefry_normal(state(thread_id))
+             virtual_v(2) = threefry_normal(state(thread_id))
+             virtual_v(3) = threefry_normal(state(thread_id))
              virtual_v = virtual_v * sqrt(n_virtual*wall_temperature(wall_idx))
           end if
        end if
@@ -159,7 +173,9 @@ contains
        if (do_thermostat) then
           virtual_v = 0
           do i = start, start + n - 1
-             call mt_normal_data(particles% vel(:, i), state)
+             virtual_v(1) = threefry_normal(state(thread_id))
+             virtual_v(2) = threefry_normal(state(thread_id))
+             virtual_v(3) = threefry_normal(state(thread_id))
              particles% vel(:, i) = particles% vel(:, i)*t_factor
              virtual_v = virtual_v + particles% vel(:, i)
           end do
@@ -168,7 +184,7 @@ contains
              particles% vel(:, i) = particles% vel(:, i) + virtual_v
           end do
        else
-          vec = rand_sphere(state)
+          vec = 0
           omega = &
                reshape( (/ &
                vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
@@ -180,6 +196,8 @@ contains
           end do
        end if
     end do
+    !$omp end do
+    !$omp end parallel
     call particles%time_step%tac()
 
   end subroutine wall_mpcd_step

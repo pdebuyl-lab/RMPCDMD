@@ -7,11 +7,12 @@ program setup_single_dimer
   use hdf5
   use h5md_module
   use interaction
-  use mt19937ar_module
+  use threefry_module
   use mpcd
   use md
   use ParseText
   use iso_c_binding
+  use omp_lib
   implicit none
 
   type(cell_system_t) :: solvent_cells
@@ -41,26 +42,27 @@ program setup_single_dimer
   double precision :: conc_z(400)
   double precision :: colloid_pos(3,2)
 
-  type(mt19937ar_t), target :: mt
   type(PTo) :: config
 
-  integer :: i, L(3), seed_size, clock
+  integer :: i, L(3)
   integer :: j, k
-  integer, allocatable :: seed(:)
   type(timer_t) :: varia, main
   type(timer_t) :: time_flag, time_refuel, time_change
+  type(threefry_rng_t), allocatable :: state(:)
+  integer(c_int64_t) :: seed
+  integer :: n_threads
 
   call PTparse(config,get_input_filename(),11)
 
-  call random_seed(size = seed_size)
-  allocate(seed(seed_size))
-  call system_clock(count=clock)
-  seed = clock + 37 * [ (i - 1, i = 1, seed_size) ]
-  call random_seed(put = seed)
-  deallocate(seed)
-
-  call system_clock(count=clock)
-  call init_genrand(mt, int(clock, c_long))
+  n_threads = omp_get_max_threads()
+  allocate(state(n_threads))
+  seed = PTread_c_int64(config, 'seed')
+  do i = 1, n_threads
+     state(i)%counter%c0 = 0
+     state(i)%counter%c1 = 0
+     state(i)%key%c0 = 0
+     state(i)%key%c1 = 719287321987291_c_long
+  end do
 
   call main%init('main')
   call varia%init('varia')
@@ -237,16 +239,16 @@ program setup_single_dimer
                  colloids% vel, e1+e2+(colloids% mass(1)*sum(colloids% vel(:,1)**2) &
                  +colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 &
                  +sum(solvent% vel**2)/2
-     
-     solvent_cells% origin(1) = genrand_real1(mt) - 1
-     solvent_cells% origin(2) = genrand_real1(mt) - 1
-     solvent_cells% origin(3) = genrand_real1(mt) - 1
+
+     solvent_cells% origin(1) = threefry_double(state(1)) - 1
+     solvent_cells% origin(2) = threefry_double(state(1)) - 1
+     solvent_cells% origin(3) = threefry_double(state(1)) - 1
      call varia%tac()
 
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
-     call simple_mpcd_step(solvent, solvent_cells, mt)
+     call simple_mpcd_step(solvent, solvent_cells, state)
      
      call time_refuel%tic()
      call refuel

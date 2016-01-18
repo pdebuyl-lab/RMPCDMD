@@ -7,11 +7,12 @@ program setup_fluid
   use hdf5
   use h5md_module
   use mpcd
-  use mt19937ar_module
+  use threefry_module
   use iso_c_binding
+  use omp_lib
   implicit none
 
-  type(mt19937ar_t), target :: mt
+  type(threefry_rng_t), target, allocatable :: state(:)
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
@@ -26,21 +27,20 @@ program setup_fluid
 
   integer, parameter :: N = 2000
 
-  integer :: i, L(3), seed_size, clock, error
-  integer, allocatable :: seed(:)
+  integer :: i, L(3), error, clock, n_threads
 
   double precision, parameter :: tau=0.1d0
   double precision :: v_com(3), wall_v(3,2)
 
-  call random_seed(size = seed_size)
-  allocate(seed(seed_size))
-  call system_clock(count=clock)
-  seed = clock + 37 * [ (i - 1, i = 1, seed_size) ]
-  call random_seed(put = seed)
-  deallocate(seed)
+  n_threads = omp_get_max_threads()
+  allocate(state(n_threads))
 
-  call system_clock(count=clock)
-  call init_genrand(mt, int(clock, c_long))
+  do i = 1, n_threads
+     state(i)%counter%c0 = 0
+     state(i)%counter%c1 = 0
+     state(i)%key%c0 = 0
+     state(i)%key%c1 = 1234567891011_c_long
+  end do
 
   call h5open_f(error)
 
@@ -48,7 +48,11 @@ program setup_fluid
 
   call solvent% init(N)
 
-  call mt_normal_data(solvent% vel, mt)
+  do i=1, solvent% Nmax
+     solvent% vel(1,i) = threefry_normal(state(1))
+     solvent% vel(2,i) = threefry_normal(state(1))
+     solvent% vel(3,i) = threefry_normal(state(1))
+  end do
   v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
   solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
 
@@ -80,17 +84,17 @@ program setup_fluid
 
   call solvent% sort(solvent_cells)
   call solvent_cells%count_particles(solvent% pos)
-  solvent_cells% origin(1) = genrand_real1(mt) - 1
-  solvent_cells% origin(2) = genrand_real1(mt) - 1
-  solvent_cells% origin(3) = genrand_real1(mt) - 1
+  solvent_cells% origin(1) = threefry_double(state(1)) - 1
+  solvent_cells% origin(2) = threefry_double(state(1)) - 1
+  solvent_cells% origin(3) = threefry_double(state(1)) - 1
 
   wall_v = 0
   do i = 1, 200
-     call simple_mpcd_step(solvent, solvent_cells, mt)
+     call simple_mpcd_step(solvent, solvent_cells, state)
      call mpcd_stream_periodic(solvent, solvent_cells, tau)
-     solvent_cells% origin(1) = genrand_real1(mt) - 1
-     solvent_cells% origin(2) = genrand_real1(mt) - 1
-     solvent_cells% origin(3) = genrand_real1(mt) - 1
+     solvent_cells% origin(1) = threefry_double(state(1)) - 1
+     solvent_cells% origin(2) = threefry_double(state(1)) - 1
+     solvent_cells% origin(3) = threefry_double(state(1)) - 1
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
   end do
@@ -105,14 +109,14 @@ program setup_fluid
   solvent% image = 0
 
   do i = 1, 200
-     call simple_mpcd_step(solvent, solvent_cells, mt)
+     call simple_mpcd_step(solvent, solvent_cells, state)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
      call mpcd_stream_periodic(solvent, solvent_cells, tau)
 
-     solvent_cells% origin(1) = genrand_real1(mt) - 1
-     solvent_cells% origin(2) = genrand_real1(mt) - 1
-     solvent_cells% origin(3) = genrand_real1(mt) - 1
+     solvent_cells% origin(1) = threefry_double(state(1)) - 1
+     solvent_cells% origin(2) = threefry_double(state(1)) - 1
+     solvent_cells% origin(3) = threefry_double(state(1)) - 1
      call solvent% sort(solvent_cells)
      call solvent_cells%count_particles(solvent% pos)
      call e_solvent% append(solvent% pos, i, i*tau)
