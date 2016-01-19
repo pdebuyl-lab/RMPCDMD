@@ -33,10 +33,10 @@ program setup_fluid
   type(h5md_element_t) :: elem_v_com
   integer(HID_T) :: box_group, solvent_group
 
-  integer :: i, L(3), seed_size, clock, error, N, n_threads
+  integer(c_int64_t) :: seed
+  integer :: i, L(3), error, N, n_threads
   integer :: rho
   integer :: N_loop, N_therm
-  integer, allocatable :: seed(:)
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
   double precision :: gravity_field(3)
@@ -47,12 +47,12 @@ program setup_fluid
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-
+  seed = PTread_c_int64(config, 'seed')
   do i = 1, n_threads
      state(i)%counter%c0 = 0
      state(i)%counter%c1 = 0
      state(i)%key%c0 = 0
-     state(i)%key%c1 = 1110987654321_c_long
+     state(i)%key%c1 = seed
   end do
 
   call h5open_f(error)
@@ -167,11 +167,6 @@ program setup_fluid
 
   call e_solvent% append(solvent% pos, i, i*tau)
   call e_solvent_v% append(solvent% vel, i, i*tau)
-
-  clock = 0
-  do i = 1 , solvent_cells% N
-     if ( solvent_cells% cell_count(i) > 0 ) clock = clock + 1
-  end do
 
   call e_solvent% close()
   call e_solvent_v% close()
