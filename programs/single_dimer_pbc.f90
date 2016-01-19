@@ -61,7 +61,7 @@ program setup_single_dimer
      state(i)%counter%c0 = 0
      state(i)%counter%c1 = 0
      state(i)%key%c0 = 0
-     state(i)%key%c1 = 719287321987291_c_long
+     state(i)%key%c1 = seed
   end do
 
   call main%init('main')
