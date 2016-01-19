@@ -226,7 +226,7 @@ program setup_single_dimer
         call varia%tac()
 
         call time_flag%tic()
-        call flag_particles
+        call flag_particles_nl
         call time_flag%tac()
         call time_change%tic()
         call change_species
@@ -313,26 +313,54 @@ contains
   end subroutine thermo_write
 
 
+  subroutine flag_particles_nl
+  double precision :: dist_to_C_sq
+  integer :: i, r
+  double precision :: x(3)
+  integer :: thread_id
+
+  !!$omp
+  thread_id = omp_get_thread_num() + 1
+  !!$omp do private(r, x, dist_to_C_sq)
+  do i = 1,neigh% n(1)
+     r = neigh%list(i,1)
+     if (solvent% species(r) == 1) then
+        x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
+        dist_to_C_sq = dot_product(x, x)
+        if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
+           if (threefry_double(state(thread_id)) <= prob) then
+              solvent% flag(r) = 1
+           end if
+        end if
+     end if
+  end do
+  !!$omp end do
+  !!$omp end
+
+end subroutine flag_particles_nl
+
   subroutine flag_particles
   double precision :: dist_to_C_sq
-  real :: rndnumbers(solvent% Nmax)
   integer :: r
   double precision :: x(3)
+  integer :: thread_id
   
-  call random_number(rndnumbers)
-
-  !$omp parallel do private(x, dist_to_C_sq)
+  !$omp parallel
+  thread_id = omp_get_thread_num() + 1
+  !$omp do private(x, dist_to_C_sq)
   do  r = 1,solvent% Nmax
      if (solvent% species(r) == 1) then
        x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges) 
        dist_to_C_sq = dot_product(x, x)
        if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-         if (rndnumbers(r) <= prob) then
+         if (threefry_double(state(thread_id)) <= prob) then
            solvent% flag(r) = 1 
          end if
        end if
     end if 
   end do
+  !$omp end do
+  !$omp end parallel
   
   end subroutine flag_particles
   
