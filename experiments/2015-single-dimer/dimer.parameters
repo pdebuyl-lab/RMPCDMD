@@ -9,6 +9,7 @@ probability = 1.0
 N_MD = 200
 N_loop = 50
 seed = 7428301037362090395
+h5md_file = dimer.h5
 
 # interaction parameters
 sigma_N = 4.0

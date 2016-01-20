@@ -2,6 +2,7 @@ program setup_single_dimer
   use common
   use cell_system
   use particle_system
+  use particle_system_io
   use hilbert
   use neighbor_list
   use hdf5
@@ -51,6 +52,9 @@ program setup_single_dimer
   type(threefry_rng_t), allocatable :: state(:)
   integer(c_int64_t) :: seed
   integer :: n_threads
+  type(h5md_file_t) :: hfile
+  type(thermo_t) :: thermo_data
+  double precision :: temperature, kin_e
 
   call PTparse(config,get_input_filename(),11)
 
@@ -119,6 +123,10 @@ program setup_single_dimer
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
+  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_pbc', &
+       'N/A', 'Pierre de Buyl')
+  call thermo_data%init(hfile, n_buffer=50, step=N_loop, time=N_MD_steps*dt)
+
   call PTkill(config)
   
   open(15,file ='dimerdata_chemConc.txt')
@@ -151,7 +159,6 @@ program setup_single_dimer
   call neigh% make_stencil(solvent_cells, max_cut+skin)
 
   call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
-
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -229,10 +236,15 @@ program setup_single_dimer
      end do md_loop
 
      call varia%tic()
+
+     temperature = compute_temperature(solvent, solvent_cells)
+     kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
+          colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
+          sum(solvent% vel**2)/2
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
-                 colloids% vel, e1+e2+(colloids% mass(1)*sum(colloids% vel(:,1)**2) &
-                 +colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 &
-                 +sum(solvent% vel**2)/2
+                 colloids% vel, e1+e2+kin_e
+
+     call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e)
 
      solvent_cells% origin(1) = threefry_double(state(1)) - 1
      solvent_cells% origin(2) = threefry_double(state(1)) - 1
@@ -268,7 +280,8 @@ program setup_single_dimer
   write(*,*) ''
 
   write(*,*) 'n extra sorting', n_extra_sorting
-  
+
+  call hfile%close()
   call h5close_f(error)
 
   write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
