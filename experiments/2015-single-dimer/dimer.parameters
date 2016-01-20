@@ -8,6 +8,7 @@ probability = 1.0
 # simulation parameters
 N_MD = 200
 N_loop = 50
+seed = 7428301037362090395
 
 # interaction parameters
 sigma_N = 4.0
