@@ -114,7 +114,6 @@ program setup_single_dimer
 
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
-  write(*,*) 'mass =', mass
 
   call solvent% init(N,2) !there will be 2 species of solvent particles
 
@@ -140,8 +139,6 @@ program setup_single_dimer
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
   
-  write(*, *) colloids% pos  
-
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
@@ -161,15 +158,12 @@ program setup_single_dimer
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
 
-  write(*,*) ''
-  write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
-  write(*,*) ''
-
   kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
-  call thermo_write
 
+  write(*,*) 'Running for', N_loop, 'loops'
   call main%tic()
   do i = 1, N_loop
+     if (modulo(i,5) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
@@ -271,6 +265,7 @@ program setup_single_dimer
 
   end do
   call main%tac()
+  write(*,*) ''
 
   write(*,*) 'n extra sorting', n_extra_sorting
   
