@@ -314,30 +314,24 @@ contains
 
 
   subroutine flag_particles_nl
-  double precision :: dist_to_C_sq
-  integer :: i, r
-  double precision :: x(3)
-  integer :: thread_id
+    double precision :: dist_to_C_sq
+    integer :: r, s
+    double precision :: x(3)
 
-  !!$omp
-  thread_id = omp_get_thread_num() + 1
-  !!$omp do private(r, x, dist_to_C_sq)
-  do i = 1,neigh% n(1)
-     r = neigh%list(i,1)
-     if (solvent% species(r) == 1) then
-        x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
-        dist_to_C_sq = dot_product(x, x)
-        if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-           if (threefry_double(state(thread_id)) <= prob) then
-              solvent% flag(r) = 1
-           end if
-        end if
-     end if
-  end do
-  !!$omp end do
-  !!$omp end
+    do s = 1,neigh% n(1)
+       r = neigh%list(s,1)
+       if (solvent% species(r) == 1) then
+          x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
+          dist_to_C_sq = dot_product(x, x)
+          if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
+             if (threefry_double(state(1)) <= prob) then
+                solvent% flag(r) = 1
+             end if
+          end if
+       end if
+    end do
 
-end subroutine flag_particles_nl
+  end subroutine flag_particles_nl
 
   subroutine flag_particles
   double precision :: dist_to_C_sq
