@@ -7,6 +7,7 @@ module particle_system_io
   private
 
   public :: particle_system_io_t
+  public :: particle_system_io_info_t
   public :: thermo_t
 
   type thermo_t
@@ -21,16 +22,29 @@ module particle_system_io
      procedure :: append => thermo_append
   end type thermo_t
 
+  type particle_system_io_info_t
+     integer :: mode
+     integer :: step
+     double precision :: time
+     logical :: store
+  end type particle_system_io_info_t
+
   type particle_system_io_t
      integer :: Nmax
      integer :: error
      integer(HID_T) :: group
      type(h5md_element_t) :: box
      type(h5md_element_t) :: position
+     type(h5md_element_t) :: image
      type(h5md_element_t) :: velocity
      type(h5md_element_t) :: force
      type(h5md_element_t) :: id
      type(h5md_element_t) :: species
+     type(particle_system_io_info_t) :: position_info
+     type(particle_system_io_info_t) :: image_info
+     type(particle_system_io_info_t) :: velocity_info
+     type(particle_system_io_info_t) :: force_info
+     type(particle_system_io_info_t) :: species_info
    contains
      procedure :: init => ps_init
      procedure :: close => ps_close
@@ -38,31 +52,69 @@ module particle_system_io
 
 contains
 
-  subroutine ps_init(this, h5md_file, name, ps, position, position_step, position_time)
-    class(particle_system_io_t), intent(out) :: this
+  subroutine ps_init(this, h5md_file, name, ps)
+    class(particle_system_io_t), intent(inout) :: this
     type(h5md_file_t), intent(inout) :: h5md_file
     character(len=*), intent(in) :: name
     type(particle_system_t), intent(in) :: ps
-    integer, intent(in), optional :: position
-    integer, intent(in), optional :: position_step
-    double precision, intent(in), optional :: position_time
+
+    type(particle_system_io_info_t) :: info
 
     this% Nmax = ps% Nmax
 
     call h5gcreate_f(h5md_file% particles, name, this% group, this% error)
 
-    if (present(position)) then
-       if (iand(position, H5MD_TIME) == H5MD_TIME) then
-          call this% position% create_time(this% group, 'position', ps% pos, position)
-       else if (iand(position, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this% position% create_time(this% group, 'position', ps% pos, position, position_step, position_time)
-       else if (iand(position, H5MD_FIXED) == H5MD_FIXED) then
-          call this% position% create_fixed(this% group, 'position', ps% pos)
+    if (this%position_info%store) then
+       info = this%position_info
+       if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
+          call this%position%create_time(this% group, 'position', ps% pos, info%mode)
+       else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
+          call this%position%create_time(this% group, 'position', ps% pos, info%mode, info%step, info%time)
+       else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
+          call this%position%create_fixed(this% group, 'position', ps% pos)
        else
           stop 'unknown storage for position in particle_system_io init'
        end if
     end if
-          
+
+    if (this%velocity_info%store) then
+       info = this%velocity_info
+       if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
+          call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode)
+       else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
+          call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode, info%step, info%time)
+       else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
+          call this%velocity%create_fixed(this% group, 'velocity', ps% vel)
+       else
+          stop 'unknown storage for velocity in particle_system_io init'
+       end if
+    end if
+
+    if (this%image_info%store) then
+       info = this%image_info
+       if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
+          call this%image%create_time(this% group, 'image', ps% image, info%mode)
+       else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
+          call this%image%create_time(this% group, 'image', ps% image, info%mode, info%step, info%time)
+       else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
+          call this%image%create_fixed(this% group, 'image', ps% image)
+       else
+          stop 'unknown storage for image in particle_system_io init'
+       end if
+    end if
+
+    if (this%species_info%store) then
+       info = this%species_info
+       if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
+          call this%species%create_time(this% group, 'species', ps% species, info%mode)
+       else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
+          call this%species%create_time(this% group, 'species', ps% species, info%mode, info%step, info%time)
+       else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
+          call this%species%create_fixed(this% group, 'species', ps% species)
+       else
+          stop 'unknown storage for species in particle_system_io init'
+       end if
+    end if
 
   end subroutine ps_init
 
