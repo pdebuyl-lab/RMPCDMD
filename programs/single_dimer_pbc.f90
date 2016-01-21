@@ -138,6 +138,7 @@ program setup_single_dimer
   colloids% vel = 0
 
   dimer_io%force_info%store = .false.
+  dimer_io%id_info%store = .false.
   dimer_io%position_info%store = .true.
   dimer_io%position_info%mode = H5MD_LINEAR
   dimer_io%position_info%step = N_loop
