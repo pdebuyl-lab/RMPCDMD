@@ -140,19 +140,19 @@ program setup_single_dimer
   dimer_io%force_info%store = .false.
   dimer_io%id_info%store = .false.
   dimer_io%position_info%store = .true.
-  dimer_io%position_info%mode = H5MD_LINEAR
+  dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   dimer_io%position_info%step = N_loop
   dimer_io%position_info%time = N_loop*dt
   dimer_io%image_info%store = .true.
-  dimer_io%image_info%mode = H5MD_LINEAR
+  dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   dimer_io%image_info%step = N_loop
   dimer_io%image_info%time = N_loop*dt
   dimer_io%velocity_info%store = .true.
-  dimer_io%velocity_info%mode = H5MD_LINEAR
+  dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   dimer_io%velocity_info%step = N_loop
   dimer_io%velocity_info%time = N_loop*dt
   dimer_io%species_info%store = .true.
-  dimer_io%species_info%mode = H5MD_FIXED
+  dimer_io%species_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   call dimer_io%init(hfile, 'dimer', colloids)
 
   call random_number(solvent% vel(:, :))
