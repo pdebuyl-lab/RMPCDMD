@@ -55,6 +55,7 @@ program setup_single_dimer
   type(h5md_file_t) :: hfile
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
+  type(particle_system_io_t) :: dimer_io
 
   call PTparse(config,get_input_filename(),11)
 
@@ -126,6 +127,8 @@ program setup_single_dimer
   call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_pbc', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_loop, time=N_MD_steps*dt)
+
+  call dimer_io%init(hfile, 'dimer', colloids, H5MD_LINEAR, position_step=N_loop, position_time=N_MD_steps*dt)
 
   call PTkill(config)
   
@@ -246,6 +249,8 @@ program setup_single_dimer
 
      call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e)
 
+     call dimer_io%position%append(colloids%pos)
+
      solvent_cells% origin(1) = threefry_double(state(1)) - 1
      solvent_cells% origin(2) = threefry_double(state(1)) - 1
      solvent_cells% origin(3) = threefry_double(state(1)) - 1
@@ -281,6 +286,7 @@ program setup_single_dimer
 
   write(*,*) 'n extra sorting', n_extra_sorting
 
+  call dimer_io%close()
   call hfile%close()
   call h5close_f(error)
 
