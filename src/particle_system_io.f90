@@ -44,6 +44,7 @@ module particle_system_io
      type(particle_system_io_info_t) :: image_info
      type(particle_system_io_info_t) :: velocity_info
      type(particle_system_io_info_t) :: force_info
+     type(particle_system_io_info_t) :: id_info
      type(particle_system_io_info_t) :: species_info
    contains
      procedure :: init => ps_init
@@ -100,6 +101,19 @@ contains
           call this%image%create_fixed(this% group, 'image', ps% image)
        else
           stop 'unknown storage for image in particle_system_io init'
+       end if
+    end if
+
+    if (this%id_info%store) then
+       info = this%id_info
+       if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
+          call this%id%create_time(this% group, 'id', ps% id, info%mode)
+       else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
+          call this%id%create_time(this% group, 'id', ps% id, info%mode, info%step, info%time)
+       else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
+          call this%id%create_fixed(this% group, 'id', ps% id)
+       else
+          stop 'unknown storage for id in particle_system_io init'
        end if
     end if
 
