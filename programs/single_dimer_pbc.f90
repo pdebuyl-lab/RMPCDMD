@@ -38,7 +38,6 @@ program setup_single_dimer
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
-  double precision :: kin_co
 
   double precision :: conc_z(400)
   double precision :: colloid_pos(3,2)
@@ -53,6 +52,8 @@ program setup_single_dimer
   integer(c_int64_t) :: seed
   integer :: n_threads
   type(h5md_file_t) :: hfile
+  type(h5md_element_t) :: dummy_element
+  integer(HID_T) :: box_group
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   type(particle_system_io_t) :: dimer_io
@@ -128,8 +129,6 @@ program setup_single_dimer
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_loop, time=N_MD_steps*dt)
 
-  call dimer_io%init(hfile, 'dimer', colloids, H5MD_LINEAR, position_step=N_loop, position_time=N_MD_steps*dt)
-
   call PTkill(config)
   
   open(15,file ='dimerdata_chemConc.txt')
@@ -138,7 +137,24 @@ program setup_single_dimer
   colloids% species(1) = 1
   colloids% species(2) = 2
   colloids% vel = 0
-  
+
+  dimer_io%force_info%store = .false.
+  dimer_io%position_info%store = .true.
+  dimer_io%position_info%mode = H5MD_LINEAR
+  dimer_io%position_info%step = N_loop
+  dimer_io%position_info%time = N_loop*dt
+  dimer_io%image_info%store = .true.
+  dimer_io%image_info%mode = H5MD_LINEAR
+  dimer_io%image_info%step = N_loop
+  dimer_io%image_info%time = N_loop*dt
+  dimer_io%velocity_info%store = .true.
+  dimer_io%velocity_info%mode = H5MD_LINEAR
+  dimer_io%velocity_info%step = N_loop
+  dimer_io%velocity_info%time = N_loop*dt
+  dimer_io%species_info%store = .true.
+  dimer_io%species_info%mode = H5MD_FIXED
+  call dimer_io%init(hfile, 'dimer', colloids)
+
   call random_number(solvent% vel(:, :))
   solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
@@ -149,7 +165,12 @@ program setup_single_dimer
   colloids% pos(:,1) = solvent_cells% edges/2.0
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
-  
+
+  call h5gcreate_f(dimer_io%group, 'box', box_group, error)
+  call h5md_write_attribute(box_group, 'dimension', 3)
+  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
+  call h5gclose_f(box_group, error)
+
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
@@ -167,8 +188,6 @@ program setup_single_dimer
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
-
-  kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
 
   write(*,*) 'Running for', N_loop, 'loops'
   call main%tic()
@@ -244,12 +263,12 @@ program setup_single_dimer
      kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
           colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
           sum(solvent% vel**2)/2
-     write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
-                 colloids% vel, e1+e2+kin_e
 
      call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e)
 
      call dimer_io%position%append(colloids%pos)
+     call dimer_io%velocity%append(colloids%vel)
+     call dimer_io%image%append(colloids%image)
 
      solvent_cells% origin(1) = threefry_double(state(1)) - 1
      solvent_cells% origin(2) = threefry_double(state(1)) - 1
@@ -269,16 +288,6 @@ program setup_single_dimer
         call concentration_field
         write(16,*) conc_z, colloid_pos
      end if
-
-     call varia%tic()
-     kin_co = (colloids% mass(1)*sum(colloids% vel(:,1)**2)+ colloids% mass(2)*sum(colloids% vel(:,2)**2))/2
-
-     write(12,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
-          kin_co, sum(solvent% vel**2)/2, &
-          e1+e2+kin_co+sum(solvent% vel**2)/2, &
-          compute_temperature(solvent, solvent_cells), &
-          sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d  
-     call varia%tac()
 
   end do
   call main%tac()
@@ -317,15 +326,6 @@ program setup_single_dimer
   write(*,'(a16,f8.3)') main%name, main%total
 
 contains
-
-  subroutine thermo_write
-    write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
-         kin_co, sum(solvent% vel**2)/2, &
-         e1+e2+kin_co+sum(solvent% vel**2)/2, &
-         compute_temperature(solvent, solvent_cells), &
-         sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
-  end subroutine thermo_write
-
 
   subroutine flag_particles_nl
     double precision :: dist_to_C_sq
