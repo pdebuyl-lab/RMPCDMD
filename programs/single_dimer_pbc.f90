@@ -454,8 +454,10 @@ contains
        solvent_pos(3,o) = solvent_pos(3,o)+colloids% pos(3,1)
        if (solvent% species(o)==2) then
           check = floor(solvent_pos(3,o)/dz)
-          !$omp atomic
-          conc_z(check) = conc_z(check) + 1
+          if ( (check>0) .and. (check<=400) ) then
+             !$omp atomic
+             conc_z(check) = conc_z(check) + 1
+          end if
        end if 
     end do
 
