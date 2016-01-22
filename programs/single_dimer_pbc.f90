@@ -66,7 +66,7 @@ program setup_single_dimer
   do i = 1, n_threads
      state(i)%counter%c0 = 0
      state(i)%counter%c1 = 0
-     state(i)%key%c0 = 0
+     state(i)%key%c0 = int(i, c_int64_t)
      state(i)%key%c1 = seed
   end do
 
