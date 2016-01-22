@@ -6,6 +6,7 @@ program setup_fluid
   use interaction
   use hdf5
   use h5md_module
+  use particle_system_io
   use mpcd
   use threefry_module
   use ParseText
@@ -25,13 +26,13 @@ program setup_fluid
 
   type(h5md_file_t) :: datafile
   type(h5md_element_t) :: elem
-  type(h5md_element_t) :: e_solvent, e_solvent_v
   type(h5md_element_t) :: elem_tz, elem_tz_count, elem_vx_count
   type(h5md_element_t) :: elem_rhoz
   type(h5md_element_t) :: elem_vx
   type(h5md_element_t) :: elem_T
   type(h5md_element_t) :: elem_v_com
   integer(HID_T) :: box_group, solvent_group
+  type(particle_system_io_t) :: solvent_io
 
   integer(c_int64_t) :: seed
   integer :: i, L(3), error, N, n_threads
@@ -88,26 +89,35 @@ program setup_fluid
   call solvent_cells%init(L, 1.d0, has_walls=.true.)
   solvent_cells% origin(3) = -0.5d0
 
-  call PTkill(config)
-
   call solvent_cells%count_particles(solvent% pos)
 
-  call datafile% create('data_setup_simple_fluid.h5', 'RMPCDMD:setup_simple_fluid', '0.0 dev', 'Pierre de Buyl')
+  call datafile% create(PTread_s(config, 'h5md_file'), 'RMPCDMD:poiseuille_flow', &
+       'N/A', 'Pierre de Buyl')
+
+  call PTkill(config)
 
   call tz% init(0.d0, solvent_cells% edges(3), L(3))
   call rhoz% init(0.d0, solvent_cells% edges(3), L(3))
   call vx% init(0.d0, solvent_cells% edges(3), L(3))
-  call h5gcreate_f(datafile% id, 'observables', datafile% observables, error)
+  !call h5gcreate_f(datafile% id, 'observables', datafile% observables, error)
 
-  call h5gcreate_f(datafile% particles, 'solvent', solvent_group, error)
-  call h5gcreate_f(solvent_group, 'box', box_group, error)
+  solvent_io%force_info%store = .false.
+  solvent_io%species_info%store = .false.
+  solvent_io%position_info%store = .true.
+  solvent_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%position_info%step = 1
+  solvent_io%position_info%time = tau
+  solvent_io%image_info = solvent_io%position_info
+  solvent_io%velocity_info = solvent_io%position_info
+  solvent_io%id_info = solvent_io%position_info
+  call solvent_io%init(datafile, 'solvent', solvent)
+
+  call h5gcreate_f(solvent_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call h5md_write_attribute(box_group, 'boundary', ['periodic', 'periodic', 'periodic'])
   call elem% create_fixed(box_group, 'edges', L*1.d0)
   call h5gclose_f(box_group, error)
 
-  call e_solvent% create_time(solvent_group, 'position', solvent% pos, ior(H5MD_TIME, H5MD_STORE_TIME))
-  call e_solvent_v% create_time(solvent_group, 'velocity', solvent% vel, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_tz% create_time(datafile% observables, 'tz', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_tz_count% create_time(datafile% observables, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_vx% create_time(datafile% observables, 'vx', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
@@ -163,13 +173,13 @@ program setup_fluid
         rhoz% data = 0
      end if
 
+     call solvent_io%position%append(solvent% pos)
+     call solvent_io%image%append(solvent% image)
+     call solvent_io%id%append(solvent% id)
+     call solvent_io%velocity%append(solvent% vel)
+
   end do
 
-  call e_solvent% append(solvent% pos, i, i*tau)
-  call e_solvent_v% append(solvent% vel, i, i*tau)
-
-  call e_solvent% close()
-  call e_solvent_v% close()
   call elem_tz% close()
   call elem_tz_count% close()
   call elem_rhoz% close()
@@ -177,10 +187,6 @@ program setup_fluid
   call elem_vx_count% close()
   call elem_T% close()
   call elem_v_com% close()
-
-  call h5gclose_f(solvent_group, error)
-
-  call h5gclose_f(datafile% observables, error)
 
   call datafile% close()
 
