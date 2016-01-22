@@ -57,6 +57,7 @@ program setup_single_dimer
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   type(particle_system_io_t) :: dimer_io
+  type(particle_system_io_t) :: solvent_io
 
   call PTparse(config,get_input_filename(),11)
 
@@ -141,19 +142,39 @@ program setup_single_dimer
   dimer_io%id_info%store = .false.
   dimer_io%position_info%store = .true.
   dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%position_info%step = N_loop
-  dimer_io%position_info%time = N_loop*dt
+  dimer_io%position_info%step = N_MD_steps
+  dimer_io%position_info%time = N_MD_steps*dt
   dimer_io%image_info%store = .true.
   dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%image_info%step = N_loop
-  dimer_io%image_info%time = N_loop*dt
+  dimer_io%image_info%step = N_MD_steps
+  dimer_io%image_info%time = N_MD_steps*dt
   dimer_io%velocity_info%store = .true.
   dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%velocity_info%step = N_loop
-  dimer_io%velocity_info%time = N_loop*dt
+  dimer_io%velocity_info%step = N_MD_steps
+  dimer_io%velocity_info%time = N_MD_steps*dt
   dimer_io%species_info%store = .true.
-  dimer_io%species_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  dimer_io%species_info%mode = H5MD_FIXED
   call dimer_io%init(hfile, 'dimer', colloids)
+
+  solvent_io%force_info%store = .false.
+  solvent_io%id_info%store = .false.
+  solvent_io%position_info%store = .true.
+  solvent_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%position_info%step = N_loop*N_MD_steps
+  solvent_io%position_info%time = N_loop*N_MD_steps*dt
+  solvent_io%image_info%store = .true.
+  solvent_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%image_info%step = N_loop*N_MD_steps
+  solvent_io%image_info%time = N_loop*N_MD_steps*dt
+  solvent_io%velocity_info%store = .true.
+  solvent_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%velocity_info%step = N_loop*N_MD_steps
+  solvent_io%velocity_info%time = N_loop*N_MD_steps*dt
+  solvent_io%species_info%store = .true.
+  solvent_io%species_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%species_info%step = N_loop*N_MD_steps
+  solvent_io%species_info%time = N_loop*N_MD_steps*dt
+  call solvent_io%init(hfile, 'solvent', solvent)
 
   call random_number(solvent% vel(:, :))
   solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
@@ -167,6 +188,11 @@ program setup_single_dimer
   colloids% pos(1,2) = colloids% pos(1,2) + d
 
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
+  call h5md_write_attribute(box_group, 'dimension', 3)
+  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
+  call h5gclose_f(box_group, error)
+
+  call h5gcreate_f(solvent_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
@@ -295,7 +321,13 @@ program setup_single_dimer
 
   write(*,*) 'n extra sorting', n_extra_sorting
 
+  call solvent_io%position%append(solvent%pos)
+  call solvent_io%velocity%append(solvent%vel)
+  call solvent_io%image%append(solvent%image)
+  call solvent_io%species%append(solvent%species)
+
   call dimer_io%close()
+  call solvent_io%close()
   call hfile%close()
   call h5close_f(error)
 
