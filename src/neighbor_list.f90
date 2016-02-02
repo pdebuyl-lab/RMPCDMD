@@ -150,9 +150,9 @@ contains
           if (s2 <= 0) continue
           d = rel_pos(x, ps2% pos(:, idx), L)
           r_sq = sum(d**2)
-          if ( r_sq <= lj_params% cut_sq(s1, s2) ) then
-             f = lj_force(d, r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
-             e = e + lj_energy(r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
+          if ( r_sq <= lj_params% cut_sq(s2, s1) ) then
+             f = lj_force(d, r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
+             e = e + lj_energy(r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
              f1 = f1 + f
              ps2% force(:, idx) = ps2% force(:, idx) - f
           end if
@@ -190,10 +190,10 @@ contains
           d = rel_pos(x, ps% pos(:, j), L)
           r_sq = sum(d**2)
           if ( r_sq <= lj_params% cut_sq(s1, s2) ) then
-             f = lj_force(d, r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
+             f = lj_force(d, r_sq, lj_params% epsilon(s2,s1), lj_params% sigma(s2,s1))
              ps% force(:, i) = ps% force(:, i) + f
              ps% force(:, j) = ps% force(:, j) - f
-             e = e + lj_energy(r_sq, lj_params% epsilon(s1, s2), lj_params% sigma(s1, s2))
+             e = e + lj_energy(r_sq, lj_params% epsilon(s2,s1), lj_params% sigma(s2,s1))
           end if
        end do
     end do

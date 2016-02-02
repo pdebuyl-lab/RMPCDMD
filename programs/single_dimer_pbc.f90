@@ -95,12 +95,13 @@ program setup_single_dimer
 
   sigma_C = PTread_d(config, 'sigma_C')
   sigma_N = PTread_d(config, 'sigma_N')
-  
-  epsilon(1,:) = PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(2,:) = PTread_dvec(config, 'epsilon_N', 2)
 
-  sigma(1,:) = sigma_C
-  sigma(2,:) = sigma_N
+  ! solvent index first, colloid index second, in solvent_colloid_lj
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
+
+  sigma(:,1) = sigma_C
+  sigma(:,2) = sigma_N
   sigma_cut = sigma*2**(1.d0/6.d0)
   max_cut = maxval(sigma_cut)
 
@@ -419,9 +420,9 @@ contains
           x = rel_pos(colloids% pos(:,2), solvent% pos(:,m), solvent_cells% edges)
           dist_to_N_sq = dot_product(x, x)
           if ( &
-               (dist_to_C_sq > solvent_colloid_lj%cut_sq(1, 1)) &
+               (dist_to_C_sq > solvent_colloid_lj%cut_sq(1,1)) &
                .and. &
-               (dist_to_N_sq > solvent_colloid_lj%cut_sq(2, 1)) &
+               (dist_to_N_sq > solvent_colloid_lj%cut_sq(1,2)) &
                ) &
                then
              solvent% species(m) = 2

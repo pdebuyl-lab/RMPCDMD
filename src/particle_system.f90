@@ -228,8 +228,8 @@ contains
              do j = 1, N_obstacles
                 s2 = other% species(j)
                 rsq = sum(rel_pos(x, other% pos(:, j), L)**2)
-                ! request (s2, s1) as indices for lj are colloids first and solvent second
-                if ( rsq < lj_params% cut_sq(s2, s1) ) then
+                ! request (s1, s2) as indices for lj are solvent first and colloids second
+                if ( rsq < lj_params% cut_sq(s1, s2) ) then
                    tooclose = .true.
                    exit
                 end if
