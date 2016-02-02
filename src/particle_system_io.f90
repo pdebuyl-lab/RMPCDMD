@@ -149,24 +149,27 @@ contains
 
     type(h5md_element_t) :: e
     double precision :: dummy
+    integer :: mode
 
     if (n_buffer <= 0) error stop 'n_buffer non-positive in thermo_init'
 
     this% n_buffer = n_buffer
     this% idx = 0
 
+    mode = ior(H5MD_LINEAR, H5MD_STORE_TIME)
+
     allocate(this% temperature(n_buffer))
     allocate(this% potential_energy(n_buffer))
     allocate(this% kinetic_energy(n_buffer))
     allocate(this% internal_energy(n_buffer))
 
-    call e%create_time(datafile%observables, 'temperature', dummy, H5MD_LINEAR, step, time)
+    call e%create_time(datafile%observables, 'temperature', dummy, mode, step, time)
     call e%close()
-    call e%create_time(datafile%observables, 'potential_energy', dummy, H5MD_LINEAR, step, time)
+    call e%create_time(datafile%observables, 'potential_energy', dummy, mode, step, time)
     call e%close()
-    call e%create_time(datafile%observables, 'kinetic_energy', dummy, H5MD_LINEAR, step, time)
+    call e%create_time(datafile%observables, 'kinetic_energy', dummy, mode, step, time)
     call e%close()
-    call e%create_time(datafile%observables, 'internal_energy', dummy, H5MD_LINEAR, step, time)
+    call e%create_time(datafile%observables, 'internal_energy', dummy, mode, step, time)
     call e%close()
 
   end subroutine thermo_init
