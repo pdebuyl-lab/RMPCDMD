@@ -219,6 +219,7 @@ program setup_single_dimer
 
   call vx% init(0.d0, solvent_cells% edges(3), L(3))
 
+  i = 0
   kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
   call thermo_write
   !start RMPCDMD
