@@ -128,7 +128,7 @@ program setup_single_dimer
 
   call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_pbc', &
        'N/A', 'Pierre de Buyl')
-  call thermo_data%init(hfile, n_buffer=50, step=N_loop, time=N_MD_steps*dt)
+  call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
   call PTkill(config)
   
