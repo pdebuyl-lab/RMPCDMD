@@ -50,6 +50,11 @@ module particle_system
      integer, pointer :: flag(:)
      integer, pointer :: flag_old(:)
      integer, pointer :: flag_pointer(:)
+     integer, pointer :: wall_flag1(:)
+     integer, pointer :: wall_flag2(:)
+     integer, pointer :: wall_flag(:)
+     integer, pointer :: wall_flag_old(:)
+     integer, pointer :: wall_flag_pointer(:)
      type(timer_t) :: time_stream, time_step, time_sort, time_count, time_ct
      type(timer_t) :: time_md_pos, time_md_vel, time_self_force, time_max_disp
    contains
@@ -128,6 +133,13 @@ contains
     this% flag_old => this% flag2
     
     this% flag = 0
+
+    allocate(this% wall_flag1(Nmax))
+    allocate(this% wall_flag2(Nmax))
+    this% wall_flag => this% wall_flag1
+    this% wall_flag_old => this% flag2
+
+    this% wall_flag = 0
 
     call this%time_stream%init('stream')
     call this%time_step%init('step')

@@ -6,6 +6,8 @@ module interaction
   public :: lj_params_t
   public :: lj_force
   public :: lj_energy
+  public :: lj_force_9_6
+  public :: lj_energy_9_6
 
   type lj_params_t
      integer :: n1, n2
@@ -70,6 +72,22 @@ contains
 
   end function lj_force
 
+  !interaction of colloid with the wall (9-6 LJ from SklogWiki)
+  pure function lj_force_9_6(d, r_sq, epsilon, sigma) result(f)
+     double precision, intent(in) :: d(3)
+     double precision, intent(in) :: r_sq, epsilon, sigma
+     double precision :: f(3)
+
+     double precision :: sig6_o_r6, sig3_o_r3, force_o_r
+     sig6_o_r6 = sigma**6/r_sq**3
+     sig3_o_r3 = sigma**3/r_sq**(3.d0/2.d0)
+
+     force_o_r = 6.75d0*3.d0*epsilon*sig6_o_r6/r_sq*(3.d0*sig3_o_r3-2.d0)
+
+     f = force_o_r*d
+
+  end function lj_force_9_6
+
   pure function lj_energy(r_sq, epsilon, sigma) result(e)
     double precision, intent(in) :: r_sq, epsilon, sigma
     double precision :: e
@@ -81,5 +99,18 @@ contains
     e = 4.d0*epsilon * ((sig6_o_r6**2 - sig6_o_r6) + 0.25d0)
 
   end function lj_energy
+
+  pure function lj_energy_9_6(r_sq, epsilon, sigma) result(e)
+    double precision, intent(in) :: r_sq, epsilon, sigma
+    double precision :: e
+
+    double precision :: sig6_o_r6, sig3_o_r3
+
+    sig6_o_r6 = sigma**6/r_sq**3
+    sig3_o_r3 = sigma**3/r_sq**(3.d0/2.d0)
+
+    e = 6.75d0*epsilon * (sig6_o_r6*(sig3_o_r3 - 1.d0) + 4.d0/27.d0)
+
+  end function lj_energy_9_6
 
 end module interaction
