@@ -77,15 +77,7 @@ program setup_single_dimer
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  
-  seed = 742830
-
-  do i = 1, n_threads
-     state(i)%counter%c0 = 10000
-     state(i)%counter%c1 = 0
-     state(i)%key%c0 = int(i, c_int64_t)
-     state(i)%key%c1 = seed
-  end do
+  call threefry_rng_init(state, 742830_c_int64_t)
 
   call h5open_f(error)
 
