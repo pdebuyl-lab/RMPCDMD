@@ -38,8 +38,8 @@ program setup_single_dimer
   integer :: error
 
   double precision :: sigma_N, sigma_C, max_cut
-  double precision :: epsilon(2,2)
-  double precision :: sigma(2,2), sigma_cut(2,2)
+  double precision :: epsilon(3,2)
+  double precision :: sigma(3,2), sigma_cut(3,2)
   double precision :: mass(2)
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
@@ -97,18 +97,18 @@ program setup_single_dimer
   wall_v = 0
   wall_t = [T, T]
   
-  tau =0.1d0 !PTread_d(config, 'tau')
+  tau =0.2d0 !PTread_d(config, 'tau')
   N_MD_steps = 100 !PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
-  N_loop = 10 !PTread_i(config, 'N_loop')
+  N_loop = 20000 !PTread_i(config, 'N_loop')
 
   
 
   sigma_C = 2.d0 !PTread_d(config, 'sigma_C')
   sigma_N = 2.d0 !PTread_d(config, 'sigma_N')
   
-  epsilon(:,1) = [1.d0, 0.1d0] !PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = [1.d0, 1.d0] !PTread_dvec(config, 'epsilon_N', 2)
+  epsilon(:,1) = 1 !PTread_dvec(config, 'epsilon_C', 2)
+  epsilon(:,2) = [1.d0, 0.1d0, 1.d0] !PTread_dvec(config, 'epsilon_N', 2)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
@@ -128,7 +128,7 @@ program setup_single_dimer
   sigma(2,2) = 2*sigma_N
   sigma_cut = sigma*2**(1.d0/6.d0)
 
-  call colloid_lj% init(epsilon, sigma, sigma_cut)
+  call colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
   epsilon(1,1) = 1.d0 
   epsilon(1,2) = 1.d0 
@@ -138,13 +138,13 @@ program setup_single_dimer
   sigma(2,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*2**(1.d0/6.d0)
 
-  call walls_colloid_lj% init(epsilon, sigma, sigma_cut)
+  call walls_colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   write(*,*) 'mass =', mass
 
-  call solvent% init(N,2) !there will be 2 species of solvent particles
+  call solvent% init(N,3) !there will be 3 species of solvent particles
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
@@ -173,7 +173,7 @@ program setup_single_dimer
      if (solvent% pos(2,m) < (L(2)/2.d0)) then
         solvent% species(m) = 1
      else
-        solvent% species(m) = 2
+        solvent% species(m) = 3
      end if
   end do
 
