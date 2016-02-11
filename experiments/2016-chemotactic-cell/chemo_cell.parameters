@@ -1,0 +1,23 @@
+
+# simulation parameters
+N_MD = 100
+N_loop = 20000
+probability = 1
+
+# cell parameters
+g = 0.01
+buffer_length = 20
+L = 50 50 15
+
+# fluid parameters
+rho = 10
+T = 5
+tau = 0.1
+
+# dimer parameters
+sigma_C = 2
+sigma_N = 2
+d = 4.5
+
+epsilon_C = 1 1 1
+epsilon_N = 1 0.1 1
