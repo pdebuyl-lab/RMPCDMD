@@ -55,7 +55,7 @@ program setup_single_dimer
   double precision :: conc_z(400)
   double precision :: colloid_pos(3,2)
 
-  !type(PTo) :: config
+  type(PTo) :: config
   integer(c_int64_t) :: seed
   integer :: i, L(3),  n_threads
   integer :: j, k, m
@@ -69,7 +69,7 @@ program setup_single_dimer
   on_track = .true.
   stopped = .false.
 
-  !call PTparse(config,get_input_filename(),11)
+  call PTparse(config,get_input_filename(),11)
 
   call flag_timer%init('flag')
   call change_timer%init('change')
@@ -81,34 +81,34 @@ program setup_single_dimer
 
   call h5open_f(error)
 
-  g = [0.001d0, 0.d0, 0.d0] !PTread_ivec(config, 'g', 3) !place in inputfile
-  bufferlength = 20 !PTread_i(config, 'bufferlength')
-  prob = 1.d0 !PTread_d(config,'probability')
+  g = 0
+  g(1) = PTread_d(config, 'g')
+  bufferlength = PTread_i(config, 'buffer_length')
+  prob = PTread_d(config,'probability')
 
-  L = [50,50,15] !PTread_ivec(config, 'L', 3)
-  L(1) = L(1)+ bufferlength
+  L = PTread_ivec(config, 'L', 3)
+  L(1) = L(1) + bufferlength
   
-  rho = 10 !PTread_i(config, 'rho')
+  rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
 
-  T = 5.d0 !PTread_d(config, 'T')
-  d = 4.5d0 !PTread_d(config, 'd')
+  T = PTread_d(config, 'T')
+  d = PTread_d(config, 'd')
 
   wall_v = 0
   wall_t = [T, T]
   
-  tau =0.2d0 !PTread_d(config, 'tau')
-  N_MD_steps = 100 !PTread_i(config, 'N_MD')
+  tau =PTread_d(config, 'tau')
+  N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
-  N_loop = 20000 !PTread_i(config, 'N_loop')
+  N_loop = PTread_i(config, 'N_loop')
 
   
+  sigma_C = PTread_d(config, 'sigma_C')
+  sigma_N = PTread_d(config, 'sigma_N')
 
-  sigma_C = 2.d0 !PTread_d(config, 'sigma_C')
-  sigma_N = 2.d0 !PTread_d(config, 'sigma_N')
-  
-  epsilon(:,1) = 1 !PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = [1.d0, 0.1d0, 1.d0] !PTread_dvec(config, 'epsilon_N', 2)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
@@ -117,10 +117,7 @@ program setup_single_dimer
 
   call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
 
-  epsilon(1,1) = 1.d0 !PTread_d(config, 'epsilon_C_C')
-  epsilon(1,2) = 1.d0 !PTread_d(config, 'epsilon_N_C')
-  epsilon(2,1) = 1.d0 !PTread_d(config, 'epsilon_N_C')
-  epsilon(2,2) = 1.d0 !PTread_d(config, 'epsilon_N_N')
+  epsilon = 1.d0
 
   sigma(1,1) = 2*sigma_C
   sigma(1,2) = sigma_C + sigma_N
@@ -130,10 +127,10 @@ program setup_single_dimer
 
   call colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
-  epsilon(1,1) = 1.d0 
-  epsilon(1,2) = 1.d0 
-  epsilon(2,1) = 1.d0 
-  epsilon(2,2) = 1.d0 
+  epsilon(1,1) = 1.d0
+  epsilon(1,2) = 1.d0
+  epsilon(2,1) = 1.d0
+  epsilon(2,2) = 1.d0
   sigma(1,:) = [sigma_C, sigma_N]
   sigma(2,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*2**(1.d0/6.d0)
@@ -148,8 +145,8 @@ program setup_single_dimer
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
-  !call PTkill(config)
-  
+  call PTkill(config)
+
   open(17,file ='dimerdata_FullExp_1.txt')
   open(18,file ='dimerdata_FullExp_2.txt')
   open(19,file ='dimerdata_vx_flow_wall.txt')  
