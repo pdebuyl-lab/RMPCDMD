@@ -4,6 +4,7 @@ program setup_single_dimer
   use common
   use cell_system
   use particle_system
+  use particle_system_io
   use hilbert
   use interaction
   use hdf5
@@ -50,10 +51,12 @@ program setup_single_dimer
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
-  double precision :: kin_co
+  double precision :: kin_e, temperature
 
   double precision :: conc_z(400)
   double precision :: colloid_pos(3,2)
+  type(h5md_file_t) :: hfile
+  type(thermo_t) :: thermo_data
 
   type(PTo) :: config
   integer(c_int64_t) :: seed
@@ -77,7 +80,7 @@ program setup_single_dimer
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, 742830_c_int64_t)
+  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
 
   call h5open_f(error)
 
@@ -145,6 +148,10 @@ program setup_single_dimer
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
+  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_chemotactic_cell', &
+       'N/A', 'Pierre de Buyl')
+  call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
+
   call PTkill(config)
 
   open(17,file ='dimerdata_FullExp_1.txt')
@@ -201,18 +208,15 @@ program setup_single_dimer
   !e_wall = colloid_wall_interaction(colloids, walls_colloid_lj,solvent_cells% edges)
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
-  write(*,*) colloids% force
-  write(*,*) ''
-  write(*,*) '    i           |    e co so     |   e co co     |   kin co      |   kin so      |   total       |   temp        |'
-  write(*,*) ''
 
   call vx% init(0.d0, solvent_cells% edges(3), L(3))
 
   i = 0
-  kin_co = (mass(1)*sum(colloids% vel(:,1)**2)+mass(2)*sum(colloids% vel(:,2)**2))/2
-  call thermo_write
+
+  write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
   setup: do i = 1, N_loop
+     if (modulo(i,20) == 0) write(*,'(i09)',advance='no') i
      md: do j = 1, N_MD_steps
         call mpcd_stream_zwall_light(solvent, solvent_cells, dt,g)
 
@@ -238,7 +242,7 @@ program setup_single_dimer
            do k=1, colloids% Nmax 
               if (colloids% pos(1,k) > bufferlength) then
                  on_track = .false.
-                 write(*,*) on_track
+                 write(*,*) 'on_track', on_track
               end if 
            end do
         end if
@@ -247,7 +251,7 @@ program setup_single_dimer
            do k=1, colloids% Nmax 
               if (colloids% pos(1,k) > solvent_cells% edges(1)) then
                  stopped = .true.
-                 write(*,*) stopped
+                 write(*,*) 'stopped', stopped
               end if 
            end do
         end if
@@ -339,24 +343,23 @@ program setup_single_dimer
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], bulk_temperature = T)
      
-     kin_co = (colloids% mass(1)*sum(colloids% vel(:,1)**2)+ colloids% mass(2)*sum(colloids% vel(:,2)**2))/2
-     call thermo_write
-     if (mod(i,10)==0) then
-        write(*,*) colloids% pos
-        write(*,*) colloids% force
-     end if
-      
+     temperature = compute_temperature(solvent, solvent_cells)
+     kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
+          colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
+          sum(solvent% vel**2)/2
+     call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e)
+
      if (i .gt. 2000) then
         fixed = .false.
      end if
   end do setup
 
-  write(*,*) colloids% pos
+  call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, add=.false., force=.true.)
 
   write(*,*) 'n extra sorting', n_extra_sorting
   
   call h5close_f(error)
-  
+
   write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
   write(*,'(a16,f8.3)') solvent%time_md_vel%name, solvent%time_md_vel%total
   write(*,'(a16,f8.3)') solvent%time_step%name, solvent%time_step%total
@@ -369,22 +372,13 @@ program setup_single_dimer
   write(*,'(a16,f8.3)') buffer_timer%name, buffer_timer%total
   write(*,'(a16,f8.3)') neigh%time_update%name, neigh%time_update%total
   write(*,'(a16,f8.3)') neigh%time_force%name, neigh%time_force%total
-  
+
   write(*,'(a16,f8.3)') 'total                          ', &
        solvent%time_stream%total + solvent%time_step%total + solvent%time_count%total +&
        solvent%time_sort%total + solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
        flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + neigh%time_force%total
   
 contains
-
-  subroutine thermo_write
-    write(*,'(1i16,6f16.3,1e16.8)') i, e1, e2, &
-         kin_co, sum(solvent% vel**2)/2, &
-         e1+e2+e_wall+kin_co+sum(solvent% vel**2)/2, &
-         compute_temperature(solvent, solvent_cells), &
-         sqrt(dot_product(colloids% pos(:,1) - colloids% pos(:,2),colloids% pos(:,1) - colloids% pos(:,2))) - d
-  end subroutine thermo_write
-
 
   subroutine flag_particles
   double precision :: dist_to_C_sq
