@@ -32,8 +32,6 @@ program setup_single_dimer
   type(histogram_t) :: rhoz
   type(profile_t) :: vx
 
-  type(particle_system_io_t) :: solvent_io
-
   integer :: rho
   integer :: N
   integer :: error
@@ -56,7 +54,11 @@ program setup_single_dimer
   double precision :: conc_z(400)
   double precision :: colloid_pos(3,2)
   type(h5md_file_t) :: hfile
+  type(h5md_element_t) :: dummy_element
   type(thermo_t) :: thermo_data
+  type(particle_system_io_t) :: dimer_io
+  type(particle_system_io_t) :: solvent_io
+  integer(HID_T) :: box_group
 
   type(PTo) :: config
   integer(c_int64_t) :: seed
@@ -154,8 +156,45 @@ program setup_single_dimer
 
   call PTkill(config)
 
+  dimer_io%force_info%store = .false.
+  dimer_io%id_info%store = .false.
+  dimer_io%position_info%store = .true.
+  dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  dimer_io%position_info%step = N_MD_steps
+  dimer_io%position_info%time = N_MD_steps*dt
+  dimer_io%image_info%store = .true.
+  dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  dimer_io%image_info%step = N_MD_steps
+  dimer_io%image_info%time = N_MD_steps*dt
+  dimer_io%velocity_info%store = .true.
+  dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  dimer_io%velocity_info%step = N_MD_steps
+  dimer_io%velocity_info%time = N_MD_steps*dt
+  dimer_io%species_info%store = .true.
+  dimer_io%species_info%mode = H5MD_FIXED
+  call dimer_io%init(hfile, 'dimer', colloids)
+
+  solvent_io%force_info%store = .false.
+  solvent_io%id_info%store = .false.
+  solvent_io%position_info%store = .true.
+  solvent_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%position_info%step = N_loop*N_MD_steps
+  solvent_io%position_info%time = N_loop*N_MD_steps*dt
+  solvent_io%image_info%store = .true.
+  solvent_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%image_info%step = N_loop*N_MD_steps
+  solvent_io%image_info%time = N_loop*N_MD_steps*dt
+  solvent_io%velocity_info%store = .true.
+  solvent_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%velocity_info%step = N_loop*N_MD_steps
+  solvent_io%velocity_info%time = N_loop*N_MD_steps*dt
+  solvent_io%species_info%store = .true.
+  solvent_io%species_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  solvent_io%species_info%step = N_loop*N_MD_steps
+  solvent_io%species_info%time = N_loop*N_MD_steps*dt
+  call solvent_io%init(hfile, 'solvent', solvent)
+
   open(17,file ='dimerdata_FullExp_1.txt')
-  open(18,file ='dimerdata_FullExp_2.txt')
   open(19,file ='dimerdata_vx_flow_wall.txt')  
 
   colloids% species(1) = 1
@@ -188,7 +227,15 @@ program setup_single_dimer
   colloids% pos(1,2) = colloids% pos(1,1) + d
   colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*sigma_C
   
-  write(*, *) colloids% pos  
+  call h5gcreate_f(dimer_io%group, 'box', box_group, error)
+  call h5md_write_attribute(box_group, 'dimension', 3)
+  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
+  call h5gclose_f(box_group, error)
+
+  call h5gcreate_f(solvent_io%group, 'box', box_group, error)
+  call h5md_write_attribute(box_group, 'dimension', 3)
+  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
+  call h5gclose_f(box_group, error)
 
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
@@ -349,6 +396,10 @@ program setup_single_dimer
           sum(solvent% vel**2)/2
      call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e)
 
+     call dimer_io%position%append(colloids%pos)
+     call dimer_io%velocity%append(colloids%vel)
+     call dimer_io%image%append(colloids%image)
+
      if (i .gt. 2000) then
         fixed = .false.
      end if
@@ -357,7 +408,14 @@ program setup_single_dimer
   call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, add=.false., force=.true.)
 
   write(*,*) 'n extra sorting', n_extra_sorting
-  
+
+  call solvent_io%position%append(solvent%pos)
+  call solvent_io%velocity%append(solvent%vel)
+  call solvent_io%image%append(solvent%image)
+  call solvent_io%species%append(solvent%species)
+
+  call dimer_io%close()
+  call hfile%close()
   call h5close_f(error)
 
   write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
@@ -599,7 +657,7 @@ contains
            if (particles% pos(2,k) < edges(2)/2.d0) then
               particles% species(k) = 1
            else
-              particles% species(k) = 2
+              particles% species(k) = 3
            end if  
         end if 
      end do
