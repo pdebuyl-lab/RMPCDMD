@@ -174,34 +174,52 @@ contains
 
   end subroutine thermo_init
 
-  subroutine thermo_append(this, datafile, temperature, potential_energy, kinetic_energy, internal_energy)
+  subroutine thermo_append(this, datafile, temperature, potential_energy, kinetic_energy, internal_energy, add, force)
     class(thermo_t), intent(inout) :: this
     type(h5md_file_t), intent(inout) :: datafile
     double precision, intent(in) :: temperature, potential_energy, kinetic_energy, internal_energy
+    logical, intent(in), optional :: add, force
 
     integer :: i
     type(h5md_element_t) :: e
+    logical :: do_add, do_append
 
-    i = this%idx + 1
-    this%idx = i
+    if (present(add)) then
+       do_add = add
+    else
+       do_add = .true.
+    end if
 
-    this%temperature(i) = temperature
-    this%potential_energy(i) = potential_energy
-    this%kinetic_energy(i) = kinetic_energy
-    this%internal_energy(i) = internal_energy
+    if (do_add) then
+       i = this%idx + 1
+       this%idx = i
 
-    if (i == this%n_buffer) then
+       this%temperature(i) = temperature
+       this%potential_energy(i) = potential_energy
+       this%kinetic_energy(i) = kinetic_energy
+       this%internal_energy(i) = internal_energy
+    end if
+
+    do_append = (this%idx == this%n_buffer)
+
+    if (present(force)) then
+       if ((force) .and. (this%idx>0)) then
+          do_append = .true.
+       end if
+    end if
+
+    if (do_append) then
        call e%open_time(datafile%observables, 'temperature')
-       call e%append_buffer(this%temperature)
+       call e%append_buffer(this%temperature, force_size=this%idx)
        call e%close()
        call e%open_time(datafile%observables, 'potential_energy')
-       call e%append_buffer(this%potential_energy)
+       call e%append_buffer(this%potential_energy, force_size=this%idx)
        call e%close()
        call e%open_time(datafile%observables, 'kinetic_energy')
-       call e%append_buffer(this%kinetic_energy)
+       call e%append_buffer(this%kinetic_energy, force_size=this%idx)
        call e%close()
        call e%open_time(datafile%observables, 'internal_energy')
-       call e%append_buffer(this%internal_energy)
+       call e%append_buffer(this%internal_energy, force_size=this%idx)
        call e%close()
        this%idx = 0
     end if
