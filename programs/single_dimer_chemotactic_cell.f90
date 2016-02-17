@@ -112,8 +112,8 @@ program setup_single_dimer
   sigma_C = PTread_d(config, 'sigma_C')
   sigma_N = PTread_d(config, 'sigma_N')
 
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 3)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 3)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
