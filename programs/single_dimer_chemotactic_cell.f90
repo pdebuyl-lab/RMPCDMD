@@ -439,25 +439,23 @@ program setup_single_dimer
 contains
 
   subroutine flag_particles
-  double precision :: dist_to_C_sq
-  real :: rndnumbers(solvent% Nmax)
-  integer :: r
-  double precision :: x(3)
-  
-  call random_number(rndnumbers)
-  
-  do  r = 1,solvent% Nmax
-     if (solvent% species(r) == 1) then
-       x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges) 
-       dist_to_C_sq = dot_product(x, x)
-       if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-         if (rndnumbers(r) <= prob) then
-           solvent% flag(r) = 1 
-         end if
+    double precision :: dist_to_C_sq
+    integer :: r, s
+    double precision :: x(3)
+
+    do s = 1,neigh% n(1)
+       r = neigh%list(s,1)
+       if (solvent% species(r) == 1) then
+          x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
+          dist_to_C_sq = dot_product(x, x)
+          if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
+             if (threefry_double(state(1)) <= prob) then
+                solvent% flag(r) = 1
+             end if
+          end if
        end if
-    end if 
-  end do
-  
+    end do
+
   end subroutine flag_particles
   
   
@@ -467,6 +465,7 @@ contains
     integer :: m
     double precision :: x(3)
 
+    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
     do m = 1, solvent% Nmax
        if (solvent% flag(m) == 1) then
           x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
@@ -496,17 +495,15 @@ contains
 
     far = (L(1)*0.45)**2
 
-
-    do n = 1,solvent% Nmax 
-       if (solvent% pos(1,n) > bufferlength) then
-          if (solvent% species(n) == 2) then
-             x = rel_pos(colloids% pos(:,1), solvent% pos(:,n), solvent_cells% edges)
-             dist_to_C_sq = dot_product(x, x)
-             x= rel_pos(colloids% pos(:,2), solvent% pos(:,n), solvent_cells% edges)
-             dist_to_N_sq = dot_product(x, x)
-             if ((dist_to_C_sq > far) .and. (dist_to_N_sq > far)) then
-                solvent% species(n) = 1
-             end if
+    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
+    do n = 1,solvent% Nmax
+       if (solvent% species(n) == 2) then
+          x = rel_pos(colloids% pos(:,1), solvent% pos(:,n), solvent_cells% edges)
+          dist_to_C_sq = dot_product(x, x)
+          x= rel_pos(colloids% pos(:,2), solvent% pos(:,n), solvent_cells% edges)
+          dist_to_N_sq = dot_product(x, x)
+          if ((dist_to_C_sq > far) .and. (dist_to_N_sq > far)) then
+             solvent% species(n) = 1
           end if
        end if
     end do
