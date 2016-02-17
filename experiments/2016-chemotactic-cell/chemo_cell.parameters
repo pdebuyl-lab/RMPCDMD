@@ -1,3 +1,4 @@
+h5md_file = 'chemotactic_cell.h5'
 
 # simulation parameters
 N_MD = 100
@@ -5,10 +6,10 @@ N_loop = 20000
 probability = 1
 
 # cell parameters
-g = 0.01
+g = 0.001
 buffer_length = 20
 L = 50 50 15
-
+seed = 789465153
 # fluid parameters
 rho = 10
 T = 5
