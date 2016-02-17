@@ -91,6 +91,19 @@ contains
        end if
     end if
 
+    if (this%force_info%store) then
+       info = this%force_info
+       if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
+          call this%force%create_time(this% group, 'force', ps% vel, info%mode)
+       else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
+          call this%force%create_time(this% group, 'force', ps% vel, info%mode, info%step, info%time)
+       else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
+          call this%force%create_fixed(this% group, 'force', ps% vel)
+       else
+          stop 'unknown storage for force in particle_system_io init'
+       end if
+    end if
+
     if (this%image_info%store) then
        info = this%image_info
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
