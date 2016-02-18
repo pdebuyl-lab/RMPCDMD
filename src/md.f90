@@ -1,5 +1,6 @@
 module md
   use particle_system
+  use interaction
   use common
   implicit none
 
@@ -127,23 +128,27 @@ contains
     double precision :: e
 
     integer :: i, s
-    double precision :: z, z_sq, f, dir
+    double precision :: z, z_sq, f, dir, shift
 
+    
     e = 0
     do i = 1, particles%Nmax
        s = particles%species(i)
        if (s<=0) continue
-       z = particles%position(3,i)
+       z = particles%pos(3,i)
        if (z > edges(3)/2) then
-          z = edges(3) - z
+          z = edges(3) - z - lj_params% shift
           dir = -1
        else
-          dir = 1
+          dir = 1 
+          z = z - lj_params% shift
        end if
        z_sq = z**2
-       f = lj_force_9_3(z, z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
-       particles%force(3,i) = particles%force(3,i) + dir*f
-       e = e + lj_energy_9_3(z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
+       if (z_sq <= lj_params% cut_sq(1,s)) then
+         f = lj_force_9_3(z, z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
+         particles%force(3,i) = particles%force(3,i) + dir*f
+         e = e + lj_energy_9_3(z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
+       end if
     end do
 
   end function lj93_zwall
