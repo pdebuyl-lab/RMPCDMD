@@ -112,8 +112,8 @@ program setup_single_dimer
   sigma_C = PTread_d(config, 'sigma_C')
   sigma_N = PTread_d(config, 'sigma_N')
 
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 3)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 3)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
@@ -196,7 +196,7 @@ program setup_single_dimer
 
   open(17,file ='dimerdata_FullExp_1.txt')
   open(19,file ='dimerdata_vx_flow_wall.txt')  
-
+  open(18,file ='local_conc.txt')
   colloids% species(1) = 1
   colloids% species(2) = 2
   colloids% vel = 0
@@ -402,6 +402,10 @@ program setup_single_dimer
 
      if (i .gt. 2000) then
         fixed = .false.
+     end if
+     if (modulo(i,100)==0) then
+        call concentration_field
+        write(18,*) conc_z, colloid_pos
      end if
   end do setup
 
