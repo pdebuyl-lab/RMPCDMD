@@ -37,7 +37,7 @@ program setup_single_dimer
   integer :: error
 
   double precision :: sigma_N, sigma_C, max_cut
-  double precision :: epsilon(3,2)
+  double precision :: epsilon(3,2), shift
   double precision :: sigma(3,2), sigma_cut(3,2)
   double precision :: mass(2)
 
@@ -132,15 +132,12 @@ program setup_single_dimer
 
   call colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
-  epsilon(1,1) = 1.d0
-  epsilon(1,2) = 1.d0
-  epsilon(2,1) = 1.d0
-  epsilon(2,2) = 1.d0
+  epsilon = 1.d0
   sigma(1,:) = [sigma_C, sigma_N]
   sigma(2,:) = [sigma_C, sigma_N]
-  sigma_cut = sigma*2**(1.d0/6.d0)
-
-  call walls_colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
+  sigma_cut = sigma*3**(1.d0/6.d0)
+  shift = maxval(colloid_lj% cut) +0.25
+  call walls_colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift)
 
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
@@ -196,7 +193,7 @@ program setup_single_dimer
 
   open(17,file ='dimerdata_FullExp_1.txt')
   open(19,file ='dimerdata_vx_flow_wall.txt')  
-  open(18,file ='local_conc.txt')
+
   colloids% species(1) = 1
   colloids% species(2) = 2
   colloids% vel = 0
@@ -252,7 +249,7 @@ program setup_single_dimer
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
-  !e_wall = colloid_wall_interaction(colloids, walls_colloid_lj,solvent_cells% edges)
+  e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
 
@@ -330,7 +327,7 @@ program setup_single_dimer
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (.not. on_track) then
-           e_wall = colloid_wall_interaction(colloids, walls_colloid_lj,solvent_cells% edges)
+           e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
         end if 
         if (on_track) then
            colloids% force(2,:) = 0
@@ -403,10 +400,7 @@ program setup_single_dimer
      if (i .gt. 2000) then
         fixed = .false.
      end if
-     if (modulo(i,100)==0) then
-        call concentration_field
-        write(18,*) conc_z, colloid_pos
-     end if
+     
   end do setup
 
   call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, add=.false., force=.true.)
@@ -551,38 +545,6 @@ contains
     colloid_pos(:,2) = 0
     colloid_pos(3,2) = d + colloids% pos(3,1)
   end subroutine concentration_field
-  
-  function colloid_wall_interaction(colloids, walls_colloid_lj,edges) result(e)
-     type(particle_system_t), intent(inout) :: colloids
-     type(lj_params_t), intent(in) :: walls_colloid_lj
-     double precision, intent(in) :: edges(3)
-     double precision :: e
-
-     integer :: k
-     integer :: s
-     double precision :: r_sq1, d1(3), r_sq2, d2(3),f1(3),f2(3)
-
-     f1= 0.d0
-     f2 = 0.d0
-     e = 0.d0
-     do k = 1, colloids% Nmax
-        s = colloids% species(k)
-        d1 = rel_pos(colloids% pos(:,k), [edges(1)/2.d0, edges(2)/2.d0,0.d0],edges)
-        d2 = rel_pos(colloids% pos(:,k), [edges(1)/2.d0, edges(2)/2.d0,edges(3)],edges)
-        r_sq1 = dot_product(d1,d1)
-        r_sq2 = dot_product(d2,d2)
-        if (r_sq1 <= walls_colloid_lj% cut_sq(1,s)) then
-           f1 = lj_force_9_6(d1, r_sq1, walls_colloid_lj% epsilon(1,s), walls_colloid_lj% sigma(1,s))
-           e = e + lj_energy_9_6(r_sq1, walls_colloid_lj% epsilon(1,s), walls_colloid_lj% sigma(1,s))
-        end if
-        if (r_sq2 <= walls_colloid_lj% cut_sq(1,s)) then
-           f2 = lj_force_9_6(d2, r_sq2, walls_colloid_lj% epsilon(1,s), walls_colloid_lj% sigma(1,s))
-           e = e + lj_energy_9_6(r_sq2, walls_colloid_lj% epsilon(1,s), walls_colloid_lj% sigma(1,s))
-        end if
-        colloids% force(:,k) = colloids% force(:,k) - f1 - f2
-     end do
-
-  end function colloid_wall_interaction 
 
   subroutine mpcd_stream_zwall_light(particles, cells, dt,g)
     type(particle_system_t), intent(inout) :: particles
