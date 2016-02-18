@@ -10,6 +10,7 @@ module md
   public :: md_vel
   public :: rattle_dimer_pos
   public :: rattle_dimer_vel
+  public :: lj93_zwall
 
 contains
 
@@ -118,5 +119,33 @@ contains
     p% vel(:,2) = p% vel(:,2) + k*s/mass2
 
   end subroutine rattle_dimer_vel
+
+  function lj93_zwall(particles, edges, lj_params) result(e)
+    type(particle_system_t), intent(inout) :: particles
+    double precision, intent(in) :: edges(3)
+    type(lj_params_t), intent(in) :: lj_params
+    double precision :: e
+
+    integer :: i, s
+    double precision :: z, z_sq, f, dir
+
+    e = 0
+    do i = 1, particles%Nmax
+       s = particles%species(i)
+       if (s<=0) continue
+       z = particles%position(3,i)
+       if (z > edges(3)/2) then
+          z = edges(3) - z
+          dir = -1
+       else
+          dir = 1
+       end if
+       z_sq = z**2
+       f = lj_force_9_3(z, z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
+       particles%force(3,i) = particles%force(3,i) + dir*f
+       e = e + lj_energy_9_3(z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
+    end do
+
+  end function lj93_zwall
 
 end module md
