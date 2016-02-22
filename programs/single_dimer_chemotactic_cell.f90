@@ -28,8 +28,6 @@ program setup_single_dimer
   type(lj_params_t) :: colloid_lj
   type(lj_params_t) :: walls_colloid_lj
 
-  type(profile_t) :: tz
-  type(histogram_t) :: rhoz
   type(profile_t) :: vx
 
   integer :: rho
@@ -61,7 +59,6 @@ program setup_single_dimer
   integer(HID_T) :: box_group
 
   type(PTo) :: config
-  integer(c_int64_t) :: seed
   integer :: i, L(3),  n_threads
   integer :: j, k, m
   
@@ -99,6 +96,7 @@ program setup_single_dimer
 
   T = PTread_d(config, 'T')
   d = PTread_d(config, 'd')
+  order = PTread_l(config, 'order')
 
   wall_v = 0
   wall_t = [T, T]
@@ -220,13 +218,12 @@ program setup_single_dimer
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
 
   colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-  order = .false.!PTread_l(config, 'order')
   if (order) then
-     colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0)+0.1d0
+     colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
      colloids% pos(1,2) = colloids% pos(1,1) + d
      colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
   else
-     colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0)+0.1d0
+     colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1
      colloids% pos(1,1) = colloids% pos(1,2) + d
      colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
   end if
