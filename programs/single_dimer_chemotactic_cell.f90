@@ -54,6 +54,8 @@ program setup_single_dimer
   double precision :: colloid_pos(3,2)
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
+  integer(HID_T) :: fields_group
+  type(h5md_element_t) :: rho_xy_el
   type(thermo_t) :: thermo_data
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
@@ -64,6 +66,8 @@ program setup_single_dimer
   integer :: j, k, m
   
   type(timer_t) :: flag_timer, change_timer, buffer_timer
+
+  integer, allocatable :: rho_xy(:,:,:)
 
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped, order
@@ -134,10 +138,10 @@ program setup_single_dimer
 
   epsilon = 1.d0
   sigma(1,:) = [sigma_C, sigma_N]
-  sigma(2,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*3**(1.d0/6.d0)
-  shift = maxval(colloid_lj% cut) +0.25
-  call walls_colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift)
+  shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
+  call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
+  write(*,*) epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift
 
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
@@ -218,6 +222,12 @@ program setup_single_dimer
   end do
 
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
+
+  allocate(rho_xy(N_species, L(2), L(1)))
+  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
+  call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
+       step=N_loop*N_MD_steps, time=N_loop*N_MD_steps*dt)
+  call h5gclose_f(fields_group, error)
 
   colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
   if (order) then
@@ -386,6 +396,9 @@ program setup_single_dimer
         call vx% reset()
      end if
 
+     call compute_rho_xy
+     call rho_xy_el%append(rho_xy)
+
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
@@ -417,6 +430,7 @@ program setup_single_dimer
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
 
+  call rho_xy_el%close()
   call dimer_io%close()
   call hfile%close()
   call h5close_f(error)
@@ -630,4 +644,19 @@ contains
         end if 
      end do
   end subroutine buffer_particles
+
+  subroutine compute_rho_xy
+    integer :: i, s, ix, iy
+
+    rho_xy = 0
+    do i = 1, solvent%Nmax
+       s = solvent%species(i)
+       if (s <= 0) continue
+       ix = modulo(floor(solvent%pos(1,i)/solvent_cells%a), L(1)) + 1
+       iy = modulo(floor(solvent%pos(2,i)/solvent_cells%a), L(2)) + 1
+       rho_xy(s, iy, ix) = rho_xy(s, iy, ix) + 1
+    end do
+
+  end subroutine compute_rho_xy
+
 end program setup_single_dimer
