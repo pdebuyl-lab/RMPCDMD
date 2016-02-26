@@ -1,4 +1,3 @@
-
 program setup_single_dimer
   use md
   use neighbor_list
@@ -20,6 +19,7 @@ program setup_single_dimer
 
   type(threefry_rng_t), allocatable :: state(:)
   
+  integer, parameter :: N_species = 3
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
@@ -29,12 +29,10 @@ program setup_single_dimer
   type(lj_params_t) :: colloid_lj
   type(lj_params_t) :: walls_colloid_lj
 
-  type(profile_t) :: tz
-  type(histogram_t) :: rhoz
   type(profile_t) :: vx
 
   integer :: rho
-  integer :: N,N_init
+  integer :: N
   integer :: error
   double precision :: number_of_angles
   double precision, allocatable :: conc_z(:,:)
@@ -58,21 +56,25 @@ program setup_single_dimer
   double precision :: colloid_pos(3,2)
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
+  integer(HID_T) :: fields_group
+  type(h5md_element_t) :: rho_xy_el
   type(thermo_t) :: thermo_data
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
   integer(HID_T) :: box_group
 
   type(PTo) :: config
-  integer(c_int64_t) :: seed
   integer :: i, L(3),  n_threads
   integer :: j, k, m
   
   type(timer_t) :: flag_timer, change_timer, buffer_timer
 
+  integer, allocatable :: rho_xy(:,:,:)
+
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped,order
   integer :: bufferlength
+  integer :: steps_fixed
   fixed = .true.
   on_track = .true.
   stopped = .false.
@@ -100,11 +102,11 @@ program setup_single_dimer
   L(1) = L(1) + bufferlength
   
   rho = PTread_i(config, 'rho')
-  N_init = PTread_i(config,'N_init')
   N = rho *L(1)*L(2)*L(3)
 
   T = PTread_d(config, 'T')
   d = PTread_d(config, 'd')
+  order = PTread_l(config, 'order')
 
   wall_v = 0
   wall_t = [T, T]
@@ -113,13 +115,13 @@ program setup_single_dimer
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
-
+  steps_fixed = PTread_i(config, 'steps_fixed')
   
   sigma_C = PTread_d(config, 'sigma_C')
   sigma_N = PTread_d(config, 'sigma_N')
 
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 3)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 3)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', N_species)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', N_species)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
@@ -140,16 +142,17 @@ program setup_single_dimer
 
   epsilon = 1.d0
   sigma(1,:) = [sigma_C, sigma_N]
-  sigma(2,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*3**(1.d0/6.d0)
-  shift = maxval(colloid_lj% cut) +0.25d0
-  call walls_colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift)
+  shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
+  call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
+  write(*,*) epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift
+
 
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   write(*,*) 'mass =', mass
 
-  call solvent% init(N,3) !there will be 3 species of solvent particles
+  call solvent% init(N,N_species)
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
@@ -226,14 +229,20 @@ program setup_single_dimer
 
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
 
+  allocate(rho_xy(N_species, L(2), L(1)))
+  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
+  call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
+       step=N_loop*N_MD_steps, time=N_loop*N_MD_steps*dt)
+  call h5gclose_f(fields_group, error)
+
   colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-  
+
   if (order) then
-     colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0)+0.1d0
+     colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
      colloids% pos(1,2) = colloids% pos(1,1) + d
      colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
   else
-     colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0)+0.1d0
+     colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1
      colloids% pos(1,1) = colloids% pos(1,2) + d
      colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
   end if
@@ -394,6 +403,9 @@ program setup_single_dimer
         call vx% reset()
      end if
 
+     call compute_rho_xy
+     call rho_xy_el%append(rho_xy)
+
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
@@ -410,7 +422,8 @@ program setup_single_dimer
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
 
-     if (i .gt. N_init) then
+
+     if (i >= steps_fixed) then
         fixed = .false.
      end if
      if (.not. on_track) then
@@ -431,6 +444,7 @@ program setup_single_dimer
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
 
+  call rho_xy_el%close()
   call dimer_io%close()
   call hfile%close()
   call h5close_f(error)
@@ -712,4 +726,19 @@ contains
         end if 
      end do
   end subroutine buffer_particles
+
+  subroutine compute_rho_xy
+    integer :: i, s, ix, iy
+
+    rho_xy = 0
+    do i = 1, solvent%Nmax
+       s = solvent%species(i)
+       if (s <= 0) continue
+       ix = modulo(floor(solvent%pos(1,i)/solvent_cells%a), L(1)) + 1
+       iy = modulo(floor(solvent%pos(2,i)/solvent_cells%a), L(2)) + 1
+       rho_xy(s, iy, ix) = rho_xy(s, iy, ix) + 1
+    end do
+
+  end subroutine compute_rho_xy
+
 end program setup_single_dimer
