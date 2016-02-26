@@ -67,6 +67,7 @@ program setup_single_dimer
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped, order
   integer :: bufferlength
+  integer :: steps_fixed
   fixed = .true.
   on_track = .true.
   stopped = .false.
@@ -105,7 +106,7 @@ program setup_single_dimer
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
-
+  steps_fixed = PTread_i(config, 'steps_fixed')
   
   sigma_C = PTread_d(config, 'sigma_C')
   sigma_N = PTread_d(config, 'sigma_N')
@@ -400,7 +401,7 @@ program setup_single_dimer
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
 
-     if (i .gt. 2000) then
+     if (i >= steps_fixed) then
         fixed = .false.
      end if
      
