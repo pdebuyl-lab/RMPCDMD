@@ -1,15 +1,19 @@
-h5md_file = 'chemotactic_cell.h5'
+h5md_file = 'test_conc.h5'
 
 # simulation parameters
-N_MD = 100
-N_loop = 20000
+N_MD = 10
+N_loop = 4000
 probability = 1
+
+# number of initialisation steps
+N_init = 50
 
 # cell parameters
 g = 0.001
-buffer_length = 20
+buffer_length = 10
 L = 50 50 15
 seed = 789465153
+
 # fluid parameters
 rho = 10
 T = 5
@@ -21,4 +25,10 @@ sigma_N = 2
 d = 4.5
 
 epsilon_C = 1 1 1
-epsilon_N = 1 0.1 1
+epsilon_N = 1 0.5 1
+
+# order (T: CN ; F: NC)
+order = F
+
+# local concentration
+number_of_angles = 6.d0

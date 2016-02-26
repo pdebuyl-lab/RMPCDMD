@@ -1,3 +1,4 @@
+
 program setup_single_dimer
   use md
   use neighbor_list
@@ -33,8 +34,11 @@ program setup_single_dimer
   type(profile_t) :: vx
 
   integer :: rho
-  integer :: N
+  integer :: N,N_init
   integer :: error
+  double precision :: number_of_angles
+  double precision, allocatable :: conc_z(:,:)
+  double precision :: conc_z_cyl(400)   
 
   double precision :: sigma_N, sigma_C, max_cut
   double precision :: epsilon(3,2), shift
@@ -51,7 +55,6 @@ program setup_single_dimer
   integer :: n_extra_sorting
   double precision :: kin_e, temperature
 
-  double precision :: conc_z(400)
   double precision :: colloid_pos(3,2)
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
@@ -68,7 +71,7 @@ program setup_single_dimer
   type(timer_t) :: flag_timer, change_timer, buffer_timer
 
   double precision :: g(3) !gravity
-  logical :: fixed, on_track, stopped, order
+  logical :: fixed, on_track, stopped,order
   integer :: bufferlength
   fixed = .true.
   on_track = .true.
@@ -91,10 +94,13 @@ program setup_single_dimer
   bufferlength = PTread_i(config, 'buffer_length')
   prob = PTread_d(config,'probability')
 
+  number_of_angles = PTread_d(config, 'number_of_angles')
+  allocate(conc_z(400,floor(number_of_angles)))
   L = PTread_ivec(config, 'L', 3)
   L(1) = L(1) + bufferlength
   
   rho = PTread_i(config, 'rho')
+  N_init = PTread_i(config,'N_init')
   N = rho *L(1)*L(2)*L(3)
 
   T = PTread_d(config, 'T')
@@ -136,7 +142,7 @@ program setup_single_dimer
   sigma(1,:) = [sigma_C, sigma_N]
   sigma(2,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*3**(1.d0/6.d0)
-  shift = maxval(colloid_lj% cut) +0.25
+  shift = maxval(colloid_lj% cut) +0.25d0
   call walls_colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift)
 
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
@@ -150,7 +156,7 @@ program setup_single_dimer
   call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_chemotactic_cell', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
-
+  order = PTread_l(config, 'order')
   call PTkill(config)
 
   dimer_io%force_info%store = .false.
@@ -192,6 +198,7 @@ program setup_single_dimer
   call solvent_io%init(hfile, 'solvent', solvent)
 
   open(17,file ='dimerdata_FullExp_1.txt')
+  open(18, file ='concentration.txt')
   open(19,file ='dimerdata_vx_flow_wall.txt')  
 
   colloids% species(1) = 1
@@ -220,7 +227,7 @@ program setup_single_dimer
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
 
   colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-  order = .false.!PTread_l(config, 'order')
+  
   if (order) then
      colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0)+0.1d0
      colloids% pos(1,2) = colloids% pos(1,1) + d
@@ -403,9 +410,15 @@ program setup_single_dimer
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
 
-     if (i .gt. 2000) then
+     if (i .gt. N_init) then
         fixed = .false.
      end if
+     if (.not. on_track) then
+        if (modulo(i,50)==0) then
+           call concentration_field_cylindrical
+           write(18,*) conc_z, colloid_pos
+         end if
+     end if 
      
   end do setup
 
@@ -513,43 +526,111 @@ contains
     end do
   end subroutine refuel
 
-  subroutine concentration_field
+  subroutine concentration_field_cylindrical
     double precision :: dimer_orient(3),x(3),y(3),z(3)
     double precision :: solvent_pos(3,solvent% Nmax)
-    double precision :: dz,r,theta,x_pos,y_pos,z_pos
+    double precision :: dz,r,theta,x_pos,y_pos,z_pos,alpha,number_of_bins
     integer :: o
     integer :: check
-
-    dz = solvent_cells% edges(3)/400.d0
+    logical :: far_enough_from_wall
+    double precision :: range_min(3),range_max(3),range_r
+    number_of_bins = 90.d0
+    dz = 2.d0*d/number_of_bins
     dimer_orient = colloids% pos(:,2) - colloids% pos(:,1)
     z = dimer_orient/sqrt(dot_product(dimer_orient,dimer_orient))
+    alpha = dacos(dot_product(z,(/0,0,1/)))
     x = (/0.d0, 1.d0, -dimer_orient(2)/dimer_orient(3)/)
     x = x/sqrt(dot_product(x,x))
     y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
-    conc_z = 0
+    conc_z_cyl = 0
+    
+    range_r = minval((/colloids% pos(3,1), colloids% pos(3,1),solvent_cells% edges(3)-colloids% pos(3,1), &
+              solvent_cells% edges(3)-colloids% pos(3,2)/))
+    range_min = 1.5d0*d*z + colloids% pos(:,1)
+    range_max = -0.5d0*d*z + colloids% pos(:,1)
+    range_r = abs(range_r/cos(alpha))
+ 
+    if ((range_min(3)<solvent_cells%edges(3)).and.(range_min(3)>0).and. &
+       (range_max(3)<solvent_cells%edges(3)).and.(range_max(3)>0).and. &
+       (range_r > 2*max_cut)) then
+       far_enough_from_wall = .true.
+    else
+       far_enough_from_wall = .false.
+    end if 
+    if (far_enough_from_wall) then
+       do o = 1, solvent% Nmax
+          solvent_pos(:,o) = solvent% pos(:,o) - colloids% pos(:,1)
+          x_pos = dot_product(x,solvent_pos(:,o))
+          y_pos = dot_product(y, solvent_pos(:,o))
+          z_pos = dot_product(z, solvent_pos(:,o))
+          solvent_pos(:,o) = (/x_pos,y_pos,z_pos/)
+       end do
+       do o = 1, solvent% Nmax
+          r = sqrt(solvent_pos(1,o)**2 + solvent_pos(2,o)**2)
+          theta = atan(solvent_pos(2,o)/solvent_pos(1,o))
+          solvent_pos(1,o) = r
+          solvent_pos(2,o) = theta
+          if ((solvent_pos(1,o) < 2*max_cut).and.((solvent_pos(3,o)<1.5d0*d).or.(solvent_pos(3,o)>-0.5d0*d))) then
+             if (solvent% species(o)==2) then
+                check = floor((solvent_pos(3,o)+0.5d0*d)/dz)
+                conc_z_cyl(check) = conc_z_cyl(check) + 1
+             end if
+          end if 
+       end do
+       colloid_pos(:,1) = 0
+       colloid_pos(3,1) = colloids% pos(3,1)
+       colloid_pos(:,2) = 0
+       colloid_pos(3,2) = d + colloids% pos(3,1)
+    else
+       conc_z_cyl = 0
+       colloid_pos = 0
+    end if 
+  end subroutine concentration_field_cylindrical
 
-    do o = 1, solvent% Nmax
-       solvent_pos(:,o) = solvent% pos(:,o) - colloids% pos(:,1)
-       x_pos = dot_product(x,solvent_pos(:,o))
-       y_pos = dot_product(y, solvent_pos(:,o))
-       z_pos = dot_product(z, solvent_pos(:,o))
-       solvent_pos(:,o) = (/x_pos,y_pos,z_pos/)
+  subroutine concentration_field(p1,p2,edges,number_of_angles)
+    type(particle_system_t), intent(in) :: p1,p2
+    double precision, intent(in) :: edges(3)
+    double precision, intent(in) :: number_of_angles
+    double precision :: dimer_orient(3),x(3),y(3),z(3)
+    double precision :: solvent_pos(3,solvent% Nmax)
+    double precision :: dz,r,theta,x_pos,y_pos,z_pos, pi, dtheta
+    integer :: loop
+    integer :: check, check2
+    
+    
+    pi = 4.d0*datan(1.d0)
+    
+    dtheta = 2*pi/number_of_angles
+    dz = edges(3)/400.d0
+    dimer_orient = p1% pos(:,2) - p1% pos(:,1)
+    z = dimer_orient/sqrt(dot_product(dimer_orient,dimer_orient))
+    x = x/sqrt(dot_product(x,x))
+    y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
+    conc_z = 0
+    
+    do loop = 1, p2% Nmax
+       solvent_pos(:,loop) = p2% pos(:,loop) - p1% pos(:,1)
+       x_pos = dot_product(x,solvent_pos(:,loop))
+       y_pos = dot_product(y, solvent_pos(:,loop))
+       z_pos = dot_product(z, solvent_pos(:,loop))
+       solvent_pos(:,loop) = (/x_pos,y_pos,z_pos/)
     end do
-    do o = 1, solvent% Nmax
-       r = sqrt(solvent_pos(1,o)**2 + solvent_pos(2,o)**2)
-       theta = atan(solvent_pos(2,o)/solvent_pos(1,o))
-       solvent_pos(1,o) = r
-       solvent_pos(2,o) = theta
-       solvent_pos(3,o) = solvent_pos(3,o)+colloids% pos(3,1)
-       if (solvent% species(o)==2) then
-          check = floor(solvent_pos(3,o)/dz)
-          conc_z(check) = conc_z(check) + 1
+    do loop = 1, p2% Nmax
+       if (p2% species(loop)==2) then
+       r = sqrt(solvent_pos(1,loop)**2 + solvent_pos(2,loop)**2)
+       theta = atan(solvent_pos(2,loop)/solvent_pos(1,loop))
+       solvent_pos(1,loop) = r
+       solvent_pos(2,loop) = theta
+       solvent_pos(3,loop) = solvent_pos(3,loop)+colloids% pos(3,1)
+       check = floor(solvent_pos(3,loop)/dz)
+       check2 = floor(solvent_pos(2,loop)/dtheta)
+       conc_z(check,check2) = conc_z(check,check2) + 1
        end if 
     end do
     colloid_pos(:,1) = 0
-    colloid_pos(3,1) = colloids% pos(3,1)
+    colloid_pos(3,1) = p1% pos(3,1)
     colloid_pos(:,2) = 0
-    colloid_pos(3,2) = d + colloids% pos(3,1)
+    colloid_pos(3,2) = d + p1% pos(3,1)
   end subroutine concentration_field
 
   subroutine mpcd_stream_zwall_light(particles, cells, dt,g)
