@@ -19,6 +19,7 @@ program setup_single_dimer
 
   type(threefry_rng_t), allocatable :: state(:)
   
+  integer, parameter :: N_species = 3
 
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
@@ -111,8 +112,8 @@ program setup_single_dimer
   sigma_C = PTread_d(config, 'sigma_C')
   sigma_N = PTread_d(config, 'sigma_N')
 
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 3)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 3)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', N_species)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', N_species)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
@@ -142,7 +143,7 @@ program setup_single_dimer
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   write(*,*) 'mass =', mass
 
-  call solvent% init(N,3) !there will be 3 species of solvent particles
+  call solvent% init(N,N_species)
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
