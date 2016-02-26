@@ -6,7 +6,7 @@ N_loop = 4000
 probability = 1
 
 # number of initialisation steps
-N_init = 50
+steps_fixed = 50
 
 # cell parameters
 g = 0.001
