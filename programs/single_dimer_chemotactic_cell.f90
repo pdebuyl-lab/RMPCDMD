@@ -276,7 +276,7 @@ program setup_single_dimer
   !start RMPCDMD
   setup: do i = 1, N_loop
      if (modulo(i,20) == 0) write(*,'(i09)',advance='no') i
-     md: do j = 1, N_MD_steps
+     md_loop: do j = 1, N_MD_steps
         call mpcd_stream_zwall_light(solvent, solvent_cells, dt,g)
 
         colloids% pos_rattle = colloids% pos
@@ -377,7 +377,7 @@ program setup_single_dimer
            call change_timer%tac()
         end if
 
-     end do md
+     end do md_loop
 
      
 
