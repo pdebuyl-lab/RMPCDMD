@@ -49,6 +49,8 @@ program setup_single_dimer
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
   double precision :: kin_e, temperature
+  integer, dimension(N_species) :: n_solvent, catalytic_change, bulk_change
+  type(h5md_element_t) :: n_solvent_el, catalytic_change_el, bulk_change_el
 
   double precision :: conc_z(400)
   double precision :: colloid_pos(3,2)
@@ -226,8 +228,18 @@ program setup_single_dimer
   allocate(rho_xy(N_species, L(2), L(1)))
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
   call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
-       step=N_loop*N_MD_steps, time=N_loop*N_MD_steps*dt)
+       step=N_MD_steps, time=N_MD_steps*dt)
   call h5gclose_f(fields_group, error)
+
+  call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
+       n_solvent, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
+       time=N_MD_steps*dt)
+  call catalytic_change_el%create_time(hfile%observables, 'catalytic_change', &
+       catalytic_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
+       time=N_MD_steps*dt)
+  call bulk_change_el%create_time(hfile%observables, 'bulk_change', &
+       bulk_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
+       time=N_MD_steps*dt)
 
   colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
   if (order) then
@@ -267,6 +279,7 @@ program setup_single_dimer
   e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
+  catalytic_change = 0
 
   call vx% init(0.d0, solvent_cells% edges(3), L(3))
 
@@ -413,6 +426,16 @@ program setup_single_dimer
           (solvent%Nmax + mass(1) + mass(2))
      call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com)
 
+     n_solvent = 0
+     do k = 1, solvent%Nmax
+        m = solvent%species(k)
+        if (m <= 0) continue
+        n_solvent(m) = n_solvent(m) + 1
+     end do
+     call n_solvent_el%append(n_solvent)
+     call catalytic_change_el%append(catalytic_change)
+     call bulk_change_el%append(bulk_change)
+
      call dimer_io%position%append(colloids%pos)
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
@@ -484,7 +507,8 @@ contains
     integer :: m
     double precision :: x(3)
 
-    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
+    catalytic_change = 0
+    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq) reduction(+:catalytic_change)
     do m = 1, solvent% Nmax
        if (solvent% flag(m) == 1) then
           x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
@@ -499,6 +523,8 @@ contains
                then
              solvent% species(m) = 2
              solvent% flag(m) = 0
+             catalytic_change(1) = catalytic_change(1) - 1
+             catalytic_change(2) = catalytic_change(2) + 1
           end if
        end if
     end do
@@ -634,14 +660,23 @@ contains
      double precision, intent(in) :: edges(3)
      integer, intent(in) :: bufferlength
   
-     integer :: k  
+     integer :: k, s
 
+     bulk_change = 0
      do k = 1, particles% Nmax
+        s = particles% species(k)
+        if (s <= 0) continue
         if (particles% pos(1,k) < bufferlength) then
            if (particles% pos(2,k) < edges(2)/2.d0) then
+              bulk_change(s) = bulk_change(s) - 1
               particles% species(k) = 1
+              s = 1
+              bulk_change(s) = bulk_change(s) + 1
            else
+              bulk_change(s) = bulk_change(s) - 1
               particles% species(k) = 3
+              s = 3
+              bulk_change(s) = bulk_change(s) + 1
            end if  
         end if 
      end do
