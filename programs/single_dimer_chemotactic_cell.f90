@@ -536,29 +536,6 @@ contains
 
   end subroutine change_species
   
-  subroutine refuel
-    double precision :: dist_to_C_sq
-    double precision :: dist_to_N_sq
-    double precision :: far
-    double precision :: x(3)
-    integer :: n
-
-    far = (L(1)*0.45)**2
-
-    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
-    do n = 1,solvent% Nmax
-       if (solvent% species(n) == 2) then
-          x = rel_pos(colloids% pos(:,1), solvent% pos(:,n), solvent_cells% edges)
-          dist_to_C_sq = dot_product(x, x)
-          x= rel_pos(colloids% pos(:,2), solvent% pos(:,n), solvent_cells% edges)
-          dist_to_N_sq = dot_product(x, x)
-          if ((dist_to_C_sq > far) .and. (dist_to_N_sq > far)) then
-             solvent% species(n) = 1
-          end if
-       end if
-    end do
-  end subroutine refuel
-
   subroutine concentration_field
     double precision :: dimer_orient(3),x(3),y(3),z(3)
     double precision :: solvent_pos(3,solvent% Nmax)
