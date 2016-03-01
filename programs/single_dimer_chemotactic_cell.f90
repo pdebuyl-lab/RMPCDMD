@@ -68,6 +68,7 @@ program setup_single_dimer
   integer :: j, k, m
   
   type(timer_t) :: flag_timer, change_timer, buffer_timer
+  integer(HID_T) :: timers_group
 
   integer, allocatable :: rho_xy(:,:,:)
 
@@ -455,29 +456,33 @@ program setup_single_dimer
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
 
+  call h5gcreate_f(hfile%id, 'timers', timers_group, error)
+  call h5md_write_dataset(timers_group, solvent%time_stream%name, solvent%time_stream%total)
+  call h5md_write_dataset(timers_group, solvent%time_md_vel%name, solvent%time_md_vel%total)
+  call h5md_write_dataset(timers_group, solvent%time_step%name, solvent%time_step%total)
+  call h5md_write_dataset(timers_group, solvent%time_count%name, solvent%time_count%total)
+  call h5md_write_dataset(timers_group, solvent%time_sort%name, solvent%time_sort%total)
+  call h5md_write_dataset(timers_group, solvent%time_ct%name, solvent%time_ct%total)
+  call h5md_write_dataset(timers_group, solvent%time_max_disp%name, solvent%time_max_disp%total)
+  call h5md_write_dataset(timers_group, flag_timer%name, flag_timer%total)
+  call h5md_write_dataset(timers_group, change_timer%name, buffer_timer%total)
+  call h5md_write_dataset(timers_group, buffer_timer%name, buffer_timer%total)
+  call h5md_write_dataset(timers_group, neigh%time_update%name, neigh%time_update%total)
+  call h5md_write_dataset(timers_group, neigh%time_force%name, neigh%time_force%total)
+
+  call h5md_write_dataset(timers_group, 'total', solvent%time_stream%total + &
+       solvent%time_step%total + solvent%time_count%total + solvent%time_sort%total + &
+       solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
+       flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + &
+       neigh%time_force%total)
+
+  call h5gclose_f(timers_group, error)
+
   call rho_xy_el%close()
   call dimer_io%close()
   call hfile%close()
   call h5close_f(error)
 
-  write(*,'(a16,f15.3)') solvent%time_stream%name, solvent%time_stream%total
-  write(*,'(a16,f15.3)') solvent%time_md_vel%name, solvent%time_md_vel%total
-  write(*,'(a16,f15.3)') solvent%time_step%name, solvent%time_step%total
-  write(*,'(a16,f15.3)') solvent%time_count%name, solvent%time_count%total
-  write(*,'(a16,f15.3)') solvent%time_sort%name, solvent%time_sort%total
-  write(*,'(a16,f15.3)') solvent%time_ct%name, solvent%time_ct%total
-  write(*,'(a16,f15.3)') solvent%time_max_disp%name, solvent%time_max_disp%total
-  write(*,'(a16,f15.3)') flag_timer%name, flag_timer%total
-  write(*,'(a16,f15.3)') change_timer%name, buffer_timer%total
-  write(*,'(a16,f15.3)') buffer_timer%name, buffer_timer%total
-  write(*,'(a16,f15.3)') neigh%time_update%name, neigh%time_update%total
-  write(*,'(a16,f15.3)') neigh%time_force%name, neigh%time_force%total
-
-  write(*,'(a16,f15.3)') 'total                          ', &
-       solvent%time_stream%total + solvent%time_step%total + solvent%time_count%total +&
-       solvent%time_sort%total + solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
-       flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + neigh%time_force%total
-  
 contains
 
   subroutine flag_particles
