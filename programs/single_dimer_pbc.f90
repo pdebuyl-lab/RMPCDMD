@@ -56,6 +56,7 @@ program setup_single_dimer
   integer(HID_T) :: box_group
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
+  double precision :: v_com(3)
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
 
@@ -284,8 +285,10 @@ program setup_single_dimer
      kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
           colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
           sum(solvent% vel**2)/2
+     v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1) + mass(2)*colloids%vel(:,2)) / &
+          (solvent%Nmax + mass(1) + mass(2))
 
-     call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e)
+     call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
 
      call dimer_io%position%append(colloids%pos)
      call dimer_io%velocity%append(colloids%vel)

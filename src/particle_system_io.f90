@@ -17,6 +17,7 @@ module particle_system_io
      double precision, allocatable, dimension(:) :: potential_energy
      double precision, allocatable, dimension(:) :: kinetic_energy
      double precision, allocatable, dimension(:) :: internal_energy
+     double precision, allocatable, dimension(:,:) :: center_of_mass_velocity
    contains
      procedure :: init => thermo_init
      procedure :: append => thermo_append
@@ -161,7 +162,7 @@ contains
     double precision, intent(in) :: time
 
     type(h5md_element_t) :: e
-    double precision :: dummy
+    double precision :: dummy, dummy_vec(3)
     integer :: mode
 
     if (n_buffer <= 0) error stop 'n_buffer non-positive in thermo_init'
@@ -175,6 +176,7 @@ contains
     allocate(this% potential_energy(n_buffer))
     allocate(this% kinetic_energy(n_buffer))
     allocate(this% internal_energy(n_buffer))
+    allocate(this% center_of_mass_velocity(3,n_buffer))
 
     call e%create_time(datafile%observables, 'temperature', dummy, mode, step, time)
     call e%close()
@@ -184,13 +186,17 @@ contains
     call e%close()
     call e%create_time(datafile%observables, 'internal_energy', dummy, mode, step, time)
     call e%close()
+    call e%create_time(datafile%observables, 'center_of_mass_velocity', dummy_vec, mode, step, time)
+    call e%close()
 
   end subroutine thermo_init
 
-  subroutine thermo_append(this, datafile, temperature, potential_energy, kinetic_energy, internal_energy, add, force)
+  subroutine thermo_append(this, datafile, temperature, potential_energy, kinetic_energy, internal_energy, &
+       center_of_mass_velocity, add, force)
     class(thermo_t), intent(inout) :: this
     type(h5md_file_t), intent(inout) :: datafile
     double precision, intent(in) :: temperature, potential_energy, kinetic_energy, internal_energy
+    double precision, intent(in) :: center_of_mass_velocity(3)
     logical, intent(in), optional :: add, force
 
     integer :: i
@@ -211,6 +217,7 @@ contains
        this%potential_energy(i) = potential_energy
        this%kinetic_energy(i) = kinetic_energy
        this%internal_energy(i) = internal_energy
+       this%center_of_mass_velocity(:,i) = center_of_mass_velocity
     end if
 
     do_append = (this%idx == this%n_buffer)
@@ -233,6 +240,9 @@ contains
        call e%close()
        call e%open_time(datafile%observables, 'internal_energy')
        call e%append_buffer(this%internal_energy, force_size=this%idx)
+       call e%close()
+       call e%open_time(datafile%observables, 'center_of_mass_velocity')
+       call e%append_buffer(this%center_of_mass_velocity, force_size=this%idx)
        call e%close()
        this%idx = 0
     end if
