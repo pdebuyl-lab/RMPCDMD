@@ -642,6 +642,7 @@ contains
      integer :: k, s
 
      bulk_change = 0
+     !$omp parallel do private(s) reduction(+:bulk_change)
      do k = 1, particles% Nmax
         s = particles% species(k)
         if (s <= 0) continue
