@@ -67,7 +67,7 @@ program setup_single_dimer
   integer :: i, L(3),  n_threads
   integer :: j, k, m
   
-  type(timer_t) :: flag_timer, change_timer, buffer_timer
+  type(timer_t) :: flag_timer, change_timer, buffer_timer, varia
   integer(HID_T) :: timers_group
 
   integer, allocatable :: rho_xy(:,:,:)
@@ -85,6 +85,7 @@ program setup_single_dimer
   call flag_timer%init('flag')
   call change_timer%init('change')
   call buffer_timer%init('buffer')
+  call varia%init('varia')
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
@@ -335,12 +336,16 @@ program setup_single_dimer
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+           call varia%tic()
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
+           call varia%tac()
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
+           call varia%tic()
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
+           call varia%tac()
            n_extra_sorting = n_extra_sorting + 1
         end if
 
@@ -410,7 +415,9 @@ program setup_single_dimer
         call vx% reset()
      end if
 
+     call varia%tic()
      call compute_rho_xy
+     call varia%tac()
      call rho_xy_el%append(rho_xy)
 
      call solvent% sort(solvent_cells)
@@ -468,13 +475,14 @@ program setup_single_dimer
   call h5md_write_dataset(timers_group, change_timer%name, buffer_timer%total)
   call h5md_write_dataset(timers_group, buffer_timer%name, buffer_timer%total)
   call h5md_write_dataset(timers_group, neigh%time_update%name, neigh%time_update%total)
+  call h5md_write_dataset(timers_group, varia%name, varia%total)
   call h5md_write_dataset(timers_group, neigh%time_force%name, neigh%time_force%total)
 
   call h5md_write_dataset(timers_group, 'total', solvent%time_stream%total + &
        solvent%time_step%total + solvent%time_count%total + solvent%time_sort%total + &
        solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
        flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + &
-       neigh%time_force%total)
+       varia%total + neigh%time_force%total)
 
   call h5gclose_f(timers_group, error)
 
