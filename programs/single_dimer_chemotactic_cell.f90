@@ -590,6 +590,7 @@ contains
     pos_max = cells% edges
 
     call solvent%time_stream%tic()
+    !$omp parallel do private(old_pos, old_vel, t_c)
     do i = 1, particles% Nmax
        old_pos = particles% pos(:,i) 
        old_vel = particles% vel(:,i)
