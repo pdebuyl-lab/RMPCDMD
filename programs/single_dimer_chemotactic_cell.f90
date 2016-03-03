@@ -594,8 +594,6 @@ contains
        old_pos = particles% pos(:,i) 
        old_vel = particles% vel(:,i)
        particles% pos(:,i) = particles% pos(:,i) + dt * particles% vel(:,i) + dt**2 * (particles% force(:,i) + g)/ 2
-       !particles% pos(2,i) = modulo( particles% pos(2,i) , cells% edges(2) )
-       !particles% pos(1,i) = modulo( particles% pos(1,i) , cells% edges(1) )
        if (cells% has_walls) then
           if (particles% pos(3,i) < pos_min(3)) then
              t_c = abs(old_pos(3)/old_vel(3))
@@ -608,8 +606,6 @@ contains
              particles% pos(:,i) = old_pos + old_vel*t_c + g*t_c**2/2 - (old_vel + g*t_c)*(dt-t_c)+(dt-t_c)**2*g/2
              particles% wall_flag(i) = 1
           end if
-       !else
-          !particles% pos(3,i) = modulo( particles% pos(3,i) , cells% edges(3) )
        end if 
     end do
     call solvent%time_stream%tac()
