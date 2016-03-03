@@ -1,12 +1,12 @@
 [submodule "ParseText"]
 	path = ParseText
-	url = ../ParseText
+	url = https://github.com/pdebuyl/ParseText
 [submodule "fortran_tester"]
 	path = fortran_tester
-	url = ../fortran_tester
+	url = https://github.com/pdebuyl/fortran_tester
 [submodule "fortran_h5md"]
 	path = fortran_h5md
-	url = ../fortran_h5md
+	url = https://github.com/pdebuyl/fortran_h5md
 [submodule "random_module"]
 	path = random_module
-	url = ../random_module
+	url = https://github.com/pdebuyl/random_module
