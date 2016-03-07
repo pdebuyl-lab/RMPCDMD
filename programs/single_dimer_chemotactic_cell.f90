@@ -36,7 +36,7 @@ program setup_single_dimer
   integer :: error
   double precision :: number_of_angles
   double precision, allocatable :: conc_z(:,:)
-  double precision :: conc_z_cyl(400)   
+  double precision :: conc_z_cyl(90)   
 
   double precision :: sigma_N, sigma_C, max_cut
   double precision :: epsilon(3,2), shift
@@ -283,7 +283,7 @@ program setup_single_dimer
   !start RMPCDMD
   setup: do i = 1, N_loop
      if (modulo(i,20) == 0) write(*,'(i09)',advance='no') i
-     md: do j = 1, N_MD_steps
+     md_loop: do j = 1, N_MD_steps
         call mpcd_stream_zwall_light(solvent, solvent_cells, dt,g)
 
         colloids% pos_rattle = colloids% pos
@@ -384,7 +384,7 @@ program setup_single_dimer
            call change_timer%tac()
         end if
 
-     end do md
+     end do md_loop
 
      
 
@@ -427,7 +427,7 @@ program setup_single_dimer
         fixed = .false.
      end if
      if (.not. on_track) then
-        if (modulo(i,50)==0) then
+        if (modulo(i,20)==0) then
            call concentration_field_cylindrical
            write(18,*) conc_z, colloid_pos
          end if
@@ -543,30 +543,31 @@ contains
   subroutine concentration_field_cylindrical
     double precision :: dimer_orient(3),x(3),y(3),z(3)
     double precision :: solvent_pos(3,solvent% Nmax)
-    double precision :: dz,r,theta,x_pos,y_pos,z_pos,alpha,number_of_bins
+    double precision :: dz,r,theta,x_pos,y_pos,z_pos,number_of_bins
     integer :: o
     integer :: check
     logical :: far_enough_from_wall
-    double precision :: range_min(3),range_max(3),range_r
+    double precision :: range_min1(3),range_min2(3),range_max1(3),range_max2(3)
+    
     number_of_bins = 90.d0
     dz = 2.d0*d/number_of_bins
     dimer_orient = colloids% pos(:,2) - colloids% pos(:,1)
     z = dimer_orient/sqrt(dot_product(dimer_orient,dimer_orient))
-    alpha = dacos(dot_product(z,(/0,0,1/)))
+   
     x = (/0.d0, 1.d0, -dimer_orient(2)/dimer_orient(3)/)
     x = x/sqrt(dot_product(x,x))
     y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
     conc_z_cyl = 0
-    
-    range_r = minval((/colloids% pos(3,1), colloids% pos(3,1),solvent_cells% edges(3)-colloids% pos(3,1), &
-              solvent_cells% edges(3)-colloids% pos(3,2)/))
-    range_min = 1.5d0*d*z + colloids% pos(:,1)
-    range_max = -0.5d0*d*z + colloids% pos(:,1)
-    range_r = abs(range_r/cos(alpha))
- 
-    if ((range_min(3)<solvent_cells%edges(3)).and.(range_min(3)>0).and. &
-       (range_max(3)<solvent_cells%edges(3)).and.(range_max(3)>0).and. &
-       (range_r > 2*max_cut)) then
+
+    range_min1 = colloids%pos(:,1) - d/2.0*z - (/0.d0,0.d0,1.d0/)*2*max_cut
+    range_min2 = colloids%pos(:,1) - d/2.0*z + (/0.d0,0.d0,1.d0/)*2*max_cut
+    range_max1 = colloids%pos(:,1) + 3.d0*d/2.0*z - (/0.d0,0.d0,1.d0/)*2*max_cut
+    range_max2 = colloids%pos(:,1) - 3.d0*d/2.0*z + (/0.d0,0.d0,1.d0/)*2*max_cut
+
+    if ( (range_min1(3)<solvent_cells%edges(3)).and.(range_min1(3)>0).and. &
+       (range_max1(3)<solvent_cells%edges(3)).and.(range_max1(3)>0).and. &
+       (range_min2(3)<solvent_cells%edges(3)).and.(range_min2(3)>0).and. &
+       (range_max2(3)<solvent_cells%edges(3)).and.(range_max2(3)>0) ) then
        far_enough_from_wall = .true.
     else
        far_enough_from_wall = .false.
@@ -584,9 +585,10 @@ contains
           theta = atan(solvent_pos(2,o)/solvent_pos(1,o))
           solvent_pos(1,o) = r
           solvent_pos(2,o) = theta
-          if ((solvent_pos(1,o) < 2*max_cut).and.((solvent_pos(3,o)<1.5d0*d).or.(solvent_pos(3,o)>-0.5d0*d))) then
+          if ((solvent_pos(1,o) < 2*max_cut).and.(solvent_pos(3,o)<1.5d0*d).and.(solvent_pos(3,o)>-0.5d0*d)) then
              if (solvent% species(o)==2) then
                 check = floor((solvent_pos(3,o)+0.5d0*d)/dz)
+                check = check+1 
                 conc_z_cyl(check) = conc_z_cyl(check) + 1
              end if
           end if 
