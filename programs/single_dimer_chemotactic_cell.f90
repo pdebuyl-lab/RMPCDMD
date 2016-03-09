@@ -318,13 +318,11 @@ program setup_single_dimer
            call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
         end if  
    
-        if (on_track) then
-           do k=1, colloids% Nmax 
-              if (colloids% pos(1,k) > bufferlength) then
+        if (on_track) then 
+              if ((colloids% pos(1,1) > (bufferlength+sigma_C)) .and. (colloids% pos(1,2) > (bufferlength+sigma_N))) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
-              end if 
-           end do
+              end if
         end if
         
         if (.not. on_track) then
