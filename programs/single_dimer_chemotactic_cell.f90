@@ -221,7 +221,7 @@ program setup_single_dimer
   solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
 
   solvent% force = 0
-
+  solvent% species = 1
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
 
   allocate(rho_xy(N_species, L(2), L(1)))
