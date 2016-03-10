@@ -5,6 +5,7 @@ module cell_system
   private
 
   public :: cell_system_t
+  public :: PERIODIC_BC, BOUNCE_BACK_BC, SPECULAR_BC
 
   type cell_system_t
      integer :: L(3)
@@ -16,12 +17,17 @@ module cell_system
      integer, allocatable :: cell_count_tmp(:,:)
      integer, allocatable :: cell_start(:)
      integer :: M(3)
+     integer :: bc(3)
      logical :: has_walls
    contains
      procedure :: init
      procedure :: count_particles
      procedure :: sort_particles
   end type cell_system_t
+
+  integer, parameter :: PERIODIC_BC = 1
+  integer, parameter :: BOUNCE_BACK_BC = 2
+  integer, parameter :: SPECULAR_BC = 3
 
 contains
 

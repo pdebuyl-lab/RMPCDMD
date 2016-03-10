@@ -10,6 +10,7 @@ module mpcd
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
   public :: mpcd_stream_periodic, mpcd_stream_zwall
+  public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
 
 contains
@@ -404,5 +405,127 @@ contains
     end do
 
   end subroutine mpcd_stream_periodic
+
+  !! Advance mpcd particles
+  !!
+  !! This routines allows a x-direction forcing and specular or bounce-back conditions in y
+  !! and z
+  subroutine mpcd_stream_xforce_yzwall(particles, cells, dt,g)
+    type(particle_system_t), intent(inout) :: particles
+    type(cell_system_t), intent(in) :: cells
+    double precision, intent(in) :: dt
+    double precision, intent(in):: g
+
+    integer :: i, bc(3), im(3)
+    double precision :: delta, L(3), gvec(3)
+    double precision, dimension(3) :: old_pos, old_vel
+    double precision, dimension(3) :: new_pos, new_vel
+    double precision :: t_c, t_b, t_ab
+
+    L = cells%edges
+    bc = cells%bc
+    gvec = 0
+    gvec(1) = g
+
+    call particles%time_stream%tic()
+    !$omp parallel do private(old_pos, old_vel, new_pos, new_vel, im)
+    do i = 1, particles% Nmax
+       old_pos = particles% pos(:,i)
+       old_vel = particles% vel(:,i)
+       new_pos = old_pos + old_vel*dt + gvec*dt**2/2
+       new_vel = particles% vel(:,i) + gvec*dt
+       im = 0
+
+       do while ( (minval(new_pos(2:3)) < 0) .or. (maxval(new_pos(2:3) - L(2:3)) > 0) )
+          call yzwall_collision(new_pos, new_vel, im, L, dt, bc, g)
+       end do
+       particles%pos(:,i) = new_pos
+       particles%vel(:,i) = new_vel
+       particles%image(:,i) = particles%image(:,i) + im
+    end do
+    call particles%time_stream%tac()
+
+  end subroutine mpcd_stream_xforce_yzwall
+
+  !! Collide a particle in y and z with constant acceleration in x
+  !!
+  !! Periodic boundary conditions are applied in x
+  subroutine yzwall_collision(x, v, im, L, t, bc, g)
+    double precision, dimension(3), intent(inout) :: x, v
+    integer, dimension(3), intent(inout) :: im
+    double precision, intent(in) :: L(3), t
+    integer, intent(in) :: bc(3)
+    double precision, intent(in), optional :: g
+
+    double precision, dimension(3) :: gvec, t_tmp
+    double precision :: t_collision, t_remainder
+    integer :: i, jump
+    integer :: coll_dim, actual_bc
+    logical :: mirror(3), collision(3)
+
+    gvec = 0
+    if (present(g)) gvec(1) = g
+
+    mirror(1) = .false.
+    collision = [ .false., .true., .true. ]
+
+    x(1) = modulo(x(1), L(1))
+    t_tmp(1) = huge(t_tmp(1))
+    ! mirror particles at higher
+    do i = 2, 3
+       if (x(i) > L(i)) then
+          x(i) = L(i) - x(i)
+          v(i) = -v(i)
+          mirror(i) = .true.
+       else if (x(i) < 0) then
+          mirror(i) = .false.
+       else
+          collision(i) = .false.
+       end if
+       t_tmp(i) = t-x(i)/v(i)
+    end do
+
+    coll_dim = minloc(t_tmp, dim=1, mask=collision)
+    t_collision = t_tmp(coll_dim)
+    t_remainder = t - t_collision
+
+    actual_bc = bc(coll_dim)
+
+    ! write(21,*) '-- '
+    ! write(21,*) x, v, mirror
+    ! write(21,*) t_tmp
+    ! write(21,*) coll_dim, t_collision, actual_bc
+
+    if (actual_bc == PERIODIC_BC) then
+       ! periodic
+       jump = floor(x(coll_dim)/L(coll_dim))
+       x(coll_dim) = x(coll_dim) - im(coll_dim)*L(coll_dim)
+       im(coll_dim) = im(coll_dim) + jump
+    else if (actual_bc == BOUNCE_BACK_BC) then
+       ! parabolic flight
+       ! x1 = x0 + v0*t + g*t**2 /2
+       ! v1 = v0 + g*t
+       ! starting after the boundary crossing
+       v = v - gvec*t
+       x = x - v*t - gvec*t**2 / 2
+       x = x + v*t_collision + gvec*t_collision**2 / 2
+       v = -v + gvec*t_collision
+       x = x + v*t_remainder + gvec*t_remainder**2 / 2
+       v = v + gvec*t_remainder
+    else if (actual_bc == SPECULAR_BC) then
+       v(coll_dim) = -v(coll_dim)
+       x(coll_dim) = t_remainder*v(coll_dim)
+    else
+       error stop 'unknown boundary collision in yzwall_collision'
+    end if
+
+    do i = 2, 3
+       if (mirror(i)) then
+          x(i) = L(i) - x(i)
+          v(i) = -v(i)
+       end if
+    end do
+
+  end subroutine yzwall_collision
 
 end module mpcd
