@@ -222,14 +222,6 @@ program setup_single_dimer
 
   solvent% force = 0
 
-  do m = 1, solvent% Nmax
-     if (solvent% pos(2,m) < (L(2)/2.d0)) then
-        solvent% species(m) = 1
-     else
-        solvent% species(m) = 3
-     end if
-  end do
-
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
 
   allocate(rho_xy(N_species, L(2), L(1)))
@@ -270,6 +262,14 @@ program setup_single_dimer
   call h5gclose_f(box_group, error)
 
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+
+  do m = 1, solvent% Nmax
+     if (solvent% pos(2,m) < (L(2)/2.d0)) then
+        solvent% species(m) = 1
+     else
+        solvent% species(m) = 3
+     end if
+  end do
 
   call solvent% sort(solvent_cells)
 
