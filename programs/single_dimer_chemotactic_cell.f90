@@ -293,12 +293,13 @@ program setup_single_dimer
 
   i = 0
 
+  solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
   setup: do i = 1, N_loop
      if (modulo(i,20) == 0) write(*,'(i09)',advance='no') i
      md_loop: do j = 1, N_MD_steps
-        call mpcd_stream_zwall_light(solvent, solvent_cells, dt,g)
+        call mpcd_stream_xforce_yzwall(solvent, solvent_cells, dt, g(1))
 
         colloids% pos_rattle = colloids% pos
         
@@ -341,7 +342,6 @@ program setup_single_dimer
 
         if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
            call varia%tic()
-           call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call varia%tac()
            call solvent% sort(solvent_cells)
@@ -616,43 +616,6 @@ contains
     end if 
   end subroutine concentration_field_cylindrical
 
-  subroutine mpcd_stream_zwall_light(particles, cells, dt,g)
-    type(particle_system_t), intent(inout) :: particles
-    type(cell_system_t), intent(in) :: cells
-    double precision, intent(in) :: dt
-    double precision, dimension(3), intent(in):: g
-
-    integer :: i
-    double precision :: pos_min(3), pos_max(3)
-    double precision, dimension(3) :: old_pos, old_vel
-    double precision :: t_c
-
-    pos_min = 0
-    pos_max = cells% edges
-
-    call solvent%time_stream%tic()
-    !$omp parallel do private(old_pos, old_vel, t_c)
-    do i = 1, particles% Nmax
-       old_pos = particles% pos(:,i) 
-       old_vel = particles% vel(:,i)
-       particles% pos(:,i) = particles% pos(:,i) + dt * particles% vel(:,i) + dt**2 * (particles% force(:,i) + g)/ 2
-       if (cells% has_walls) then
-          if (particles% pos(3,i) < pos_min(3)) then
-             t_c = abs(old_pos(3)/old_vel(3))
-             particles% vel(:,i) = -(old_vel + g*t_c) + g*(dt-t_c)
-             particles% pos(:,i) = old_pos + old_vel*t_c + g*t_c**2/2 - (old_vel + g*t_c)*(dt-t_c)+(dt-t_c)**2*g/2
-             particles% wall_flag(i) = 1
-          else if (particles% pos(3,i) > pos_max(3)) then
-             t_c = abs((pos_max(3)-old_pos(3))/old_vel(3))
-             particles% vel(:,i) = -(old_vel + g*t_c) + g*(dt-t_c)
-             particles% pos(:,i) = old_pos + old_vel*t_c + g*t_c**2/2 - (old_vel + g*t_c)*(dt-t_c)+(dt-t_c)**2*g/2
-             particles% wall_flag(i) = 1
-          end if
-       end if 
-    end do
-    call solvent%time_stream%tac()
-  end subroutine mpcd_stream_zwall_light
-  
   subroutine md_vel_flow_partial(particles, dt, ext_force)
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: dt

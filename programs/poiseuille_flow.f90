@@ -124,7 +124,7 @@ program setup_fluid
 
   wall_v = 0
   wall_t = [1.0d0, 1.0d0]
-  solvent_cells%bc = [ PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC ]
+  solvent_cells%bc = [ PERIODIC_BC, PERIODIC_BC, BOUNCE_BACK_BC ]
   do i = 1, N_therm
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
@@ -168,7 +168,7 @@ program setup_fluid
         rhoz% data = 0
      end if
 
-     if (modulo(i,50)==0) then
+     if (modulo(i,100)==0) then
         call solvent_io%position%append(solvent% pos)
         call solvent_io%image%append(solvent% image)
         call solvent_io%id%append(solvent% id)
