@@ -433,12 +433,17 @@ contains
        old_pos = particles% pos(:,i)
        old_vel = particles% vel(:,i)
        new_pos = old_pos + old_vel*dt + gvec*dt**2/2
-       new_vel = particles% vel(:,i) + gvec*dt
+       new_vel = old_vel + gvec*dt
        im = 0
 
-       do while ( (minval(new_pos(2:3)) < 0) .or. (maxval(new_pos(2:3) - L(2:3)) > 0) )
-          call yzwall_collision(new_pos, new_vel, im, L, dt, bc, g)
-       end do
+       if ( (new_pos(2)<0) .or. (new_pos(2)>L(2)) .or. (new_pos(3)<0) .or. (new_pos(3)>L(3)) ) &
+            call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
+
+       if (new_pos(1)<0) then
+          new_pos(1) = new_pos(1) + L(1)
+       else if (new_pos(1)>L(1)) then
+          new_pos(1) = new_pos(1) - L(1)
+       end if
        particles%pos(:,i) = new_pos
        particles%vel(:,i) = new_vel
        particles%image(:,i) = particles%image(:,i) + im
@@ -450,82 +455,101 @@ contains
   !! Collide a particle in y and z with constant acceleration in x
   !!
   !! Periodic boundary conditions are applied in x
-  subroutine yzwall_collision(x, v, im, L, t, bc, g)
-    double precision, dimension(3), intent(inout) :: x, v
+  subroutine yzwall_collision(x0, v0, x, v, im, L, t, bc, g)
+    double precision, dimension(3), intent(inout) :: x0, v0, x, v
     integer, dimension(3), intent(inout) :: im
     double precision, intent(in) :: L(3), t
     integer, intent(in) :: bc(3)
     double precision, intent(in), optional :: g
 
     double precision, dimension(3) :: gvec, t_tmp
-    double precision :: t_collision, t_remainder
+    double precision, dimension(3) :: old_x, old_v
+    double precision :: t_collision, t_remainder, tt
     integer :: i, jump
-    integer :: coll_dim, actual_bc
+    integer :: coll_dim, other_dim, actual_bc
     logical :: mirror(3), collision(3)
 
     gvec = 0
     if (present(g)) gvec(1) = g
 
-    mirror(1) = .false.
-    collision = [ .false., .true., .true. ]
-
-    x(1) = modulo(x(1), L(1))
-    t_tmp(1) = huge(t_tmp(1))
-    ! mirror particles at higher
+    coll_dim = 0
+    t_collision = huge(t_collision)
     do i = 2, 3
-       if (x(i) > L(i)) then
-          x(i) = L(i) - x(i)
-          v(i) = -v(i)
-          mirror(i) = .true.
-       else if (x(i) < 0) then
-          mirror(i) = .false.
+       if (v(i) > 0) then
+          tt = (L(i)-x0(i))/v0(i)
+          if ( (tt>0) .and. (tt<t_collision) ) then
+             t_collision = tt
+             coll_dim = i
+          end if
        else
-          collision(i) = .false.
+          tt = -x0(i)/v0(i)
+          if ( (tt>0) .and. (tt<t_collision) ) then
+             t_collision = tt
+             coll_dim = i
+          end if
        end if
-       t_tmp(i) = t-x(i)/v(i)
     end do
 
-    coll_dim = minloc(t_tmp, dim=1, mask=collision)
-    t_collision = t_tmp(coll_dim)
+    if (coll_dim==0) return
+
     t_remainder = t - t_collision
 
-    actual_bc = bc(coll_dim)
+    x = x0 + v0*t_collision + gvec*t_collision**2 / 2
+    v = v0 + gvec*t_collision
 
-    ! write(21,*) '-- '
-    ! write(21,*) x, v, mirror
-    ! write(21,*) t_tmp
-    ! write(21,*) coll_dim, t_collision, actual_bc
-
-    if (actual_bc == PERIODIC_BC) then
-       ! periodic
-       jump = floor(x(coll_dim)/L(coll_dim))
-       x(coll_dim) = x(coll_dim) - im(coll_dim)*L(coll_dim)
-       im(coll_dim) = im(coll_dim) + jump
-    else if (actual_bc == BOUNCE_BACK_BC) then
-       ! parabolic flight
-       ! x1 = x0 + v0*t + g*t**2 /2
-       ! v1 = v0 + g*t
-       ! starting after the boundary crossing
-       v = v - gvec*t
-       x = x - v*t - gvec*t**2 / 2
-       x = x + v*t_collision + gvec*t_collision**2 / 2
-       v = -v + gvec*t_collision
-       x = x + v*t_remainder + gvec*t_remainder**2 / 2
-       v = v + gvec*t_remainder
-    else if (actual_bc == SPECULAR_BC) then
+    if (bc(coll_dim) == BOUNCE_BACK_BC) then
+       v = -v
+    else if (bc(coll_dim) == SPECULAR_BC) then
        v(coll_dim) = -v(coll_dim)
-       x(coll_dim) = t_remainder*v(coll_dim)
-    else
-       error stop 'unknown boundary collision in yzwall_collision'
+    else if (bc(coll_dim) == PERIODIC_BC) then
+       if (x(coll_dim) <= 0) then
+          x(coll_dim) = x(coll_dim) + L(coll_dim)
+       else if (x(coll_dim) >= L(coll_dim)) then
+          x(coll_dim) = x(coll_dim) - L(coll_dim)
+       end if
     end if
 
-    do i = 2, 3
-       if (mirror(i)) then
-          x(i) = L(i) - x(i)
-          v(i) = -v(i)
+    wall_loop: do while (.true.)
+       coll_dim = change_23(coll_dim)
+
+       if (v(coll_dim)>0) then
+          t_collision = (L(coll_dim)-x(coll_dim))/v(coll_dim)
+       else
+          t_collision = -x(coll_dim)/v(coll_dim)
        end if
-    end do
+       if ((t_collision < 0) .or. (t_collision > t_remainder)) exit wall_loop
+       x = x + v*t_collision + gvec*t_collision**2 / 2
+       v = v + gvec*t_collision
+       t_remainder = t_remainder - t_collision
+       if (bc(coll_dim) == BOUNCE_BACK_BC) then
+          v = -v
+       else if (bc(coll_dim) == SPECULAR_BC) then
+          v(coll_dim) = -v(coll_dim)
+       else if (bc(coll_dim) == PERIODIC_BC) then
+          if (x(coll_dim) <= 0) then
+             x(coll_dim) = x(coll_dim) + L(coll_dim)
+          else if (x(coll_dim) >= L(coll_dim)) then
+             x(coll_dim) = x(coll_dim) - L(coll_dim)
+          end if
+       end if
+    end do wall_loop
+
+    t_collision = t_remainder
+    x = x + v*t_collision + gvec*t_collision**2 / 2
+    v = v + gvec*t_collision
+
+    !write(21,*) 'c', jump, x, v
 
   end subroutine yzwall_collision
+
+  pure function change_23(i) result(r)
+    integer, intent(in) :: i
+    integer :: r
+    if (i==2) then
+       r = 3
+    else if (i==3) then
+       r = 2
+    end if
+  end function change_23
 
 end module mpcd
