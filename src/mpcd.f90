@@ -174,10 +174,10 @@ contains
        if (do_thermostat) then
           virtual_v = 0
           do i = start, start + n - 1
-             virtual_v(1) = threefry_normal(state(thread_id))
-             virtual_v(2) = threefry_normal(state(thread_id))
-             virtual_v(3) = threefry_normal(state(thread_id))
-             particles% vel(:, i) = particles% vel(:, i)*t_factor
+             vec(1) = threefry_normal(state(thread_id))
+             vec(2) = threefry_normal(state(thread_id))
+             vec(3) = threefry_normal(state(thread_id))
+             particles% vel(:, i) = vec*t_factor
              virtual_v = virtual_v + particles% vel(:, i)
           end do
           virtual_v = local_v - virtual_v / dble(n)
