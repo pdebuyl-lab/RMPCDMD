@@ -135,6 +135,9 @@ program setup_fluid
   end do
 
   do i = 1, N_loop
+     if (mod(i,100)==0) then
+        write(*,*) i 
+     end if
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
           bulk_temperature=set_temperature)

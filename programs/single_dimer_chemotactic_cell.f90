@@ -456,16 +456,18 @@ program setup_single_dimer
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
 
-
-     if (i >= steps_fixed) then
-        fixed = .false.
-     end if
-     if (.not. on_track) then
-        if (modulo(i,20)==0) then
-           call concentration_field_cylindrical
-           write(18,*) conc_z_cyl, colloid_pos
-         end if
+     if (fixed) then
+        if (i >= steps_fixed) then
+           write(*,*) 'fixed', fixed
+           fixed = .false.
+        end if
      end if 
+     !if (.not. on_track) then
+     !   if (modulo(i,20)==0) then
+     !      call concentration_field_cylindrical
+     !      write(18,*) conc_z_cyl, colloid_pos
+     !    end if
+     !end if 
      
   end do setup
 
@@ -656,7 +658,7 @@ contains
     end do
     call solvent%time_stream%tac()
   end subroutine mpcd_stream_zwall_light
-  
+
   subroutine md_vel_flow_partial(particles, dt, ext_force)
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: dt
@@ -713,7 +715,8 @@ contains
      integer, intent(in) :: randomisation_length
 
      integer :: k
-
+     
+     !$omp parallel do
      do k = 1, particles% Nmax
         if (particles% pos(1,k) < randomisation_length) then
            particles% vel(1,k) = threefry_normal(state(1))*sqrt(T) & 
