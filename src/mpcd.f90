@@ -10,6 +10,7 @@ module mpcd
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
   public :: mpcd_stream_periodic, mpcd_stream_zwall
+  public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
 
 contains
@@ -404,5 +405,151 @@ contains
     end do
 
   end subroutine mpcd_stream_periodic
+
+  !! Advance mpcd particles
+  !!
+  !! This routines allows a x-direction forcing and specular or bounce-back conditions in y
+  !! and z
+  subroutine mpcd_stream_xforce_yzwall(particles, cells, dt,g)
+    type(particle_system_t), intent(inout) :: particles
+    type(cell_system_t), intent(in) :: cells
+    double precision, intent(in) :: dt
+    double precision, intent(in):: g
+
+    integer :: i, bc(3), im(3)
+    double precision :: delta, L(3), gvec(3)
+    double precision, dimension(3) :: old_pos, old_vel
+    double precision, dimension(3) :: new_pos, new_vel
+    double precision :: t_c, t_b, t_ab
+
+    L = cells%edges
+    bc = cells%bc
+    gvec = 0
+    gvec(1) = g
+
+    call particles%time_stream%tic()
+    !$omp parallel do private(old_pos, old_vel, new_pos, new_vel, im)
+    do i = 1, particles% Nmax
+       old_pos = particles% pos(:,i)
+       old_vel = particles% vel(:,i)
+       new_pos = old_pos + old_vel*dt + gvec*dt**2/2
+       new_vel = old_vel + gvec*dt
+       im = 0
+
+       if ( (new_pos(2)<0) .or. (new_pos(2)>L(2)) .or. (new_pos(3)<0) .or. (new_pos(3)>L(3)) ) &
+            call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
+
+       if (new_pos(1)<0) then
+          new_pos(1) = new_pos(1) + L(1)
+       else if (new_pos(1)>L(1)) then
+          new_pos(1) = new_pos(1) - L(1)
+       end if
+       particles%pos(:,i) = new_pos
+       particles%vel(:,i) = new_vel
+       particles%image(:,i) = particles%image(:,i) + im
+    end do
+    call particles%time_stream%tac()
+
+  end subroutine mpcd_stream_xforce_yzwall
+
+  !! Collide a particle in y and z with constant acceleration in x
+  !!
+  !! Periodic boundary conditions are applied in x
+  subroutine yzwall_collision(x0, v0, x, v, im, L, t, bc, g)
+    double precision, dimension(3), intent(inout) :: x0, v0, x, v
+    integer, dimension(3), intent(inout) :: im
+    double precision, intent(in) :: L(3), t
+    integer, intent(in) :: bc(3)
+    double precision, intent(in), optional :: g
+
+    double precision, dimension(3) :: gvec, t_tmp
+    double precision, dimension(3) :: old_x, old_v
+    double precision :: t_collision, t_remainder, tt
+    integer :: i, jump
+    integer :: coll_dim, other_dim, actual_bc
+    logical :: mirror(3), collision(3)
+
+    gvec = 0
+    if (present(g)) gvec(1) = g
+
+    coll_dim = 0
+    t_collision = huge(t_collision)
+    do i = 2, 3
+       if (v(i) > 0) then
+          tt = (L(i)-x0(i))/v0(i)
+          if ( (tt>0) .and. (tt<t_collision) ) then
+             t_collision = tt
+             coll_dim = i
+          end if
+       else
+          tt = -x0(i)/v0(i)
+          if ( (tt>0) .and. (tt<t_collision) ) then
+             t_collision = tt
+             coll_dim = i
+          end if
+       end if
+    end do
+
+    if (coll_dim==0) return
+
+    t_remainder = t - t_collision
+
+    x = x0 + v0*t_collision + gvec*t_collision**2 / 2
+    v = v0 + gvec*t_collision
+
+    if (bc(coll_dim) == BOUNCE_BACK_BC) then
+       v = -v
+    else if (bc(coll_dim) == SPECULAR_BC) then
+       v(coll_dim) = -v(coll_dim)
+    else if (bc(coll_dim) == PERIODIC_BC) then
+       if (x(coll_dim) <= 0) then
+          x(coll_dim) = x(coll_dim) + L(coll_dim)
+       else if (x(coll_dim) >= L(coll_dim)) then
+          x(coll_dim) = x(coll_dim) - L(coll_dim)
+       end if
+    end if
+
+    wall_loop: do while (.true.)
+       coll_dim = change_23(coll_dim)
+
+       if (v(coll_dim)>0) then
+          t_collision = (L(coll_dim)-x(coll_dim))/v(coll_dim)
+       else
+          t_collision = -x(coll_dim)/v(coll_dim)
+       end if
+       if ((t_collision < 0) .or. (t_collision > t_remainder)) exit wall_loop
+       x = x + v*t_collision + gvec*t_collision**2 / 2
+       v = v + gvec*t_collision
+       t_remainder = t_remainder - t_collision
+       if (bc(coll_dim) == BOUNCE_BACK_BC) then
+          v = -v
+       else if (bc(coll_dim) == SPECULAR_BC) then
+          v(coll_dim) = -v(coll_dim)
+       else if (bc(coll_dim) == PERIODIC_BC) then
+          if (x(coll_dim) <= 0) then
+             x(coll_dim) = x(coll_dim) + L(coll_dim)
+          else if (x(coll_dim) >= L(coll_dim)) then
+             x(coll_dim) = x(coll_dim) - L(coll_dim)
+          end if
+       end if
+    end do wall_loop
+
+    t_collision = t_remainder
+    x = x + v*t_collision + gvec*t_collision**2 / 2
+    v = v + gvec*t_collision
+
+    !write(21,*) 'c', jump, x, v
+
+  end subroutine yzwall_collision
+
+  pure function change_23(i) result(r)
+    integer, intent(in) :: i
+    integer :: r
+    if (i==2) then
+       r = 3
+    else if (i==3) then
+       r = 2
+    end if
+  end function change_23
 
 end module mpcd
