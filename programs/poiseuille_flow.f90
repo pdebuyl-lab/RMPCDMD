@@ -168,10 +168,13 @@ program setup_fluid
         rhoz% data = 0
      end if
 
-     call solvent_io%position%append(solvent% pos)
-     call solvent_io%image%append(solvent% image)
-     call solvent_io%id%append(solvent% id)
-     call solvent_io%velocity%append(solvent% vel)
+     if (modulo(i,50)==0) then
+        call solvent_io%position%append(solvent% pos)
+        call solvent_io%image%append(solvent% image)
+        call solvent_io%id%append(solvent% id)
+        call solvent_io%velocity%append(solvent% vel)
+        call h5fflush_f(datafile%id, H5F_SCOPE_GLOBAL_F, error)
+     end if
 
   end do
 
