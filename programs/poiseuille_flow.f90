@@ -124,11 +124,12 @@ program setup_fluid
 
   wall_v = 0
   wall_t = [1.0d0, 1.0d0]
+  solvent_cells%bc = [ PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC ]
   do i = 1, N_therm
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
           bulk_temperature=set_temperature)
-     call mpcd_stream_zwall(solvent, solvent_cells, tau, gravity_field)
+     call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
      call solvent% sort(solvent_cells)
@@ -140,7 +141,7 @@ program setup_fluid
           bulk_temperature=set_temperature)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
-     call mpcd_stream_zwall(solvent, solvent_cells, tau, gravity_field)
+     call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
 
