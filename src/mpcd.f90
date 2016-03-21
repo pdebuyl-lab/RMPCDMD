@@ -441,11 +441,8 @@ contains
        if ( (new_pos(2)<0) .or. (new_pos(2)>L(2)) .or. (new_pos(3)<0) .or. (new_pos(3)>L(3)) ) &
             call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
 
-       if (new_pos(1)<0) then
-          new_pos(1) = new_pos(1) + L(1)
-       else if (new_pos(1)>L(1)) then
-          new_pos(1) = new_pos(1) - L(1)
-       end if
+       im = floor(new_pos/L)
+       new_pos = new_pos - im*L
        particles%pos(:,i) = new_pos
        particles%vel(:,i) = new_vel
        particles%image(:,i) = particles%image(:,i) + im
@@ -464,12 +461,10 @@ contains
     integer, intent(in) :: bc(3)
     double precision, intent(in), optional :: g
 
-    double precision, dimension(3) :: gvec, t_tmp
-    double precision, dimension(3) :: old_x, old_v
+    double precision, dimension(3) :: gvec
     double precision :: t_collision, t_remainder, tt
-    integer :: i, jump
-    integer :: coll_dim, other_dim, actual_bc
-    logical :: mirror(3), collision(3)
+    integer :: i, coll_dim, actual_bc
+    integer :: jump(3)
 
     gvec = 0
     if (present(g)) gvec(1) = g
@@ -504,11 +499,8 @@ contains
     else if (bc(coll_dim) == SPECULAR_BC) then
        v(coll_dim) = -v(coll_dim)
     else if (bc(coll_dim) == PERIODIC_BC) then
-       if (x(coll_dim) <= 0) then
-          x(coll_dim) = x(coll_dim) + L(coll_dim)
-       else if (x(coll_dim) >= L(coll_dim)) then
-          x(coll_dim) = x(coll_dim) - L(coll_dim)
-       end if
+       jump = floor(x/L)
+       x(coll_dim) = x(coll_dim) - jump(coll_dim)*L(coll_dim)
     end if
 
     wall_loop: do while (.true.)
@@ -528,19 +520,14 @@ contains
        else if (bc(coll_dim) == SPECULAR_BC) then
           v(coll_dim) = -v(coll_dim)
        else if (bc(coll_dim) == PERIODIC_BC) then
-          if (x(coll_dim) <= 0) then
-             x(coll_dim) = x(coll_dim) + L(coll_dim)
-          else if (x(coll_dim) >= L(coll_dim)) then
-             x(coll_dim) = x(coll_dim) - L(coll_dim)
-          end if
+          jump = floor(x/L)
+          x(coll_dim) = x(coll_dim) - jump(coll_dim)*L(coll_dim)
        end if
     end do wall_loop
 
     t_collision = t_remainder
     x = x + v*t_collision + gvec*t_collision**2 / 2
     v = v + gvec*t_collision
-
-    !write(21,*) 'c', jump, x, v
 
   end subroutine yzwall_collision
 
