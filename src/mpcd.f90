@@ -145,8 +145,10 @@ contains
        cell = compact_h_to_p(cell_idx - 1, cells% M) + 1
        if (all_present .and. (cell(3) == 1)) then
           wall_idx = 1
+          do_thermostat = .false.
        else if (all_present .and. (cell(3) == cells% L(3))) then
           wall_idx = 2
+          do_thermostat = .false.
        else
           wall_idx = -1
        end if
