@@ -76,7 +76,8 @@ program setup_single_dimer
 
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped,order
-  integer :: bufferlength
+  integer :: bufferlength, randomisation_length
+  double precision :: max_speed
   integer :: steps_fixed
   fixed = .true.
   on_track = .true.
@@ -98,11 +99,13 @@ program setup_single_dimer
   g = 0
   g(1) = PTread_d(config, 'g')
   bufferlength = PTread_i(config, 'buffer_length')
+  randomisation_length = PTread_i(config, 'randomisation_length')
+  max_speed = PTread_d(config,'max_speed')
   prob = PTread_d(config,'probability')
 
   number_of_angles = PTread_i(config, 'number_of_angles')
   L = PTread_ivec(config, 'L', 3)
-  L(1) = L(1) + bufferlength
+  L(1) = L(1) + bufferlength + randomisation_length
   
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
@@ -149,7 +152,7 @@ program setup_single_dimer
   shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
   call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
   write(*,*) epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift
-
+  
 
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
@@ -211,14 +214,7 @@ program setup_single_dimer
   colloids% species(2) = 2
   colloids% vel = 0
 
-  do i=1, solvent% Nmax
-     solvent% vel(1,i) = threefry_normal(state(1))
-     solvent% vel(2,i) = threefry_normal(state(1))
-     solvent% vel(3,i) = threefry_normal(state(1))
-  end do
-  solvent%vel = solvent%vel*sqrt(T)
-  v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
-  solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
+  
 
   solvent% force = 0
   solvent% species = 1
@@ -243,11 +239,11 @@ program setup_single_dimer
   colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
 
   if (order) then
-     colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
+     colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1 + randomisation_length
      colloids% pos(1,2) = colloids% pos(1,1) + d
      colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
   else
-     colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1
+     colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1 + randomisation_length
      colloids% pos(1,1) = colloids% pos(1,2) + d
      colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
   end if
@@ -262,6 +258,12 @@ program setup_single_dimer
   call h5gclose_f(box_group, error)
 
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+
+  do i=1, solvent% Nmax
+     solvent% vel(1,i) = threefry_normal(state(1))*sqrt(T) + max_speed*solvent% pos(3,i)*(L(3) - solvent% pos(3,i))/(L(3)/2)**2
+     solvent% vel(2,i) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(3,i) = threefry_normal(state(1))*sqrt(T)
+  end do
 
   do m = 1, solvent% Nmax
      if (solvent% pos(2,m) < (L(2)/2.d0)) then
@@ -293,7 +295,9 @@ program setup_single_dimer
 
   i = 0
 
+  write(*,*) colloids% pos
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
+
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
   setup: do i = 1, N_loop
@@ -320,7 +324,8 @@ program setup_single_dimer
         end if  
    
         if (on_track) then 
-              if ((colloids% pos(1,1) > (bufferlength+sigma_C)) .and. (colloids% pos(1,2) > (bufferlength+sigma_N))) then
+              if ((colloids% pos(1,1) > (bufferlength+randomisation_length+sigma_C)) &
+              .and. (colloids% pos(1,2) > (bufferlength+randomisation_length+sigma_N))) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if
@@ -354,7 +359,8 @@ program setup_single_dimer
         end if
 
         call buffer_timer%tic()
-        call buffer_particles(solvent,solvent_cells% edges(:), bufferlength)
+        call buffer_particles(solvent,solvent_cells% edges(:), bufferlength+randomisation_length)
+        call randomize_particles(solvent, solvent_cells% edges(:), randomisation_length, max_speed, T)
         call buffer_timer%tac()
 
         call switch(solvent% force, solvent% force_old)
@@ -452,16 +458,18 @@ program setup_single_dimer
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
 
-
-     if (i >= steps_fixed) then
-        fixed = .false.
-     end if
-     if (.not. on_track) then
-        if (modulo(i,20)==0) then
-           call concentration_field_cylindrical
-           write(18,*) conc_z_cyl, colloid_pos
-         end if
+     if (fixed) then
+        if (i >= steps_fixed) then
+           write(*,*) 'fixed', fixed
+           fixed = .false.
+        end if
      end if 
+     !if (.not. on_track) then
+     !   if (modulo(i,20)==0) then
+     !      call concentration_field_cylindrical
+     !      write(18,*) conc_z_cyl, colloid_pos
+     !    end if
+     !end if 
      
   end do setup
 
@@ -665,6 +673,24 @@ contains
         end if 
      end do
   end subroutine buffer_particles
+
+  subroutine randomize_particles(particles, edges, randomisation_length, max_speed,T)
+     type(particle_system_t), intent(inout) :: particles
+     double precision, intent(in) :: edges(3), max_speed, T
+     integer, intent(in) :: randomisation_length
+
+     integer :: k
+     
+     !$omp parallel do
+     do k = 1, particles% Nmax
+        if (particles% pos(1,k) < randomisation_length) then
+           particles% vel(1,k) = threefry_normal(state(1))*sqrt(T) & 
+            + max_speed*particles% pos(3,k)*(edges(3) - particles% pos(3,k))/(edges(3)/2)**2
+           particles% vel(2,k) = threefry_normal(state(1))*sqrt(T)
+           particles% vel(3,k) = threefry_normal(state(1))*sqrt(T)
+        end if 
+     end do
+  end subroutine randomize_particles
 
   subroutine compute_rho_xy
     integer :: i, s, ix, iy
