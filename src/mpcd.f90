@@ -131,9 +131,9 @@ contains
     end if
 
     call particles%time_step%tic()
-    !$omp parallel
+    !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
-    !$omp do private(start, n, n_virtual, virtual_v, cell, wall_idx, local_v, i, vec, omega)
+    !$omp do private(cell_idx, start, n, n_virtual, virtual_v, cell, wall_idx, local_v, i, vec, omega)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
