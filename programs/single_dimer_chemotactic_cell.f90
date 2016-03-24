@@ -658,7 +658,7 @@ contains
      do k = 1, particles% Nmax
         s = particles% species(k)
         if (s <= 0) continue
-        if (particles% pos(1,k) < bufferlength) then
+        if ((particles% pos(1,k) > randomisation_length) .and. (particles% pos(1,k) < bufferlength)) then
            if (particles% pos(2,k) < edges(2)/2.d0) then
               bulk_change(s) = bulk_change(s) - 1
               particles% species(k) = 1
