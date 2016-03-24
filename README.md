@@ -36,14 +36,14 @@ RMPCDMD has the following requirements:
 
 At the command line, execute the following
 
-    git clone https://github.com/pdebuyl/RMPCDMD
-	cd RMPCDMD
-	git submodule init
-	git submodule update
-	mkdir build
-	cd build
-	cmake ..
-	make
+    git clone https://github.com/pdebuyl-lab/RMPCDMD
+    cd RMPCDMD
+    git submodule init
+    git submodule update
+    mkdir build
+    cd build
+    cmake ..
+    make
 
 You can then execute, for instance, the executable `./setup_simple_fluid`.
 
