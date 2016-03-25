@@ -5,6 +5,7 @@ module particle_system
   private
 
   public :: particle_system_t
+  public :: compute_cylindrical_shell_histogram
 
   type particle_system_t
      integer :: Nmax
@@ -340,5 +341,40 @@ contains
     r = sqrt(rmax_sq)
 
   end function maximum_displacement
+
+  subroutine compute_cylindrical_shell_histogram(hist, x1, x2, L, bin_species, r_min, r_max, solvent)
+    type(histogram_t), intent(inout) :: hist
+    double precision, intent(in), dimension(3) :: x1, x2, L
+    integer, intent(in) :: bin_species
+    double precision, intent(in) :: r_min, r_max
+    type(particle_system_t), intent(in) :: solvent
+
+    integer :: i, s
+
+    double precision :: unit_z(3), x(3), delta_x(3), norm, elevation
+    double precision :: r_min_sq, r_max_sq
+
+    r_min_sq = r_min**2
+    r_max_sq = r_max**2
+
+    unit_z = rel_pos(x2, x1, L)
+    norm = sqrt(dot_product(unit_z, unit_z))
+    unit_z = unit_z/norm
+
+    do i = 1, solvent%Nmax
+       s = solvent%species(i)
+       if (s/=bin_species) cycle
+       x = solvent%pos(:,i)
+       delta_x = rel_pos(x, x1, L)
+       elevation = dot_product(unit_z, delta_x)
+       delta_x = delta_x - elevation*unit_z
+       ! only count particles in cylindrical shell
+       norm = dot_product(delta_x,delta_x)
+       if ( (norm>r_min_sq) .and. (norm<r_max_sq)) then
+          call hist%bin(elevation)
+       end if
+    end do
+
+  end subroutine compute_cylindrical_shell_histogram
 
 end module particle_system
