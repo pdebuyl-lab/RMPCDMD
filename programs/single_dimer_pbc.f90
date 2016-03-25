@@ -23,6 +23,8 @@ program setup_single_dimer
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
 
+  integer, parameter :: N_species = 2
+
   integer :: rho
   integer :: N
   integer :: error
@@ -39,9 +41,6 @@ program setup_single_dimer
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
 
-  double precision :: conc_z(400)
-  double precision :: colloid_pos(3,2)
-
   type(PTo) :: config
 
   integer :: i, L(3)
@@ -49,16 +48,23 @@ program setup_single_dimer
   type(timer_t) :: varia, main
   type(timer_t) :: time_flag, time_refuel, time_change
   type(threefry_rng_t), allocatable :: state(:)
-  integer(c_int64_t) :: seed
   integer :: n_threads
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
+  integer(HID_T) :: fields_group
   integer(HID_T) :: box_group
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   double precision :: v_com(3)
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
+
+  integer, dimension(N_species) :: n_solvent
+  type(h5md_element_t) :: n_solvent_el
+
+  type(histogram_t) :: z_hist
+  type(h5md_element_t) :: z_hist_el
+  double precision :: cyl_shell_rmin, cyl_shell_rmax
 
   call PTparse(config,get_input_filename(),11)
 
@@ -183,6 +189,10 @@ program setup_single_dimer
   colloids% pos(:,2) = solvent_cells% edges/2.0 
   colloids% pos(1,2) = colloids% pos(1,2) + d
 
+  call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
+       n_solvent, H5MD_LINEAR, step=N_MD_steps, &
+       time=N_MD_steps*dt)
+
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
@@ -205,6 +215,18 @@ program setup_single_dimer
   call neigh% make_stencil(solvent_cells, max_cut+skin)
 
   call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
+
+  cyl_shell_rmin = max(sigma_N, sigma_C)
+  cyl_shell_rmax = cyl_shell_rmin + 2
+  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
+  call z_hist%init(-5.d0, 5.d0+d, 100)
+  call z_hist_el%create_time(fields_group, 'cylindrical_shell_histogram', z_hist%data, &
+       H5MD_LINEAR, step=N_MD_steps, time=N_MD_steps*dt)
+  call h5md_write_attribute(z_hist_el%id, 'r_min', cyl_shell_rmin)
+  call h5md_write_attribute(z_hist_el%id, 'r_max', cyl_shell_rmax)
+  call h5md_write_attribute(z_hist_el%id, 'xmin', z_hist%xmin)
+  call h5md_write_attribute(z_hist_el%id, 'dx', z_hist%dx)
+  call h5gclose_f(fields_group, error)
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -307,11 +329,19 @@ program setup_single_dimer
      call time_refuel%tic()
      call refuel
      call time_refuel%tac()
-     
-     if (modulo(i,100)==0) then
-        call concentration_field
-        write(16,*) conc_z, colloid_pos
-     end if
+
+     n_solvent = 0
+     do k = 1, solvent%Nmax
+        j = solvent%species(k)
+        if (j <= 0) continue
+        n_solvent(j) = n_solvent(j) + 1
+     end do
+     call n_solvent_el%append(n_solvent)
+
+     z_hist%data = 0
+     call compute_cylindrical_shell_histogram(z_hist, colloids%pos(:,1), colloids%pos(:,2), &
+          solvent_cells%edges, 2, cyl_shell_rmin, cyl_shell_rmax, solvent)
+     call z_hist_el%append(z_hist%data)
 
   end do
   call main%tac()
@@ -326,6 +356,8 @@ program setup_single_dimer
 
   call dimer_io%close()
   call solvent_io%close()
+  call z_hist_el%close()
+  call n_solvent_el%close()
   call hfile%close()
   call h5close_f(error)
 
@@ -452,50 +484,5 @@ contains
        end if
     end do
   end subroutine refuel
-
-  subroutine concentration_field
-    double precision :: dimer_orient(3),x(3),y(3),z(3)
-    double precision :: solvent_pos(3,solvent% Nmax)
-    double precision :: dz,r,theta,x_pos,y_pos,z_pos
-    integer :: o
-    integer :: check
-
-    dz = solvent_cells% edges(3)/400.d0
-    dimer_orient = colloids% pos(:,2) - colloids% pos(:,1)
-    z = dimer_orient/sqrt(dot_product(dimer_orient,dimer_orient))
-    x = (/0.d0, 1.d0, -dimer_orient(2)/dimer_orient(3)/)
-    x = x/sqrt(dot_product(x,x))
-    y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
-    conc_z = 0
-
-    !$omp parallel do private(x_pos, y_pos, z_pos)
-    do o = 1, solvent% Nmax
-       solvent_pos(:,o) = solvent% pos(:,o) - colloids% pos(:,1)
-       x_pos = dot_product(x,solvent_pos(:,o))
-       y_pos = dot_product(y, solvent_pos(:,o))
-       z_pos = dot_product(z, solvent_pos(:,o))
-       solvent_pos(:,o) = (/x_pos,y_pos,z_pos/)
-    end do
-    !$omp parallel do private(r, theta, check)
-    do o = 1, solvent% Nmax
-       r = sqrt(solvent_pos(1,o)**2 + solvent_pos(2,o)**2)
-       theta = atan(solvent_pos(2,o)/solvent_pos(1,o))
-       solvent_pos(1,o) = r
-       solvent_pos(2,o) = theta
-       solvent_pos(3,o) = solvent_pos(3,o)+colloids% pos(3,1)
-       if (solvent% species(o)==2) then
-          check = floor(solvent_pos(3,o)/dz)
-          if ( (check>0) .and. (check<=400) ) then
-             !$omp atomic
-             conc_z(check) = conc_z(check) + 1
-          end if
-       end if 
-    end do
-
-    colloid_pos(:,1) = 0
-    colloid_pos(3,1) = colloids% pos(3,1)
-    colloid_pos(:,2) = 0
-    colloid_pos(3,2) = d + colloids% pos(3,1)
-  end subroutine concentration_field
 
 end program setup_single_dimer
