@@ -1,23 +1,26 @@
 h5md_file = chemotactic_cell.h5
 
 # simulation parameters
-N_MD = 10
-N_loop = 4000
+N_MD = 50
+N_loop = 1000
 probability = 1
 
 # number of initialisation steps
-steps_fixed = 50
+steps_fixed = 100
 
 # cell parameters
 g = 0.001
 buffer_length = 10
+randomisation_length = 5
 L = 50 50 15
-seed = 789465153
+seed = 4519199302125082433
+
+max_speed =  0.090
 
 # fluid parameters
 rho = 10
-T = 5
-tau = 0.1
+T = 1
+tau = 0.5
 
 # dimer parameters
 sigma_C = 2
