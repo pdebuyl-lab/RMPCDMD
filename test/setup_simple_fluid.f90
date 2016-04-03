@@ -34,13 +34,7 @@ program setup_fluid
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-
-  do i = 1, n_threads
-     state(i)%counter%c0 = 0
-     state(i)%counter%c1 = 0
-     state(i)%key%c0 = 0
-     state(i)%key%c1 = 1234567891011_c_long
-  end do
+  call threefry_rng_init(state, 2985348049158689438_c_int64_t)
 
   call h5open_f(error)
 
