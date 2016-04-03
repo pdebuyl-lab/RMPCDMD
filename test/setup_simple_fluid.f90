@@ -67,7 +67,6 @@ program setup_fluid
   call datafile% create('data_setup_simple_fluid.h5', 'RMPCDMD:setup_simple_fluid', '0.0 dev', 'Pierre de Buyl')
 
   call tz% init(0.d0, solvent_cells% edges(3), L(3))
-  call h5gcreate_f(datafile% id, 'observables', datafile% observables, error)
 
   call h5gcreate_f(datafile% particles, 'solvent', solvent_group, error)
   call h5gcreate_f(solvent_group, 'box', box_group, error)
