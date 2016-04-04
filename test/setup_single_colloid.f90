@@ -40,13 +40,7 @@ program setup_simple_colloid
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-
-  do i = 1, n_threads
-     state(i)%counter%c0 = 0
-     state(i)%counter%c1 = 0
-     state(i)%key%c0 = 0
-     state(i)%key%c1 = 719287321987291_c_long
-  end do
+  call threefry_rng_init(state, 4811119176716995551_c_int64_t)
 
   call h5open_f(error)
 
