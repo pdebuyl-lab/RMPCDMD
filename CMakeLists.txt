@@ -50,6 +50,10 @@ add_executable(setup_single_colloid
 test/setup_single_colloid.f90)
 target_link_libraries(setup_single_colloid RMPCDMD fortran_h5md ParseText)
 
+add_executable(setup_simple_rattle
+test/setup_simple_rattle.f90)
+target_link_libraries(setup_simple_rattle RMPCDMD fortran_h5md ParseText)
+
 add_executable(single_dimer_pbc
 programs/single_dimer_pbc.f90)
 target_link_libraries(single_dimer_pbc RMPCDMD fortran_h5md ParseText)
