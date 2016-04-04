@@ -11,6 +11,7 @@ module md
   public :: md_vel
   public :: rattle_dimer_pos
   public :: rattle_dimer_vel
+  public :: rattle_body_pos, rattle_body_vel
   public :: lj93_zwall
 
 contains
@@ -120,6 +121,104 @@ contains
     p% vel(:,2) = p% vel(:,2) + k*s/mass2
 
   end subroutine rattle_dimer_vel
+
+  subroutine rattle_body_pos(p, links, distances, dt, edges, precision)
+    type(particle_system_t), intent(inout) :: p
+    integer, intent(in) :: links(:,:)
+    double precision, intent(in) :: distances(:)
+    double precision, intent(in) :: dt, edges(3), precision
+
+    double precision :: g, d, error
+    double precision :: s(3) ! direction vector
+    double precision :: r(3) ! old direction vector
+    double precision :: rsq, ssq, rs
+    double precision :: mass1, mass2, inv_mass
+
+    integer :: rattle_i, rattle_max, i_link, n_link
+    integer :: i1, i2
+
+    n_link = size(links, dim=2)
+    rattle_max = 1000
+
+    rattle_loop: do rattle_i = 1, rattle_max
+       error = 0
+       do i_link = 1, n_link
+          i1 = links(1,i_link)
+          i2 = links(2,i_link)
+          d = distances(i_link)
+
+          r = rel_pos(p% pos_rattle(:,i1),p% pos_rattle(:,i2), edges)
+          s = rel_pos(p% pos(:,i1),p% pos(:,i2), edges)
+          mass1 = p%mass(p%species(i1))
+          mass2 = p%mass(p%species(i2))
+          inv_mass = 1/mass1 + 1/mass2
+
+          rsq = dot_product(r,r)
+          ssq = dot_product(s,s)
+          rs = dot_product(r,s)
+
+          g = rs - sqrt(rs**2 - rsq*(ssq-d**2))
+          g = g / (dt * inv_mass * rsq)
+
+          p% pos(:,i1) = p% pos(:,i1) - g*dt*r/mass1
+          p% pos(:,i2) = p% pos(:,i2) + g*dt*r/mass2
+
+          p% vel(:,i1) = p% vel(:,i1) - g*r/mass1
+          p% vel(:,i2) = p% vel(:,i2) + g*r/mass2
+
+          g = sqrt(dot_product(r,r)) - d
+          if (d > error) error = d
+       end do
+       if (error < precision) exit rattle_loop
+
+    end do rattle_loop
+
+    if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_pos'
+
+  end subroutine rattle_body_pos
+
+  subroutine rattle_body_vel(p, links, distances, dt, edges, precision)
+    type(particle_system_t), intent(inout) :: p
+    integer, intent(in) :: links(:,:)
+    double precision, intent(in) :: distances(:)
+    double precision, intent(in) :: dt, edges(3), precision
+
+    double precision :: g, d, error
+    double precision :: s(3), k
+    double precision :: mass1, mass2, inv_mass
+
+    integer :: rattle_i, rattle_max, i_link, n_link
+    integer :: i1, i2
+
+    n_link = size(links, dim=2)
+    rattle_max = 1000
+
+    rattle_loop: do rattle_i = 1, rattle_max
+       error = 0
+       do i_link = 1, n_link
+          i1 = links(1,i_link)
+          i2 = links(2,i_link)
+          d = distances(i_link)
+          mass1 = p%mass(p%species(i1))
+          mass2 = p%mass(p%species(i2))
+          inv_mass = 1/mass1 + 1/mass2
+
+          s = rel_pos(p% pos(:,i1), p% pos(:,i2), edges)
+
+          k = dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass)
+
+          p% vel(:,i1) = p% vel(:,i1) - k*s/mass1
+          p% vel(:,i2) = p% vel(:,i2) + k*s/mass2
+
+          k = dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass)
+          if (k>error) error = k
+       end do
+       if (error < precision) exit rattle_loop
+    end do rattle_loop
+
+    if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_vel'
+
+  end subroutine rattle_body_vel
 
   function lj93_zwall(particles, edges, lj_params) result(e)
     type(particle_system_t), intent(inout) :: particles
