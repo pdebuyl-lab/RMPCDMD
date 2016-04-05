@@ -1,22 +1,22 @@
 # physical parameters
-T = .16666666
+T = 1
 L = 32 32 32
-rho = 9 
-tau = 1.0
+rho = 10 
+tau = 0.1
 probability = 1.0
 
 # simulation parameters
-N_MD = 200
-N_loop = 50
-seed = 7428301037362090395
-h5md_file = dimer.h5
+N_MD = 10
+N_loop = 5000
+seed = 446416487425
+h5md_file = dimer_benchm_NC_big2.h5
 
 # interaction parameters
-sigma_N = 4.0
-sigma_C = 2.0
+sigma_N = 3.0
+sigma_C = 3.0
 
-d = 6.8
-epsilon_N = 1.0 0.1
+d = 6.5
+epsilon_N = 1.0 0.2
 epsilon_C = 1.0 1.0
 
 epsilon_N_N = 1.0

@@ -234,6 +234,7 @@ program setup_single_dimer
   colloids% force_old = colloids% force
 
   write(*,*) 'Running for', N_loop, 'loops'
+  write(*,*) 'mass', mass 
   call main%tic()
   do i = 1, N_loop
      if (modulo(i,5) == 0) write(*,'(i05)',advance='no') i
