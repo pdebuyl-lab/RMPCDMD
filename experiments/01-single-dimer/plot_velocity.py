@@ -14,8 +14,12 @@ import matplotlib.pyplot as plt
 with h5py.File(args.file, 'r') as f:
     r = f['particles/dimer/position/value'][...]
     r_dt = f['particles/dimer/position/time'][()]
+    im = f['particles/dimer/image/value'][...]
     v = f['particles/dimer/velocity/value'][...]
     v_dt = f['particles/dimer/velocity/time'][()]
+    edges = f['particles/dimer/box/edges'][:].reshape((1,-1))
+
+r += edges*im
 
 assert abs(r_dt-v_dt) < 1e-12
 assert r.shape[1]==2
