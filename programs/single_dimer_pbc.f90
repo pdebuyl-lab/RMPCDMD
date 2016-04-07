@@ -134,8 +134,6 @@ program setup_single_dimer
 
   call PTkill(config)
   
-  open(16,file ='dimerdata_Conc.txt')
-  
   colloids% species(1) = 1
   colloids% species(2) = 2
   colloids% vel = 0
