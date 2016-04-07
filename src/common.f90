@@ -29,10 +29,11 @@ module common
   end type profile_t
 
   type histogram_t
-     double precision, allocatable :: data(:)
+     double precision, allocatable :: data(:,:)
      double precision :: xmin
      double precision :: dx
      integer :: n
+     integer :: n_species
    contains
      generic, public :: init => histogram_init
      procedure, private :: histogram_init
@@ -124,29 +125,43 @@ contains
 
   end subroutine profile_norm
 
-  subroutine histogram_init(this, xmin, xmax, n)
+  subroutine histogram_init(this, xmin, xmax, n, n_species)
     class(histogram_t), intent(out) :: this
     double precision, intent(in) :: xmin, xmax
     integer, intent(in) :: n
+    integer, optional, intent(in) :: n_species
+
+    if (present(n_species)) then
+       this%n_species = n_species
+    else
+       this%n_species = 1
+    end if
 
     this% n = n
     this% xmin = xmin
     this% dx = (xmax - xmin) / n
     if (this% dx <= 0) error stop 'negative step in histogram_init'
-    allocate(this% data(n))
+    allocate(this% data(this%n_species, n))
     this% data = 0
 
   end subroutine histogram_init
 
-  subroutine histogram_bin(this, x)
+  subroutine histogram_bin(this, x, s)
     class(histogram_t), intent(inout) :: this
     double precision, intent(in) :: x
+    integer, optional, intent(in) :: s
 
-    integer :: idx
+    integer :: idx, s_var
+
+    if (present(s)) then
+       s_var = s
+    else
+       s_var = 1
+    end if
 
     idx = floor( (x - this% xmin) / this% dx ) + 1
     if ( ( idx > 0 ) .and. ( idx <= this% n ) ) then
-       this% data(idx) = this% data(idx) + 1
+       this% data(s_var, idx) = this% data(s_var, idx) + 1
     end if
 
   end subroutine histogram_bin
