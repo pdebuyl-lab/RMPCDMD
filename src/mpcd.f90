@@ -12,6 +12,7 @@ module mpcd
   public :: mpcd_stream_periodic, mpcd_stream_zwall
   public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
+  public :: bulk_reaction
 
 contains
 
@@ -538,5 +539,45 @@ contains
        r = 2
     end if
   end function change_23
+
+  subroutine bulk_reaction(p, c, from, to, rate, tau, state)
+    use omp_lib
+    type(particle_system_t), intent(inout) :: p
+    type(cell_system_t), intent(inout) :: c
+    integer, intent(in) :: from, to
+    double precision, intent(in) :: rate, tau
+    type(threefry_rng_t), intent(inout) :: state(:)
+
+    integer :: cell_idx, start, n, i, pick, s
+    double precision :: local_rate
+    integer :: thread_id
+
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(start, n, local_rate, i, pick, s)
+    do cell_idx = 1, c%N
+       if ( (c%cell_count(cell_idx) <= 1) .or. .not. c%is_reac(cell_idx) ) cycle
+
+       start = c%cell_start(cell_idx)
+       n = c%cell_count(cell_idx)
+
+       local_rate = 0
+       do i = start, start + n - 1
+          s = p%species(i)
+          if (s==from) then
+             local_rate = local_rate + 1
+             pick = i
+          end if
+       end do
+
+       local_rate = local_rate*rate
+       if (threefry_double(state(thread_id)) < local_rate*tau) then
+          p%species(pick) = to
+       end if
+    end do
+    !$omp end do
+    !$omp end parallel
+
+  end subroutine bulk_reaction
 
 end module mpcd
