@@ -571,7 +571,7 @@ contains
        end do
 
        local_rate = local_rate*rate
-       if (threefry_double(state(thread_id)) < local_rate*tau) then
+       if (threefry_double(state(thread_id)) < (1 - exp(-local_rate*tau))) then
           p%species(pick) = to
        end if
     end do
