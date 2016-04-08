@@ -54,7 +54,9 @@ program single_janus_pbc
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
   integer(HID_T) :: fields_group
+  integer(HID_T) :: connectivity_group
   integer(HID_T) :: box_group
+  integer(HID_T) :: tmp_id
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   double precision :: v_com(3), x(3)
@@ -82,6 +84,7 @@ program single_janus_pbc
   call main%init('main')
   call varia%init('varia')
   call time_flag%init('flag')
+  call time_refuel%init('refuel')
   call time_change%init('change')
 
   call h5open_f(error)
@@ -130,7 +133,7 @@ program single_janus_pbc
   ! init Janus particle
   colloids%species = 1
   colloids%species(1:n_colloids/2) = 1
-  colloids%species(n_colloids/2+1:n_colloids) = 1
+  colloids%species(n_colloids/2+1:n_colloids) = 2
   colloids%vel = 0
   colloids%force = 0
   colloids%pos = reshape([13.3745, 8.98251, 4.69069, 8.5896, 7.72357, 4.80796, 9.47026, &
@@ -175,8 +178,6 @@ program single_janus_pbc
   end do
 
   write(*,*) 'number of links:', i_link
-  write(23,*) links
-  write(24,*) links_d
 
   janus_io%force_info%store = .false.
   janus_io%id_info%store = .false.
@@ -246,6 +247,13 @@ program single_janus_pbc
   call h5md_write_attribute(radial_hist_el%id, 'dx', radial_hist%dx)
   call h5gclose_f(fields_group, error)
 
+  call h5gcreate_f(hfile%id, 'connectivity', connectivity_group, error)
+  call h5md_write_dataset(connectivity_group, 'janus_links', links-1)
+  call h5dopen_f(connectivity_group, 'janus_links', tmp_id, error)
+  call h5md_write_attribute(tmp_id, 'particles_group', 'janus')
+  call h5dclose_f(tmp_id, error)
+  call h5gclose_f(connectivity_group, error)
+
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
@@ -280,9 +288,9 @@ program single_janus_pbc
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
                 dt**2 * colloids% force(:,k) / (2 * colloids% mass(colloids%species(k)))
         end do
-
-        call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, 1d-12)
         call varia%tac()
+
+        call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, 1d-9)
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -321,12 +329,12 @@ program single_janus_pbc
            colloids% vel(:,k) = colloids% vel(:,k) + &
              dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids%mass(colloids%species(k)))
         end do
-
-        call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, 1d-9)
         call varia%tac()
 
+        call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, 1d-9)
+
         call time_flag%tic()
-        call flag_particles_nl
+        call flag_particles
         call time_flag%tac()
         call time_change%tic()
         call change_species
@@ -408,13 +416,15 @@ program single_janus_pbc
   write(*,'(a16,f8.3)') solvent%time_md_pos%name, solvent%time_md_pos%total
   write(*,'(a16,f8.3)') solvent%time_md_vel%name, solvent%time_md_vel%total
   write(*,'(a16,f8.3)') solvent%time_max_disp%name, solvent%time_max_disp%total
-  write(*,'(a16,f8.3)') colloids%time_self_force%name, solvent%time_self_force%total
+  write(*,'(a16,f8.3)') colloids%time_self_force%name, colloids%time_self_force%total
   write(*,'(a16,f8.3)') neigh%time_update%name, neigh%time_update%total
   write(*,'(a16,f8.3)') neigh%time_force%name, neigh%time_force%total
   write(*,'(a16,f8.3)') colloids%time_max_disp%name, colloids%time_max_disp%total
   write(*,'(a16,f8.3)') time_flag%name, time_flag%total
   write(*,'(a16,f8.3)') time_change%name, time_change%total
   write(*,'(a16,f8.3)') time_refuel%name, time_refuel%total
+  write(*,'(a16,f8.3)') colloids%time_rattle_pos%name, colloids%time_rattle_pos%total
+  write(*,'(a16,f8.3)') colloids%time_rattle_vel%name, colloids%time_rattle_vel%total
 
   write(*,'(a16,f8.3)') 'total', solvent%time_stream%total + solvent%time_step%total + &
        solvent%time_count%total + solvent%time_sort%total + solvent%time_ct%total + &
@@ -428,11 +438,14 @@ program single_janus_pbc
 
 contains
 
-  subroutine flag_particles_nl
+  subroutine flag_particles
     double precision :: dist_to_C_sq
-    integer :: i, r, s
+    integer :: i, r, s, thread_id
     double precision :: x(3)
 
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(i, s, r, x, dist_to_C_sq)
     do i = 1, colloids%Nmax
        if (colloids%species(i)==1) then
           do s = 1,neigh% n(i)
@@ -441,7 +454,7 @@ contains
                 x = rel_pos(colloids% pos(:,i),solvent% pos(:,r),solvent_cells% edges)
                 dist_to_C_sq = dot_product(x, x)
                 if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-                   if (threefry_double(state(1)) <= prob) then
+                   if (threefry_double(state(thread_id)) <= prob) then
                       solvent% flag(r) = 1
                    end if
                 end if
@@ -449,8 +462,10 @@ contains
           end do
        end if
     end do
+    !$omp end do
+    !$omp end parallel
 
-  end subroutine flag_particles_nl
+  end subroutine flag_particles
 
   subroutine change_species
     double precision :: dist_to_C_sq
