@@ -140,6 +140,7 @@ contains
     n_link = size(links, dim=2)
     rattle_max = 1000
 
+    call p%time_rattle_pos%tic()
     rattle_loop: do rattle_i = 1, rattle_max
        error = 0
        do i_link = 1, n_link
@@ -172,6 +173,7 @@ contains
        if (error < precision) exit rattle_loop
 
     end do rattle_loop
+    call p%time_rattle_pos%tac()
 
     if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_pos'
 
@@ -193,6 +195,7 @@ contains
     n_link = size(links, dim=2)
     rattle_max = 1000
 
+    call p%time_rattle_vel%tic()
     rattle_loop: do rattle_i = 1, rattle_max
        error = 0
        do i_link = 1, n_link
@@ -215,6 +218,7 @@ contains
        end do
        if (error < precision) exit rattle_loop
     end do rattle_loop
+    call p%time_rattle_vel%tac()
 
     if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_vel'
 
