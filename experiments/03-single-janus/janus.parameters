@@ -1,0 +1,25 @@
+# physical parameters
+T = .333333333
+L = 32 32 32
+rho = 9 
+tau = 1.0
+probability = 1
+
+# simulation parameters
+N_MD = 50
+N_loop = 50
+seed = -9223372036854775808
+h5md_file = janus.h5
+
+# interaction parameters
+sigma = 2.0
+epsilon_colloid = 1
+
+epsilon_N = 1.0 5.0
+epsilon_C = 1.0 1.0
+
+epsilon_N_N = 1.0
+epsilon_N_C = 1.0
+epsilon_C_C = 1.0
+bulk_rate = 0.001
+
