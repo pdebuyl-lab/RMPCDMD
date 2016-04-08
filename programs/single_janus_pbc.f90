@@ -103,22 +103,25 @@ program single_janus_pbc
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
 
-  ! solvent index first, colloid index second, in solvent_colloid_lj
-  sigma = PTread_d(config, 'sigma')
+  sigma = PTread_d(config, 'sigma_colloid')
   sigma_v = sigma
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
-
   sigma_cut = sigma_v*2**(1.d0/6.d0)
-  max_cut = maxval(sigma_cut)
-
-  call solvent_colloid_lj% init(epsilon, sigma_v, sigma_cut)
+  mass = rho * sigma**3 * 4 * 3.14159265/3
 
   epsilon = PTread_d(config, 'epsilon_colloid')
 
-  call colloid_lj% init(epsilon, 2*sigma_v, 2*sigma_cut)
+  call colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
-  mass = rho * sigma**3 * 4 * 3.14159265/3
+  ! solvent index first, colloid index second, in solvent_colloid_lj
+  sigma = PTread_d(config, 'sigma')
+  sigma_v = sigma
+  sigma_cut = sigma_v*2**(1.d0/6.d0)
+  max_cut = maxval(sigma_cut)
+
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
+
+  call solvent_colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
   call solvent% init(N,2) !there will be 2 species of solvent particles
 
@@ -154,7 +157,7 @@ program single_janus_pbc
      do j = i+1, colloids%Nmax
         x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
         dist = norm2(x)
-        if (dist < 1.13*sigma) then
+        if (dist < 0.7*sigma) then
            ! count link
            i_link = i_link + 1
         end if
@@ -167,7 +170,7 @@ program single_janus_pbc
      do j = i+1, colloids%Nmax
         x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
         dist = norm2(x)
-        if (dist < 1.13*sigma) then
+        if (dist < 0.7*sigma) then
            ! add link
            i_link = i_link + 1
            links(1, i_link) = i
