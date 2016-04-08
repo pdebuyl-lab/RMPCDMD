@@ -286,7 +286,7 @@ program setup_single_dimer
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
-  e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
+  e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj, 3)
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
   catalytic_change = 0
@@ -371,7 +371,7 @@ program setup_single_dimer
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (.not. on_track) then
-           e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
+           e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj, 3)
         end if 
         if (on_track) then
            colloids% force(2,:) = 0
@@ -463,7 +463,7 @@ program setup_single_dimer
            write(*,*) 'fixed', fixed
            fixed = .false.
         end if
-     end if 
+     end if
      !if (.not. on_track) then
      !   if (modulo(i,20)==0) then
      !      call concentration_field_cylindrical

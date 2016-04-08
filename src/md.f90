@@ -224,10 +224,11 @@ contains
 
   end subroutine rattle_body_vel
 
-  function lj93_zwall(particles, edges, lj_params) result(e)
+  function lj93_zwall(particles, edges, lj_params, wall_direction) result(e)
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: edges(3)
     type(lj_params_t), intent(in) :: lj_params
+    integer, intent(in) :: wall_direction
     double precision :: e
 
     integer :: i, s
@@ -238,9 +239,9 @@ contains
     do i = 1, particles%Nmax
        s = particles%species(i)
        if (s<=0) continue
-       z = particles%pos(3,i)
-       if (z > edges(3)/2) then
-          z = edges(3) - z - lj_params% shift
+       z = particles%pos(wall_direction,i)
+       if (z > edges(wall_direction)/2) then
+          z = edges(wall_direction) - z - lj_params% shift
           dir = -1
        else
           dir = 1 
@@ -249,7 +250,7 @@ contains
        z_sq = z**2
        if (z_sq <= lj_params% cut_sq(1,s)) then
          f = lj_force_9_3(z, z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
-         particles%force(3,i) = particles%force(3,i) + dir*f
+         particles%force(wall_direction,i) = particles%force(wall_direction,i) + dir*f
          e = e + lj_energy_9_3(z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
        end if
     end do
