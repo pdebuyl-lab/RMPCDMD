@@ -168,7 +168,7 @@ contains
           p% vel(:,i2) = p% vel(:,i2) + g*r/mass2
 
           g = sqrt(dot_product(r,r)) - d
-          if (d > error) error = d
+          if (g > error) error = g
        end do
        if (error < precision) exit rattle_loop
 
