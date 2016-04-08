@@ -62,6 +62,10 @@ add_executable(single_dimer_pbc
 programs/single_dimer_pbc.f90)
 target_link_libraries(single_dimer_pbc RMPCDMD fortran_h5md ParseText)
 
+add_executable(single_janus_pbc
+programs/single_janus_pbc.f90)
+target_link_libraries(single_janus_pbc RMPCDMD fortran_h5md ParseText)
+
 add_executable(single_dimer_chemotactic_cell
 programs/single_dimer_chemotactic_cell.f90)
 target_link_libraries(single_dimer_chemotactic_cell RMPCDMD ParseText)
