@@ -12,9 +12,10 @@ seed = -9223372036854775808
 h5md_file = janus.h5
 
 # interaction parameters
-sigma = 2.0
+sigma_colloid = 1
 epsilon_colloid = 1
 
+sigma = 3
 epsilon_N = 1.0 5.0
 epsilon_C = 1.0 1.0
 
