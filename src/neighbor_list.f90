@@ -181,7 +181,12 @@ contains
              f = lj_force(d, r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
              e = e + lj_energy(r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
              f1 = f1 + f
-             ps2% force(:, idx) = ps2% force(:, idx) - f
+             !$omp atomic
+             ps2%force(1, idx) = ps2% force(1,idx) - f(1)
+             !$omp atomic
+             ps2%force(2, idx) = ps2% force(2,idx) - f(2)
+             !$omp atomic
+             ps2%force(3, idx) = ps2% force(3,idx) - f(3)
           end if
        end do
        ps1% force(:, i) = ps1% force(:, i) + f1
