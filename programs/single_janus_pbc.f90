@@ -73,7 +73,7 @@ program single_janus_pbc
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
   integer :: i_link
-  double precision :: dist
+  double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
 
   call PTparse(config,get_input_filename(),11)
 
@@ -102,6 +102,9 @@ program single_janus_pbc
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
+
+  rattle_pos_tolerance = PTread_d(config, 'rattle_pos_tolerance')
+  rattle_vel_tolerance = PTread_d(config, 'rattle_vel_tolerance')
 
   sigma = PTread_d(config, 'sigma_colloid')
   sigma_v = sigma
@@ -157,7 +160,7 @@ program single_janus_pbc
      do j = i+1, colloids%Nmax
         x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
         dist = norm2(x)
-        if (dist < 0.7*sigma) then
+        if (dist < 2.8) then
            ! count link
            i_link = i_link + 1
         end if
@@ -170,7 +173,7 @@ program single_janus_pbc
      do j = i+1, colloids%Nmax
         x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
         dist = norm2(x)
-        if (dist < 0.7*sigma) then
+        if (dist < 2.8) then
            ! add link
            i_link = i_link + 1
            links(1, i_link) = i
@@ -293,7 +296,7 @@ program single_janus_pbc
         end do
         call varia%tac()
 
-        call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, 1d-9)
+        call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -334,7 +337,7 @@ program single_janus_pbc
         end do
         call varia%tac()
 
-        call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, 1d-9)
+        call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
         call time_flag%tic()
         call flag_particles
