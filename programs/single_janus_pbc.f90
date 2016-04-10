@@ -474,24 +474,27 @@ contains
   end subroutine flag_particles
 
   subroutine change_species
-    double precision :: dist_to_C_sq
-    double precision :: dist_to_N_sq
-    integer :: m
+    double precision :: dist_to_colloid_sq
+    integer :: m, m_colloid
     double precision :: x(3)
+    logical :: do_change
+    integer :: s_m, s_colloid
 
-    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
+    !$omp parallel do private(x, dist_to_colloid_sq, m_colloid, do_change)
     do m = 1, solvent% Nmax
+       s_m = solvent%species(m)
        if (solvent% flag(m) == 1) then
-          x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
-          dist_to_C_sq = dot_product(x, x)
-          x = rel_pos(colloids% pos(:,2), solvent% pos(:,m), solvent_cells% edges)
-          dist_to_N_sq = dot_product(x, x)
-          if ( &
-               (dist_to_C_sq > solvent_colloid_lj%cut_sq(1,1)) &
-               .and. &
-               (dist_to_N_sq > solvent_colloid_lj%cut_sq(1,2)) &
-               ) &
-               then
+          do_change = .true.
+          colloid_dist_loop: do m_colloid = 1, colloids%Nmax
+             s_colloid = colloids%species(m_colloid)
+             x = rel_pos(colloids% pos(:,m_colloid), solvent% pos(:,m), solvent_cells% edges)
+             dist_to_colloid_sq = dot_product(x, x)
+             if (dist_to_colloid_sq < solvent_colloid_lj%cut_sq(s_m,s_colloid)) then
+                do_change = .false.
+                exit colloid_dist_loop
+             end if
+          end do colloid_dist_loop
+          if (do_change) then
              solvent% species(m) = 2
              solvent% flag(m) = 0
           end if
