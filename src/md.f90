@@ -166,8 +166,14 @@ contains
 
           p% vel(:,i1) = p% vel(:,i1) - g*r/mass1
           p% vel(:,i2) = p% vel(:,i2) + g*r/mass2
+       end do
 
-          g = sqrt(dot_product(r,r)) - d
+       do i_link = 1, n_link
+          i1 = links(1,i_link)
+          i2 = links(2,i_link)
+          d = distances(i_link)
+          r = rel_pos(p% pos(:,i1), p%pos(:,i2), edges)
+          g = abs(sqrt(dot_product(r,r)) - d)
           if (g > error) error = g
        end do
        if (error < precision) exit rattle_loop
@@ -212,8 +218,17 @@ contains
 
           p% vel(:,i1) = p% vel(:,i1) - k*s/mass1
           p% vel(:,i2) = p% vel(:,i2) + k*s/mass2
+       end do
 
-          k = dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass)
+       do i_link = 1, n_link
+          i1 = links(1,i_link)
+          i2 = links(2,i_link)
+          d = distances(i_link)
+          mass1 = p%mass(p%species(i1))
+          mass2 = p%mass(p%species(i2))
+          inv_mass = 1/mass1 + 1/mass2
+          s = rel_pos(p% pos(:,i1), p% pos(:,i2), edges)
+          k = abs(dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass))
           if (k>error) error = k
        end do
        if (error < precision) exit rattle_loop
