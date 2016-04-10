@@ -3,8 +3,7 @@ RMPCDMD:=$(PWD)/../..
 EXPDIR:=$(PWD)
 SIMDIR:=$(PWD)
 
-all: help
-
+all: exp-help help
 include ../Makefile
 
 simulation: $(SIMDIR)
