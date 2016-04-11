@@ -6,6 +6,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('file', type=str, help='H5MD datafile')
 parser.add_argument('--obs', type=str, help='Observables to plot, e.g. \'temperature\'', nargs='+')
 parser.add_argument('--traj', type=str)
+parser.add_argument('--com', action='store_true')
 args = parser.parse_args()
 
 import numpy as np
@@ -26,8 +27,20 @@ with h5py.File(args.file, 'r') as f:
                 plt.plot(np.arange(g['value'].shape[0])*time, g['value'])
 
     if args.traj:
-        g = f['particles'][args.traj]
-        plt.plot(g['value'][:,0,:])
+        group, traj = args.traj.split('/')
+        edges = f['particles'][group]['box/edges'][:]
+        if args.com:
+            if traj=='position':
+                data = f['particles'][group][traj]['value'][:,:,:] + f['particles'][group]['image']['value'][:,:,:]*edges.reshape((1,1,3))
+            else:
+                data = f['particles'][group][traj]['value'][:,:,:]
+            data = data.mean(axis=1)
+        else:
+            data = f['particles'][group][traj]['value'][:,0,:]
+        for i in range(3):
+            plt.subplot(3,1,i+1)
+            plt.plot(data[:,i])
+            plt.ylabel('xyz'[i])
 
 plt.show()
 
