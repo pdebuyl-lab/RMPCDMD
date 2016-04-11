@@ -6,14 +6,16 @@ tau = 1.0
 probability = 1
 
 # simulation parameters
-N_MD = 50
-N_loop = 50
-seed = -9223372036854775808
+N_MD = 100
+N_loop = 100
+seed = 859785368166103910
 h5md_file = janus.h5
 
 # interaction parameters
 sigma_colloid = 1
-epsilon_colloid = 1
+epsilon_colloid = 0.1
+rattle_pos_tolerance = 1d-9
+rattle_vel_tolerance = 1d-8
 
 sigma = 3
 epsilon_N = 1.0 5.0
