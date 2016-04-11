@@ -5,6 +5,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('file', type=str, help='H5MD datafile')
 parser.add_argument('--directed', action='store_true')
+parser.add_argument('--histogram', action='store_true')
 args = parser.parse_args()
 
 import numpy as np
@@ -35,8 +36,18 @@ if args.directed:
     unit_z = r[:,1,:]-r[:,0,:]
     unit_z /= np.sqrt(np.sum(unit_z**2, axis=1)).reshape((-1,1))
     vz = np.sum(v_com*unit_z, axis=1)
-    plt.plot(time, vz)
+    if args.histogram:
+        plt.hist(vz, bins=20)
+    else:
+        plt.plot(time, vz)
 else:
-    plt.plot(time, v_com)
+    for i in range(3):
+        plt.subplot(3,1,i+1)
+        if args.histogram:
+            plt.hist(v_com[:,i])
+            plt.ylabel(r'$P(v_'+'xyz'[i]+')$')
+        else:
+            plt.plot(time, v_com[:,i])
+            plt.ylabel('xyz'[i])
 
 plt.show()
