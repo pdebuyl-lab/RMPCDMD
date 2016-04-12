@@ -74,7 +74,7 @@ program setup_single_dimer
   integer, allocatable :: rho_xy(:,:,:)
 
   double precision :: g(3) !gravity
-  logical :: order
+  logical :: order, thermostat
 
   call PTparse(config,get_input_filename(),11)
 
@@ -98,6 +98,7 @@ program setup_single_dimer
   N = rho *L(1)*L(2)*L(3)
 
   T = PTread_d(config, 'T')
+  thermostat = PTread_l(config, 'thermostat')
   d = PTread_d(config, 'd')
   order = PTread_l(config, 'order')
 
@@ -342,7 +343,7 @@ program setup_single_dimer
      colloids%pos_old = colloids% pos
 
      call wall_mpcd_step(solvent, solvent_cells, state, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], bulk_temperature = T)
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], bulk_temperature = T, thermostat=thermostat)
      
      temperature = compute_temperature(solvent, solvent_cells)
      kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
