@@ -1,6 +1,6 @@
 # physical parameters
-T = .16666666
-L = 24 24 24
+T = .3333333
+L = 32 32 32
 rho = 9 
 tau = 1.0
 probability = 1.0
@@ -12,11 +12,11 @@ seed = 7428301037362090395
 h5md_file = ruckner-kapral.h5
 
 # interaction parameters
-sigma_N = 4.0
+sigma_N = 2.0
 sigma_C = 2.0
 
-d = 6.8
-epsilon_N = 1.0 0.1
+d = 4.5
+epsilon_N = 1.0 0.5
 epsilon_C = 1.0 1.0
 
 epsilon_N_N = 1.0
