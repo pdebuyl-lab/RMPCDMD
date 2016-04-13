@@ -176,7 +176,11 @@ program setup_single_dimer
   solvent_io%species_info%time = N_loop*N_MD_steps*dt
   call solvent_io%init(hfile, 'solvent', solvent)
 
-  call random_number(solvent% vel(:, :))
+  do k = 1, solvent%Nmax
+     solvent% vel(1,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
+     solvent% vel(2,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
+     solvent% vel(3,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
+  end do
   solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
