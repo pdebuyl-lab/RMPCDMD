@@ -58,6 +58,8 @@ program setup_single_dimer
   double precision :: v_com(3)
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
+  double precision :: bulk_rate
+  logical :: bulk_rmpcd
 
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
@@ -81,6 +83,8 @@ program setup_single_dimer
   call h5open_f(error)
 
   prob = PTread_d(config,'probability')
+  bulk_rmpcd = PTread_l(config, 'bulk_rmpcd')
+  bulk_rate = PTread_d(config, 'bulk_rate')
 
   L = PTread_ivec(config, 'L', 3)
   rho = PTread_i(config, 'rho')
@@ -329,7 +333,12 @@ program setup_single_dimer
      call simple_mpcd_step(solvent, solvent_cells, state)
      
      call time_refuel%tic()
-     call refuel
+     if (bulk_rmpcd) then
+        call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
+     else
+        call refuel
+     end if
+
      call time_refuel%tac()
 
      n_solvent = 0
