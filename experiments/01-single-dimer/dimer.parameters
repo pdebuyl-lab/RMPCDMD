@@ -4,6 +4,8 @@ L = 32 32 32
 rho = 9 
 tau = 1.0
 probability = 1.0
+bulk_rmpcd = F
+bulk_rate = 0.001
 
 # simulation parameters
 N_MD = 200
