@@ -35,13 +35,14 @@ program setup_single_dimer
   integer :: N
   integer :: error
   integer :: number_of_angles
+  integer :: N_colloids
   integer, parameter :: n_bins_conc = 90
   double precision :: conc_z_cyl(n_bins_conc)   
 
   double precision :: sigma_N, sigma_C, max_cut
-  double precision :: epsilon(3,2), shift
-  double precision :: sigma(3,2), sigma_cut(3,2)
-  double precision :: mass(2)
+  double precision :: shift, total_energy
+  double precision :: sigma(3,2), sigma_cut(3,2), epsilon(3,2)
+  double precision,allocatable :: mass(:)
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
 
@@ -75,7 +76,7 @@ program setup_single_dimer
   integer, allocatable :: rho_xy(:,:,:)
 
   double precision :: g(3) !gravity
-  logical :: fixed, on_track, stopped,order
+  logical :: fixed, on_track, stopped,order,dimer 
   integer :: bufferlength, randomisation_length
   double precision :: max_speed
   integer :: steps_fixed
@@ -104,6 +105,12 @@ program setup_single_dimer
   prob = PTread_d(config,'probability')
 
   number_of_angles = PTread_i(config, 'number_of_angles')
+  dimer = PTread_l(config, 'dimer')
+  if (dimer) then
+     N_colloids = 2
+  else
+     N_colloids = 1
+  end if 
   L = PTread_ivec(config, 'L', 3)
   L(1) = L(1) + bufferlength + randomisation_length
   
@@ -128,39 +135,43 @@ program setup_single_dimer
 
   epsilon(:,1) = PTread_dvec(config, 'epsilon_C', N_species)
   epsilon(:,2) = PTread_dvec(config, 'epsilon_N', N_species)
-
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
+
   sigma_cut = sigma*2**(1.d0/6.d0)
   max_cut = maxval(sigma_cut)
 
   call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
-
   epsilon = 1.d0
-
   sigma(1,1) = 2*sigma_C
   sigma(1,2) = sigma_C + sigma_N
   sigma(2,1) = sigma_C + sigma_N
   sigma(2,2) = 2*sigma_N
   sigma_cut = sigma*2**(1.d0/6.d0)
-
   call colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
+  
   epsilon = 1.d0
   sigma(1,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*3**(1.d0/6.d0)
   shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
   call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
-  write(*,*) epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift
-  
 
-  mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
-  mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
+  write(*,*) epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift
+
+  allocate(mass(N_colloids))
+  if (dimer) then
+     mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
+     mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
+  else
+     mass = rho * sigma_N**3 * 4 * 3.14159265/3
+  end if 
+
   write(*,*) 'mass =', mass
 
   call solvent% init(N,N_species)
 
-  call colloids% init(2,2, mass) !there will be 2 species of colloids
+  call colloids% init(N_colloids,2, mass) !there will be 2 species of colloids
 
   call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_chemotactic_cell', &
        'N/A', 'Pierre de Buyl')
@@ -208,13 +219,15 @@ program setup_single_dimer
 
   open(17,file ='dimerdata_FullExp_1.txt')
   open(18, file ='concentration.txt')
-  open(19,file ='dimerdata_vx_flow_wall.txt')  
-
-  colloids% species(1) = 1
-  colloids% species(2) = 2
+  open(19,file ='dimerdata_vx_flow_wall.txt') 
+ 
+  if (dimer) then
+     colloids% species(1) = 1
+     colloids% species(2) = 2
+  else
+     colloids% species = 2
+  end if 
   colloids% vel = 0
-
-  
 
   solvent% force = 0
   solvent% species = 1
@@ -236,17 +249,23 @@ program setup_single_dimer
        bulk_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
 
-  colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-
-  if (order) then
-     colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1 + randomisation_length
-     colloids% pos(1,2) = colloids% pos(1,1) + d
-     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+  if (dimer) then
+     colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
+     if (order) then
+        colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1 + randomisation_length
+        colloids% pos(1,2) = colloids% pos(1,1) + d
+        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+     else
+        colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1 + randomisation_length
+        colloids% pos(1,1) = colloids% pos(1,2) + d
+        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+     end if
   else
-     colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1 + randomisation_length
-     colloids% pos(1,1) = colloids% pos(1,2) + d
-     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+     colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
+     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*sigma_N
+     colloids% pos(1,:) = sigma_N*2**(1.d0/6.d0) + 1 + randomisation_length
   end if
+
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
@@ -324,11 +343,18 @@ program setup_single_dimer
         end if  
    
         if (on_track) then 
+           if (dimer) then
               if ((colloids% pos(1,1) > (bufferlength+randomisation_length+sigma_C)) &
               .and. (colloids% pos(1,2) > (bufferlength+randomisation_length+sigma_N))) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if
+           else
+              if (colloids% pos(1,1) > (bufferlength+randomisation_length+sigma_N)) then
+                 on_track = .false.
+                 write(*,*) 'on_track', on_track
+              end if 
+           end if
         end if
         
         if (.not. on_track) then
@@ -398,22 +424,28 @@ program setup_single_dimer
            call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
         end if 
         if (.not.fixed) then
-           call flag_timer%tic()
-           call flag_particles
-           call flag_timer%tac()
-           call change_timer%tic()
-           call change_species
-           call change_timer%tac()
+           if (dimer) then
+              call flag_timer%tic()
+              call flag_particles
+              call flag_timer%tac()
+              call change_timer%tic()
+              call change_species
+              call change_timer%tac()
+           end if
         end if
 
      end do md_loop
 
-     
+     if (dimer) then
+        total_energy = e1+e2+e_wall+colloids% mass(1)*sum(colloids% vel(:,1)**2) &
+                 +colloids% mass(2)*sum(colloids% vel(:,2)**2)/2+sum(solvent% vel**2)/2
+     else
+        total_energy = e1+e2+e_wall+colloids% mass(1)*sum(colloids% vel(:,1)**2) + sum(solvent% vel**2)/2
+     end if
 
      write(17,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
-                 colloids% vel, e1+e2+e_wall+(colloids% mass(1)*sum(colloids% vel(:,1)**2) &
-                 +colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 &
-                 +sum(solvent% vel**2)/2
+                 colloids% vel, total_energy 
+                 
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
 
@@ -437,11 +469,19 @@ program setup_single_dimer
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], bulk_temperature = T)
      
      temperature = compute_temperature(solvent, solvent_cells)
-     kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
-          colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
-          sum(solvent% vel**2)/2
-     v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1) + mass(2)*colloids%vel(:,2)) / &
-          (solvent%Nmax + mass(1) + mass(2))
+     if (dimer) then
+         kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
+             colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
+             sum(solvent% vel**2)/2
+         v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1) + mass(2)*colloids%vel(:,2)) / &
+             (solvent%Nmax + mass(1) + mass(2))
+     else
+        kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
+             sum(solvent% vel**2)/2)
+         v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1)) / &
+             (solvent%Nmax + mass(1))
+     end if
+
      call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com)
 
      n_solvent = 0
