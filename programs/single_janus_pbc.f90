@@ -1,4 +1,4 @@
-program setup_single_dimer
+program single_janus_pbc
   use common
   use cell_system
   use particle_system
@@ -24,19 +24,21 @@ program setup_single_dimer
   type(lj_params_t) :: colloid_lj
 
   integer, parameter :: N_species = 2
+  integer, parameter :: n_colloids = 36
 
   integer :: rho
   integer :: N
   integer :: error
 
-  double precision :: sigma_N, sigma_C, max_cut
+  double precision :: max_cut
   double precision :: epsilon(2,2)
-  double precision :: sigma(2,2), sigma_cut(2,2)
+  double precision :: sigma, sigma_v(2,2), sigma_cut(2,2)
   double precision :: mass(2)
 
   double precision :: e1, e2
   double precision :: tau, dt , T
-  double precision :: d,prob
+  double precision :: prob
+  double precision :: bulk_rate
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
@@ -52,21 +54,26 @@ program setup_single_dimer
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
   integer(HID_T) :: fields_group
+  integer(HID_T) :: connectivity_group
   integer(HID_T) :: box_group
+  integer(HID_T) :: tmp_id
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
-  double precision :: v_com(3)
-  type(particle_system_io_t) :: dimer_io
+  double precision :: v_com(3), x(3)
+  double precision :: tmp_mass
+  type(particle_system_io_t) :: janus_io
   type(particle_system_io_t) :: solvent_io
-  double precision :: bulk_rate
-  logical :: bulk_rmpcd
 
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
 
-  type(histogram_t) :: z_hist
-  type(h5md_element_t) :: z_hist_el
-  double precision :: cyl_shell_rmin, cyl_shell_rmax
+  type(histogram_t) :: radial_hist
+  type(h5md_element_t) :: radial_hist_el
+
+  integer, allocatable :: links(:,:)
+  double precision, allocatable :: links_d(:)
+  integer :: i_link
+  double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
 
   call PTparse(config,get_input_filename(),11)
 
@@ -83,82 +90,118 @@ program setup_single_dimer
   call h5open_f(error)
 
   prob = PTread_d(config,'probability')
-  bulk_rmpcd = PTread_l(config, 'bulk_rmpcd')
-  bulk_rate = PTread_d(config, 'bulk_rate')
+  bulk_rate = PTread_d(config,'bulk_rate')
 
   L = PTread_ivec(config, 'L', 3)
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
 
   T = PTread_d(config, 'T')
-  d = PTread_d(config, 'd')
   
   tau = PTread_d(config, 'tau')
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
 
-  sigma_C = PTread_d(config, 'sigma_C')
-  sigma_N = PTread_d(config, 'sigma_N')
+  rattle_pos_tolerance = PTread_d(config, 'rattle_pos_tolerance')
+  rattle_vel_tolerance = PTread_d(config, 'rattle_vel_tolerance')
+
+  sigma = PTread_d(config, 'sigma_colloid')
+  sigma_v = sigma
+  sigma_cut = sigma_v*2**(1.d0/6.d0)
+  mass = rho * sigma**3 * 4 * 3.14159265/3
+
+  epsilon = PTread_d(config, 'epsilon_colloid')
+
+  call colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
   ! solvent index first, colloid index second, in solvent_colloid_lj
+  sigma = PTread_d(config, 'sigma')
+  sigma_v = sigma
+  sigma_cut = sigma_v*2**(1.d0/6.d0)
+  max_cut = maxval(sigma_cut)
+
   epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
   epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
 
-  sigma(:,1) = sigma_C
-  sigma(:,2) = sigma_N
-  sigma_cut = sigma*2**(1.d0/6.d0)
-  max_cut = maxval(sigma_cut)
-
-  call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
-
-  epsilon(1,1) = PTread_d(config, 'epsilon_C_C')
-  epsilon(1,2) = PTread_d(config, 'epsilon_N_C')
-  epsilon(2,1) = PTread_d(config, 'epsilon_N_C')
-  epsilon(2,2) = PTread_d(config, 'epsilon_N_N')
-
-  sigma(1,1) = 2*sigma_C
-  sigma(1,2) = sigma_C + sigma_N
-  sigma(2,1) = sigma_C + sigma_N
-  sigma(2,2) = 2*sigma_N
-  sigma_cut = sigma*2**(1.d0/6.d0)
-
-  call colloid_lj% init(epsilon, sigma, sigma_cut)
-
-  mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
-  mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
+  call solvent_colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
   call solvent% init(N,2) !there will be 2 species of solvent particles
 
-  call colloids% init(2,2, mass) !there will be 2 species of colloids
+  call colloids% init(n_colloids, 2, mass) !there will be 2 species of colloids
 
-  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_pbc', &
+  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_janus_pbc', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
   call PTkill(config)
   
-  colloids% species(1) = 1
-  colloids% species(2) = 2
-  colloids% vel = 0
+  ! init Janus particle
+  colloids%species = 1
+  colloids%species(1:n_colloids/2) = 1
+  colloids%species(n_colloids/2+1:n_colloids) = 2
+  colloids%vel = 0
+  colloids%force = 0
+  colloids%pos = reshape([13.3745, 8.98251, 4.69069, 8.5896, 7.72357, 4.80796, 9.47026, &
+8.68444, 3.05306, 11.5306, 8.71526, 3.21078, 12.0145, 9.40707, 6.13052, 8.17221, 9.88827, &
+4.48735, 10.0301, 10.5029, 3.98571, 12.1461, 10.4592, 4.24321, 10.9462, 12.322, 4.66248, &
+12.3154, 11.6388, 5.8488, 10.2087, 6.32609, 5.95645, 10.4149, 6.98389, 4.00391, 11.8483, &
+7.4706, 5.50245, 10.3726, 8.77586, 4.90677, 10.4163, 8.16153, 6.93092, 13.7445, 10.3013, &
+6.58686, 11.7959, 6.50942, 7.31858, 13.4875, 7.93538, 6.6553, 12.7693, 9.16432, 8.15863, &
+8.87267, 11.5327, 5.35836, 8.89651, 11.1582, 7.45123, 10.5823, 10.5821, 5.87234, 8.52313, &
+7.48241, 6.88098, 7.04389, 8.55093, 5.87505, 11.2238, 7.98061, 8.73575, 7.65272, 9.31661, &
+8.08054, 9.40208, 10.2729, 9.34594, 10.6022, 9.87845, 7.7796, 7.34913, 10.6154, 6.3113, &
+10.4922, 12.3975, 6.83583, 10.438, 11.8593, 8.7102, 12.2607, 11.1839, 7.82265, 9.29334, &
+8.24435, 8.62586, 9.87488, 6.45058, 7.9423, 8.9374, 9.41897, 6.36459, 11.4998, 9.95905, &
+9.53615], [3, n_colloids])
 
-  dimer_io%force_info%store = .false.
-  dimer_io%id_info%store = .false.
-  dimer_io%position_info%store = .true.
-  dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%position_info%step = N_MD_steps
-  dimer_io%position_info%time = N_MD_steps*dt
-  dimer_io%image_info%store = .true.
-  dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%image_info%step = N_MD_steps
-  dimer_io%image_info%time = N_MD_steps*dt
-  dimer_io%velocity_info%store = .true.
-  dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%velocity_info%step = N_MD_steps
-  dimer_io%velocity_info%time = N_MD_steps*dt
-  dimer_io%species_info%store = .true.
-  dimer_io%species_info%mode = H5MD_FIXED
-  call dimer_io%init(hfile, 'dimer', colloids)
+  i_link = 0
+  do i = 1, colloids%Nmax
+     do j = i+1, colloids%Nmax
+        x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
+        dist = norm2(x)
+        if (dist < 2.8) then
+           ! count link
+           i_link = i_link + 1
+        end if
+     end do
+  end do
+  allocate(links(2,i_link), links_d(i_link))
+
+  i_link = 0
+  do i = 1, colloids%Nmax
+     do j = i+1, colloids%Nmax
+        x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
+        dist = norm2(x)
+        if (dist < 2.8) then
+           ! add link
+           i_link = i_link + 1
+           links(1, i_link) = i
+           links(2, i_link) = j
+           links_d(i_link) = dist
+        end if
+     end do
+  end do
+
+  write(*,*) 'number of links:', i_link
+
+  janus_io%force_info%store = .false.
+  janus_io%id_info%store = .false.
+  janus_io%position_info%store = .true.
+  janus_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  janus_io%position_info%step = N_MD_steps
+  janus_io%position_info%time = N_MD_steps*dt
+  janus_io%image_info%store = .true.
+  janus_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  janus_io%image_info%step = N_MD_steps
+  janus_io%image_info%time = N_MD_steps*dt
+  janus_io%velocity_info%store = .true.
+  janus_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  janus_io%velocity_info%step = N_MD_steps
+  janus_io%velocity_info%time = N_MD_steps*dt
+  janus_io%species_info%store = .true.
+  janus_io%species_info%mode = H5MD_FIXED
+  call janus_io%init(hfile, 'janus', colloids)
 
   solvent_io%force_info%store = .false.
   solvent_io%id_info%store = .false.
@@ -180,26 +223,19 @@ program setup_single_dimer
   solvent_io%species_info%time = N_loop*N_MD_steps*dt
   call solvent_io%init(hfile, 'solvent', solvent)
 
-  do k = 1, solvent%Nmax
-     solvent% vel(1,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
-     solvent% vel(2,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
-     solvent% vel(3,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
-  end do
+  call random_number(solvent% vel(:, :))
   solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
-  colloids% pos(:,1) = solvent_cells% edges/2.0
-  colloids% pos(:,2) = solvent_cells% edges/2.0 
-  colloids% pos(1,2) = colloids% pos(1,2) + d
 
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, H5MD_LINEAR, step=N_MD_steps, &
        time=N_MD_steps*dt)
 
-  call h5gcreate_f(dimer_io%group, 'box', box_group, error)
+  call h5gcreate_f(janus_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
@@ -209,30 +245,35 @@ program setup_single_dimer
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
 
+  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
+  call radial_hist%init(0.d0, 5*sigma, 100, 2)
+  call radial_hist_el%create_time(fields_group, 'radial_histogram', radial_hist%data, &
+       H5MD_LINEAR, step=N_MD_steps, time=N_MD_steps*dt)
+  call h5md_write_attribute(radial_hist_el%id, 'xmin', radial_hist%xmin)
+  call h5md_write_attribute(radial_hist_el%id, 'dx', radial_hist%dx)
+  call h5gclose_f(fields_group, error)
+
+  call h5gcreate_f(hfile%id, 'connectivity', connectivity_group, error)
+  call h5md_write_dataset(connectivity_group, 'janus_links', links-1)
+  call h5dopen_f(connectivity_group, 'janus_links', tmp_id, error)
+  call h5md_write_attribute(tmp_id, 'particles_group', 'janus')
+  call h5dclose_f(tmp_id, error)
+  call h5gclose_f(connectivity_group, error)
+
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
   call solvent% sort(solvent_cells)
 
-  call neigh% init(colloids% Nmax, int(300*max(sigma_C,sigma_N)**3))
+  call neigh% init(colloids% Nmax, int(300*sigma**3))
 
   skin = 1.5
   n_extra_sorting = 0
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
 
-  call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
+  call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
-  cyl_shell_rmin = max(sigma_N, sigma_C)
-  cyl_shell_rmax = cyl_shell_rmin + 2
-  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
-  call z_hist%init(-5.d0, 5.d0+d, 100)
-  call z_hist_el%create_time(fields_group, 'cylindrical_shell_histogram', z_hist%data, &
-       H5MD_LINEAR, step=N_MD_steps, time=N_MD_steps*dt)
-  call h5md_write_attribute(z_hist_el%id, 'r_min', cyl_shell_rmin)
-  call h5md_write_attribute(z_hist_el%id, 'r_max', cyl_shell_rmax)
-  call h5md_write_attribute(z_hist_el%id, 'xmin', z_hist%xmin)
-  call h5md_write_attribute(z_hist_el%id, 'dx', z_hist%dx)
-  call h5gclose_f(fields_group, error)
+  ! insert polar histogram
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -240,7 +281,6 @@ program setup_single_dimer
   colloids% force_old = colloids% force
 
   write(*,*) 'Running for', N_loop, 'loops'
-  write(*,*) 'mass', mass 
   call main%tic()
   do i = 1, N_loop
      if (modulo(i,5) == 0) write(*,'(i05)',advance='no') i
@@ -252,11 +292,11 @@ program setup_single_dimer
         colloids% pos_rattle = colloids% pos
         do k=1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
-                dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
+                dt**2 * colloids% force(:,k) / (2 * colloids% mass(colloids%species(k)))
         end do
-
-        call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
         call varia%tac()
+
+        call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -267,7 +307,7 @@ program setup_single_dimer
            call apply_pbc(colloids, solvent_cells% edges)
            call varia%tac()
            call solvent% sort(solvent_cells)
-           call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
+           call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells, solvent_colloid_lj)
            call varia%tic()
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
@@ -291,16 +331,16 @@ program setup_single_dimer
         call md_vel(solvent, solvent_cells% edges, dt)
 
         call varia%tic()
-        do k=1, colloids% Nmax
+        do k = 1, colloids%Nmax
            colloids% vel(:,k) = colloids% vel(:,k) + &
-             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids% mass(k))
+             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids%mass(colloids%species(k)))
         end do
-
-        call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
         call varia%tac()
 
+        call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+
         call time_flag%tic()
-        call flag_particles_nl
+        call flag_particles
         call time_flag%tac()
         call time_change%tic()
         call change_species
@@ -311,36 +351,36 @@ program setup_single_dimer
      call varia%tic()
 
      temperature = compute_temperature(solvent, solvent_cells)
-     kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
-          colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
-          sum(solvent% vel**2)/2
-     v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1) + mass(2)*colloids%vel(:,2)) / &
-          (solvent%Nmax + mass(1) + mass(2))
+     kin_e = sum(solvent% vel**2)
+     v_com = sum(solvent%vel, dim=2)
+     tmp_mass = solvent%Nmax
+     do k = 1, colloids%Nmax
+        v_com = v_com + colloids%mass(colloids%species(k)) * colloids%vel(:,k)
+        tmp_mass = tmp_mass + colloids%mass(colloids%species(k))
+        kin_e = kin_e + colloids%mass(colloids%species(k)) * sum(colloids%vel(:,k)**2)
+     end do
+     v_com = v_com / tmp_mass
+     kin_e = kin_e / 2
 
      call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
 
-     call dimer_io%position%append(colloids%pos)
-     call dimer_io%velocity%append(colloids%vel)
-     call dimer_io%image%append(colloids%image)
+     call janus_io%position%append(colloids%pos)
+     call janus_io%velocity%append(colloids%vel)
+     call janus_io%image%append(colloids%image)
 
      solvent_cells% origin(1) = threefry_double(state(1)) - 1
      solvent_cells% origin(2) = threefry_double(state(1)) - 1
      solvent_cells% origin(3) = threefry_double(state(1)) - 1
      call varia%tac()
 
+     call apply_pbc(solvent, solvent_cells% edges)
+     call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
+     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
      call simple_mpcd_step(solvent, solvent_cells, state)
-     
-     call time_refuel%tic()
-     if (bulk_rmpcd) then
-        call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
-     else
-        call refuel
-     end if
 
-     call time_refuel%tac()
+     call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
 
      n_solvent = 0
      do k = 1, solvent%Nmax
@@ -350,10 +390,10 @@ program setup_single_dimer
      end do
      call n_solvent_el%append(n_solvent)
 
-     z_hist%data = 0
-     call compute_cylindrical_shell_histogram(z_hist, colloids%pos(:,1), colloids%pos(:,2), &
-          solvent_cells%edges, 2, cyl_shell_rmin, cyl_shell_rmax, solvent)
-     call z_hist_el%append(z_hist%data)
+     radial_hist%data = 0
+     call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
+          solvent_cells%edges, solvent)
+     call radial_hist_el%append(radial_hist%data)
 
   end do
   call main%tac()
@@ -361,14 +401,15 @@ program setup_single_dimer
 
   write(*,*) 'n extra sorting', n_extra_sorting
 
+  call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com, add=.false., force=.true.)
   call solvent_io%position%append(solvent%pos)
   call solvent_io%velocity%append(solvent%vel)
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
 
-  call dimer_io%close()
+  call janus_io%close()
   call solvent_io%close()
-  call z_hist_el%close()
+  call radial_hist_el%close()
   call n_solvent_el%close()
   call hfile%close()
   call h5close_f(error)
@@ -381,13 +422,15 @@ program setup_single_dimer
   write(*,'(a16,f8.3)') solvent%time_md_pos%name, solvent%time_md_pos%total
   write(*,'(a16,f8.3)') solvent%time_md_vel%name, solvent%time_md_vel%total
   write(*,'(a16,f8.3)') solvent%time_max_disp%name, solvent%time_max_disp%total
-  write(*,'(a16,f8.3)') colloids%time_self_force%name, solvent%time_self_force%total
+  write(*,'(a16,f8.3)') colloids%time_self_force%name, colloids%time_self_force%total
   write(*,'(a16,f8.3)') neigh%time_update%name, neigh%time_update%total
   write(*,'(a16,f8.3)') neigh%time_force%name, neigh%time_force%total
   write(*,'(a16,f8.3)') colloids%time_max_disp%name, colloids%time_max_disp%total
   write(*,'(a16,f8.3)') time_flag%name, time_flag%total
   write(*,'(a16,f8.3)') time_change%name, time_change%total
   write(*,'(a16,f8.3)') time_refuel%name, time_refuel%total
+  write(*,'(a16,f8.3)') colloids%time_rattle_pos%name, colloids%time_rattle_pos%total
+  write(*,'(a16,f8.3)') colloids%time_rattle_vel%name, colloids%time_rattle_vel%total
 
   write(*,'(a16,f8.3)') 'total', solvent%time_stream%total + solvent%time_step%total + &
        solvent%time_count%total + solvent%time_sort%total + solvent%time_ct%total + &
@@ -401,71 +444,57 @@ program setup_single_dimer
 
 contains
 
-  subroutine flag_particles_nl
+  subroutine flag_particles
     double precision :: dist_to_C_sq
-    integer :: r, s
+    integer :: i, r, s, thread_id
     double precision :: x(3)
 
-    do s = 1,neigh% n(1)
-       r = neigh%list(s,1)
-       if (solvent% species(r) == 1) then
-          x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
-          dist_to_C_sq = dot_product(x, x)
-          if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-             if (threefry_double(state(1)) <= prob) then
-                solvent% flag(r) = 1
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(i, s, r, x, dist_to_C_sq)
+    do i = 1, colloids%Nmax
+       if (colloids%species(i)==1) then
+          do s = 1,neigh% n(i)
+             r = neigh%list(s,i)
+             if (solvent% species(r) == 1) then
+                x = rel_pos(colloids% pos(:,i),solvent% pos(:,r),solvent_cells% edges)
+                dist_to_C_sq = dot_product(x, x)
+                if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
+                   if (threefry_double(state(thread_id)) <= prob) then
+                      solvent% flag(r) = 1
+                   end if
+                end if
              end if
-          end if
+          end do
        end if
     end do
+    !$omp end do
+    !$omp end parallel
 
-  end subroutine flag_particles_nl
-
-  subroutine flag_particles
-  double precision :: dist_to_C_sq
-  integer :: r
-  double precision :: x(3)
-  integer :: thread_id
-  
-  !$omp parallel
-  thread_id = omp_get_thread_num() + 1
-  !$omp do private(x, dist_to_C_sq)
-  do  r = 1,solvent% Nmax
-     if (solvent% species(r) == 1) then
-       x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges) 
-       dist_to_C_sq = dot_product(x, x)
-       if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-         if (threefry_double(state(thread_id)) <= prob) then
-           solvent% flag(r) = 1 
-         end if
-       end if
-    end if 
-  end do
-  !$omp end do
-  !$omp end parallel
-  
   end subroutine flag_particles
-  
-  
-  subroutine change_species
-    double precision :: dist_to_C_sq
-    double precision :: dist_to_N_sq
-    integer :: m
-    double precision :: x(3)
 
-    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
+  subroutine change_species
+    double precision :: dist_to_colloid_sq
+    integer :: m, m_colloid
+    double precision :: x(3)
+    logical :: do_change
+    integer :: s_m, s_colloid
+
+    !$omp parallel do private(x, dist_to_colloid_sq, m_colloid, do_change)
     do m = 1, solvent% Nmax
+       s_m = solvent%species(m)
        if (solvent% flag(m) == 1) then
-          x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
-          dist_to_C_sq = dot_product(x, x)
-          x = rel_pos(colloids% pos(:,2), solvent% pos(:,m), solvent_cells% edges)
-          dist_to_N_sq = dot_product(x, x)
-          if ( &
-               (dist_to_C_sq > solvent_colloid_lj%cut_sq(1,1)) &
-               .and. &
-               (dist_to_N_sq > solvent_colloid_lj%cut_sq(1,2)) &
-               ) &
-               then
+          do_change = .true.
+          colloid_dist_loop: do m_colloid = 1, colloids%Nmax
+             s_colloid = colloids%species(m_colloid)
+             x = rel_pos(colloids% pos(:,m_colloid), solvent% pos(:,m), solvent_cells% edges)
+             dist_to_colloid_sq = dot_product(x, x)
+             if (dist_to_colloid_sq < solvent_colloid_lj%cut_sq(s_m,s_colloid)) then
+                do_change = .false.
+                exit colloid_dist_loop
+             end if
+          end do colloid_dist_loop
+          if (do_change) then
              solvent% species(m) = 2
              solvent% flag(m) = 0
           end if
@@ -497,4 +526,4 @@ contains
     end do
   end subroutine refuel
 
-end program setup_single_dimer
+end program single_janus_pbc

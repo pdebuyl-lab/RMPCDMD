@@ -140,6 +140,7 @@ contains
     n_link = size(links, dim=2)
     rattle_max = 1000
 
+    call p%time_rattle_pos%tic()
     rattle_loop: do rattle_i = 1, rattle_max
        error = 0
        do i_link = 1, n_link
@@ -165,13 +166,20 @@ contains
 
           p% vel(:,i1) = p% vel(:,i1) - g*r/mass1
           p% vel(:,i2) = p% vel(:,i2) + g*r/mass2
+       end do
 
-          g = sqrt(dot_product(r,r)) - d
-          if (d > error) error = d
+       do i_link = 1, n_link
+          i1 = links(1,i_link)
+          i2 = links(2,i_link)
+          d = distances(i_link)
+          r = rel_pos(p% pos(:,i1), p%pos(:,i2), edges)
+          g = abs(sqrt(dot_product(r,r)) - d)
+          if (g > error) error = g
        end do
        if (error < precision) exit rattle_loop
 
     end do rattle_loop
+    call p%time_rattle_pos%tac()
 
     if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_pos'
 
@@ -193,6 +201,7 @@ contains
     n_link = size(links, dim=2)
     rattle_max = 1000
 
+    call p%time_rattle_vel%tic()
     rattle_loop: do rattle_i = 1, rattle_max
        error = 0
        do i_link = 1, n_link
@@ -209,21 +218,32 @@ contains
 
           p% vel(:,i1) = p% vel(:,i1) - k*s/mass1
           p% vel(:,i2) = p% vel(:,i2) + k*s/mass2
+       end do
 
-          k = dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass)
+       do i_link = 1, n_link
+          i1 = links(1,i_link)
+          i2 = links(2,i_link)
+          d = distances(i_link)
+          mass1 = p%mass(p%species(i1))
+          mass2 = p%mass(p%species(i2))
+          inv_mass = 1/mass1 + 1/mass2
+          s = rel_pos(p% pos(:,i1), p% pos(:,i2), edges)
+          k = abs(dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass))
           if (k>error) error = k
        end do
        if (error < precision) exit rattle_loop
     end do rattle_loop
+    call p%time_rattle_vel%tac()
 
     if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_vel'
 
   end subroutine rattle_body_vel
 
-  function lj93_zwall(particles, edges, lj_params) result(e)
+  function lj93_zwall(particles, edges, lj_params, wall_direction) result(e)
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: edges(3)
     type(lj_params_t), intent(in) :: lj_params
+    integer, intent(in) :: wall_direction
     double precision :: e
 
     integer :: i, s
@@ -234,9 +254,9 @@ contains
     do i = 1, particles%Nmax
        s = particles%species(i)
        if (s<=0) continue
-       z = particles%pos(3,i)
-       if (z > edges(3)/2) then
-          z = edges(3) - z - lj_params% shift
+       z = particles%pos(wall_direction,i)
+       if (z > edges(wall_direction)/2) then
+          z = edges(wall_direction) - z - lj_params% shift
           dir = -1
        else
           dir = 1 
@@ -245,7 +265,7 @@ contains
        z_sq = z**2
        if (z_sq <= lj_params% cut_sq(1,s)) then
          f = lj_force_9_3(z, z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
-         particles%force(3,i) = particles%force(3,i) + dir*f
+         particles%force(wall_direction,i) = particles%force(wall_direction,i) + dir*f
          e = e + lj_energy_9_3(z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
        end if
     end do

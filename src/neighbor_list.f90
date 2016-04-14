@@ -63,50 +63,77 @@ contains
   !! Update the neighbor list
   !!
   !! Loop over the stencil for neighboring cells.
-  subroutine update_list(this, system1, system2, radius, cells)
+  subroutine update_list(this, system1, system2, radius, cells, lj)
     class(neighbor_list_t), intent(inout) :: this
     type(particle_system_t), intent(in) :: system1
     type(particle_system_t), intent(in) :: system2
-    type(cell_system_t), intent(in) :: cells
+    type(cell_system_t), intent(inout) :: cells
     double precision, intent(in) :: radius
+    type(lj_params_t), intent(in), optional :: lj
 
     integer :: cell(3), M(3), actual_cell(3)
     integer :: neigh_idx, i, cell_i, cell_n, cell_start, list_idx
     integer :: j, stencil_size
+    integer :: s, si
     double precision :: x(3), y(3), L(3)
     double precision :: rsq, radiussq
+    logical :: actual_cell_md, actual_cell_noreac, do_lj
 
     L = cells% L * cells% a
     radiussq = radius**2
     M = cells% M
     stencil_size = size(this% stencil, dim=2)
+    cells%is_md = .false.
+    cells%is_reac = .true.
+    if (present(lj)) then
+       do_lj = .true.
+    else
+       do_lj = .false.
+    end if
 
     call this%time_update%tic()
-    !$omp parallel do private(x, cell, list_idx, j, actual_cell, neigh_idx, cell_n, cell_start, cell_i, y, rsq)
+    !$omp parallel do private(x, cell, list_idx, j, actual_cell, neigh_idx, cell_n, cell_start, cell_i, y, rsq, actual_cell_md)
     do i = 1, system1% Nmax
        x = system1% pos(:, i)
+       si = system1%species(i)
        cell = floor( (x - cells% origin) / cells% a ) + 1
        list_idx = 0
 
        stencil: do j = 1, stencil_size
           ! 0-based index for hilbert routine
           actual_cell = modulo(cell + this% stencil(:,j) - 1 , cells% L)
+          actual_cell_md = .false.
+          actual_cell_noreac = .false.
           neigh_idx = compact_p_to_h( actual_cell, M ) + 1
           cell_n = cells% cell_count(neigh_idx)
           cell_start = cells% cell_start(neigh_idx)
 
           do cell_i = cell_start, cell_start + cell_n - 1
+             s = system2%species(cell_i)
              y = system2% pos(:, cell_i)
              rsq = sum(rel_pos(x, y, L)**2)
 
              if (rsq .lt. radiussq) then
                 list_idx = list_idx + 1
+                actual_cell_md = .true.
+                if (do_lj) then
+                   if (rsq <= lj%cut_sq(s, si)) actual_cell_noreac = .true.
+                end if
                 if (list_idx .gt. this% Nmax) then
                    error stop 'maximum of neighbor list reached'
                 end if
                 this% list(list_idx, i) = cell_i
              end if
           end do
+          if (actual_cell_md) then
+             !$omp atomic write
+             cells%is_md(neigh_idx) = .true.
+             if (actual_cell_noreac) then
+                !$omp atomic write
+                cells%is_reac(neigh_idx) = .false.
+             end if
+          end if
+
        end do stencil
 
        this% n(i) = list_idx
@@ -154,7 +181,12 @@ contains
              f = lj_force(d, r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
              e = e + lj_energy(r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
              f1 = f1 + f
-             ps2% force(:, idx) = ps2% force(:, idx) - f
+             !$omp atomic
+             ps2%force(1, idx) = ps2% force(1,idx) - f(1)
+             !$omp atomic
+             ps2%force(2, idx) = ps2% force(2,idx) - f(2)
+             !$omp atomic
+             ps2%force(3, idx) = ps2% force(3,idx) - f(3)
           end if
        end do
        ps1% force(:, i) = ps1% force(:, i) + f1

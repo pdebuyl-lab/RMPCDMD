@@ -16,6 +16,8 @@ module cell_system
      integer, allocatable :: cell_count(:)
      integer, allocatable :: cell_count_tmp(:,:)
      integer, allocatable :: cell_start(:)
+     logical, allocatable :: is_md(:)
+     logical, allocatable :: is_reac(:)
      integer :: M(3)
      integer :: bc(3)
      logical :: has_walls
@@ -63,6 +65,8 @@ contains
     allocate(this%cell_count(this%N))
     allocate(this%cell_count_tmp(this%N, omp_get_max_threads()))
     allocate(this%cell_start(this%N))
+    allocate(this%is_md(this%N))
+    allocate(this%is_reac(this%N))
 
   end subroutine init
 

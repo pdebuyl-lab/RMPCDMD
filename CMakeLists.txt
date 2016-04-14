@@ -34,6 +34,10 @@ add_executable(setup_simple_fluid
 test/setup_simple_fluid.f90)
 target_link_libraries(setup_simple_fluid RMPCDMD fortran_h5md ParseText)
 
+add_executable(setup_bulk_decay
+test/setup_bulk_decay.f90)
+target_link_libraries(setup_bulk_decay RMPCDMD fortran_h5md ParseText)
+
 add_executable(setup_thermal_fluid
 test/setup_thermal_fluid.f90)
 target_link_libraries(setup_thermal_fluid RMPCDMD fortran_h5md ParseText)
@@ -54,13 +58,25 @@ add_executable(setup_simple_rattle
 test/setup_simple_rattle.f90)
 target_link_libraries(setup_simple_rattle RMPCDMD fortran_h5md ParseText)
 
+add_executable(setup_single_catalytic_fixed_sphere
+test/setup_single_catalytic_fixed_sphere.f90)
+target_link_libraries(setup_single_catalytic_fixed_sphere RMPCDMD fortran_h5md ParseText)
+
 add_executable(single_dimer_pbc
 programs/single_dimer_pbc.f90)
 target_link_libraries(single_dimer_pbc RMPCDMD fortran_h5md ParseText)
 
+add_executable(single_janus_pbc
+programs/single_janus_pbc.f90)
+target_link_libraries(single_janus_pbc RMPCDMD fortran_h5md ParseText)
+
 add_executable(single_dimer_chemotactic_cell
 programs/single_dimer_chemotactic_cell.f90)
 target_link_libraries(single_dimer_chemotactic_cell RMPCDMD ParseText)
+
+add_executable(single_dimer_channel_flow
+programs/single_dimer_channel_flow.f90)
+target_link_libraries(single_dimer_channel_flow RMPCDMD ParseText)
 
 add_executable(test_cell_system_0
 test/test_cell_system_0.f90)

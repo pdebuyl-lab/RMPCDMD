@@ -1,0 +1,27 @@
+
+# simulation parameters
+N_MD = 50
+N_loop = 600
+probability = 1.0
+
+# cell parameters
+g = 0.0001
+L = 16 15 15 
+seed = -2722029059808518102
+h5md_file = channel_flow_e5.h5
+order = T
+
+# fluid parameters
+rho = 10
+T = 0.4
+tau = 1.
+thermostat = F
+
+# dimer parameters
+sigma_C = 2
+sigma_N = 2 
+d = 5.5
+
+epsilon_C = 1 1
+epsilon_N = 1 5
+

@@ -6,6 +6,7 @@ module particle_system
 
   public :: particle_system_t
   public :: compute_cylindrical_shell_histogram
+  public :: compute_radial_histogram
 
   type particle_system_t
      integer :: Nmax
@@ -58,6 +59,7 @@ module particle_system
      integer, pointer :: wall_flag_pointer(:)
      type(timer_t) :: time_stream, time_step, time_sort, time_count, time_ct
      type(timer_t) :: time_md_pos, time_md_vel, time_self_force, time_max_disp
+     type(timer_t) :: time_rattle_pos, time_rattle_vel
    contains
      procedure :: init
      procedure :: init_from_file
@@ -151,6 +153,8 @@ contains
     call this%time_md_vel%init('md_vel')
     call this%time_self_force%init('self force')
     call this%time_max_disp%init('maximum disp')
+    call this%time_rattle_pos%init('rattle_pos')
+    call this%time_rattle_vel%init('rattle_vel')
 
   end subroutine init
 
@@ -376,5 +380,31 @@ contains
     end do
 
   end subroutine compute_cylindrical_shell_histogram
+
+  subroutine compute_radial_histogram(hist, x1, L, solvent)
+    type(histogram_t), intent(inout) :: hist
+    double precision, intent(in), dimension(3) :: x1, L
+    type(particle_system_t), intent(in) :: solvent
+
+    integer :: i, s
+
+    double precision :: x(3), delta_x(3), norm
+    double precision :: r_max, r_max_sq
+
+    r_max = hist%xmin + hist%dx*hist%n
+    r_max_sq = r_max**2
+
+    do i = 1, solvent%Nmax
+       s = solvent%species(i)
+       x = solvent%pos(:,i)
+       delta_x = rel_pos(x, x1, L)
+       norm = dot_product(delta_x,delta_x)
+       if (norm < r_max_sq) then
+          norm = sqrt(norm)
+          call hist%bin(norm, s)
+       end if
+    end do
+
+  end subroutine compute_radial_histogram
 
 end module particle_system
