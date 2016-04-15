@@ -43,7 +43,7 @@ At the command line, execute the following
     mkdir build
     cd build
     cmake ..
-    make
+    make VERBOSE=1
 
 You can then execute, for instance, the executable `./setup_simple_fluid`.
 
