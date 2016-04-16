@@ -45,7 +45,13 @@ At the command line, execute the following
     cmake ..
     make VERBOSE=1
 
-You can then execute, for instance, the executable `./setup_simple_fluid`.
+## Run the code
+
+The most convenient manner to execute a simulation is to visit an "experiment"
+directory. From the root of the RMPCDMD software directory
+
+    cd experiments/01-single-dimer
+    make simulation
 
 ## License
 
