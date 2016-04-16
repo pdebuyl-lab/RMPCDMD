@@ -28,7 +28,7 @@ global variables, enable testing and plan for parallel accelerations.
 
 RMPCDMD has the following requirements:
 
-- A Fortran 2003 compiler (e.g. [gfortran](https://gcc.gnu.org/wiki/GFortran))
+- A Fortran 2003 compiler (e.g. [gfortran](https://gcc.gnu.org/wiki/GFortran) ≥ 4.7 with support for [OpenMP](https://gcc.gnu.org/wiki/openmp) ≥ 3.1)
 - A Fortran enabled [HDF5](https://www.hdfgroup.org/HDF5/) installation
 - [CMake](http://cmake.org/)
 - [GNU Make](https://www.gnu.org/software/make/)
