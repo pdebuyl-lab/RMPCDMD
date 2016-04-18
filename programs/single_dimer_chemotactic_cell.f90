@@ -339,7 +339,9 @@ program setup_single_dimer
                       dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
               end do
            end if 
-           call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
+           if (dimer) then
+              call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
+           end if
         end if  
    
         if (on_track) then 
@@ -421,7 +423,9 @@ program setup_single_dimer
                    dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids% mass(k))
               end do
            end if
-           call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
+           if (dimer) then
+              call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
+           end if 
         end if 
         if (.not.fixed) then
            if (dimer) then
