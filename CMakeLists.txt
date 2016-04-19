@@ -26,10 +26,6 @@ src/md.f90
 src/neighbor_list.f90)
 target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module)
 
-add_executable(try_all
-test/try_all.f90)
-target_link_libraries(try_all RMPCDMD fortran_h5md ParseText)
-
 add_executable(setup_simple_fluid
 test/setup_simple_fluid.f90)
 target_link_libraries(setup_simple_fluid RMPCDMD fortran_h5md ParseText)
