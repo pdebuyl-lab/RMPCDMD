@@ -288,7 +288,7 @@ program setup_single_dimer
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
-        call md_vel(solvent, solvent_cells% edges, dt)
+        call md_vel(solvent, dt)
 
         call varia%tic()
         do k=1, colloids% Nmax

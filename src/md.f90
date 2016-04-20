@@ -49,9 +49,8 @@ contains
 
   end subroutine apply_pbc
 
-  subroutine md_vel(particles, edges, dt)
+  subroutine md_vel(particles, dt)
     type(particle_system_t), intent(inout) :: particles
-    double precision, intent(in) :: edges(3)
     double precision, intent(in) :: dt
 
     integer :: k

@@ -213,7 +213,7 @@ program setup_single_catalytic_fixed_sphere
         call varia%tac()
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
 
-        call md_vel(solvent, solvent_cells% edges, dt)
+        call md_vel(solvent, dt)
 
         call time_flag%tic()
         call flag_particles_nl
