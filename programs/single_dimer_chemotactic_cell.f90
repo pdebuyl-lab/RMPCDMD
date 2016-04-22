@@ -70,7 +70,7 @@ program setup_single_dimer
   integer :: i, L(3),  n_threads
   integer :: j, k, m
   
-  type(timer_t) :: flag_timer, change_timer, buffer_timer, varia
+  type(timer_t) :: flag_timer, change_timer, buffer_timer, varia, randomize_timer
   integer(HID_T) :: timers_group
 
   integer, allocatable :: rho_xy(:,:,:)
@@ -89,6 +89,7 @@ program setup_single_dimer
   call flag_timer%init('flag')
   call change_timer%init('change')
   call buffer_timer%init('buffer')
+  call randomize_timer%init('randomize')
   call varia%init('varia')
 
   n_threads = omp_get_max_threads()
@@ -303,6 +304,8 @@ program setup_single_dimer
 
   call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
 
+  solvent% force(2:3,:) = 0
+  solvent% force(1,:) = g(1)
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
   e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj, 3)
@@ -387,14 +390,17 @@ program setup_single_dimer
         end if
 
         call buffer_timer%tic()
-        call buffer_particles(solvent,solvent_cells% edges(:), bufferlength+randomisation_length)
-        call randomize_particles(solvent, solvent_cells% edges(:), randomisation_length, max_speed, T)
+        call buffer_particles(solvent,solvent_cells%edges)
         call buffer_timer%tac()
+        call randomize_timer%tic()
+        call randomize_particles(solvent, solvent_cells% edges, randomisation_length, max_speed, T)
+        call randomize_timer%tac()
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
 
-        solvent% force = 0
+        solvent% force(2:3,:) = 0
+        solvent% force(1,:) = g(1)
         colloids% force = 0
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -409,7 +415,8 @@ program setup_single_dimer
            end if 
         end if 
 
-        call md_vel_flow_partial(solvent, dt, g)
+        call md_vel(solvent, dt)
+
         if (.not. fixed) then
            if (on_track) then
               !only update in the direction of the flow
@@ -535,8 +542,9 @@ program setup_single_dimer
   call h5md_write_dataset(timers_group, solvent%time_ct%name, solvent%time_ct%total)
   call h5md_write_dataset(timers_group, solvent%time_max_disp%name, solvent%time_max_disp%total)
   call h5md_write_dataset(timers_group, flag_timer%name, flag_timer%total)
-  call h5md_write_dataset(timers_group, change_timer%name, buffer_timer%total)
+  call h5md_write_dataset(timers_group, change_timer%name, change_timer%total)
   call h5md_write_dataset(timers_group, buffer_timer%name, buffer_timer%total)
+  call h5md_write_dataset(timers_group, randomize_timer%name, randomize_timer%total)
   call h5md_write_dataset(timers_group, neigh%time_update%name, neigh%time_update%total)
   call h5md_write_dataset(timers_group, varia%name, varia%total)
   call h5md_write_dataset(timers_group, neigh%time_force%name, neigh%time_force%total)
@@ -545,7 +553,7 @@ program setup_single_dimer
        solvent%time_step%total + solvent%time_count%total + solvent%time_sort%total + &
        solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
        flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + &
-       varia%total + neigh%time_force%total)
+       varia%total + neigh%time_force%total + randomize_timer%total)
 
   call h5gclose_f(timers_group, error)
 
@@ -668,32 +676,9 @@ contains
     end if 
   end subroutine concentration_field_cylindrical
 
-  subroutine md_vel_flow_partial(particles, dt, ext_force)
-    type(particle_system_t), intent(inout) :: particles
-    double precision, intent(in) :: dt
-    double precision, intent(in) :: ext_force(3)
-
-    integer :: k
-
-    call solvent%time_md_vel%tic()
-    !$omp parallel do
-    do k = 1, particles% Nmax
-       if (particles% wall_flag(k) == 0) then
-          particles% vel(:,k) = particles% vel(:,k) + &
-               dt * ( particles% force(:,k) + particles% force_old(:,k) ) / 2 &
-               + dt*ext_force
-       else
-         particles% wall_flag(k) = 0
-       end if
-    end do
-    call solvent%time_md_vel%tac()
-
-  end subroutine md_vel_flow_partial
-
-  subroutine buffer_particles(particles,edges, bufferlength)
+  subroutine buffer_particles(particles,edges)
      type(particle_system_t), intent(inout) :: particles
      double precision, intent(in) :: edges(3)
-     integer, intent(in) :: bufferlength
   
      integer :: k, s
 
@@ -702,7 +687,7 @@ contains
      do k = 1, particles% Nmax
         s = particles% species(k)
         if (s <= 0) continue
-        if ((particles% pos(1,k) > randomisation_length) .and. (particles% pos(1,k) < bufferlength)) then
+        if ((particles% pos(1,k) > randomisation_length) .and. (particles% pos(1,k) < randomisation_length + bufferlength)) then
            if (particles% pos(2,k) < edges(2)/2.d0) then
               bulk_change(s) = bulk_change(s) - 1
               particles% species(k) = 1
@@ -723,18 +708,28 @@ contains
      double precision, intent(in) :: edges(3), max_speed, T
      integer, intent(in) :: randomisation_length
 
-     integer :: k
+     integer :: k, thread_id
+     double precision :: z, Lz, factor, T_sqrt
      
-     !$omp parallel do
+     Lz = edges(3)
+     T_sqrt = sqrt(T)
+     factor = max_speed/(Lz/2)**2
+     !$omp parallel private(thread_id)
+     thread_id = omp_get_thread_num() + 1
+     !$omp do private(k, z)
      do k = 1, particles% Nmax
         if (particles% pos(1,k) < randomisation_length) then
-           particles% vel(1,k) = threefry_normal(state(1))*sqrt(T) & 
-            + max_speed*particles% pos(3,k)*(edges(3) - particles% pos(3,k))/(edges(3)/2)**2
-           particles% vel(2,k) = threefry_normal(state(1))*sqrt(T)
-           particles% vel(3,k) = threefry_normal(state(1))*sqrt(T)
-        end if 
+           z = particles% pos(3,k)
+           particles% vel(1,k) = threefry_normal(state(thread_id))*T_sqrt &
+                + factor*z*(Lz - z)
+           particles% vel(2,k) = threefry_normal(state(thread_id))*T_sqrt
+           particles% vel(3,k) = threefry_normal(state(thread_id))*T_sqrt
+        end if
      end do
-  end subroutine randomize_particles
+     !$omp end do
+     !$omp end parallel
+
+   end subroutine randomize_particles
 
   subroutine compute_rho_xy
     integer :: i, s, ix, iy
