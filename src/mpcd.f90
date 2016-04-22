@@ -411,7 +411,7 @@ contains
   !!
   !! This routines allows a x-direction forcing and specular or bounce-back conditions in y
   !! and z
-  subroutine mpcd_stream_xforce_yzwall(particles, cells, dt,g)
+  subroutine mpcd_stream_xforce_yzwall(particles, cells, dt, g)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
     double precision, intent(in) :: dt
@@ -434,17 +434,16 @@ contains
        old_pos = particles% pos(:,i)
        old_vel = particles% vel(:,i)
        new_pos = old_pos + old_vel*dt + gvec*dt**2/2
-       new_vel = old_vel + gvec*dt
+       new_vel = old_vel
        im = 0
 
-       if ( (new_pos(2)<0) .or. (new_pos(2)>L(2)) .or. (new_pos(3)<0) .or. (new_pos(3)>L(3)) ) &
-            call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
+       if ((new_pos(2)<0) .or. (new_pos(2)>L(2)) .or. (new_pos(3)<0) .or. (new_pos(3)>L(3))) then
+          call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
+          particles%wall_flag(i) = 1
+       end if
 
-       im = floor(new_pos/L)
-       new_pos = new_pos - im*L
        particles%pos(:,i) = new_pos
        particles%vel(:,i) = new_vel
-       particles%image(:,i) = particles%image(:,i) + im
     end do
     call particles%time_stream%tac()
 
@@ -467,11 +466,12 @@ contains
 
     gvec = 0
     if (present(g)) gvec(1) = g
+    im = 0
 
     coll_dim = 0
     t_collision = huge(t_collision)
     do i = 2, 3
-       if (v(i) > 0) then
+       if (v0(i) > 0) then
           tt = (L(i)-x0(i))/v0(i)
           if ( (tt>0) .and. (tt<t_collision) ) then
              t_collision = tt
@@ -500,6 +500,7 @@ contains
     else if (bc(coll_dim) == PERIODIC_BC) then
        jump = floor(x/L)
        x(coll_dim) = x(coll_dim) - jump(coll_dim)*L(coll_dim)
+       im(coll_dim) = im(coll_dim) + jump(coll_dim)
     end if
 
     wall_loop: do while (.true.)
@@ -521,11 +522,12 @@ contains
        else if (bc(coll_dim) == PERIODIC_BC) then
           jump = floor(x/L)
           x(coll_dim) = x(coll_dim) - jump(coll_dim)*L(coll_dim)
+          im(coll_dim) = im(coll_dim) + jump(coll_dim)
        end if
     end do wall_loop
 
     t_collision = t_remainder
-    x = x + v*t_collision + gvec*t_collision**2 / 2
+    x = x + v*t_collision + gvec*t_collision**2 / 2 + im*L
     v = v + gvec*t_collision
 
   end subroutine yzwall_collision

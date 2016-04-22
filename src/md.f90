@@ -58,8 +58,12 @@ contains
     call particles%time_md_vel%tic()
     !$omp parallel do
     do k = 1, particles% Nmax
-       particles% vel(:,k) = particles% vel(:,k) + &
-            dt * ( particles% force(:,k) + particles% force_old(:,k) ) / 2
+       if (particles%wall_flag(k)==0) then
+          particles% vel(:,k) = particles% vel(:,k) + &
+               dt * ( particles% force(:,k) + particles% force_old(:,k) ) / 2
+       else
+          particles%wall_flag(k) = 0
+       end if
     end do
     call particles%time_md_vel%tac()
 
