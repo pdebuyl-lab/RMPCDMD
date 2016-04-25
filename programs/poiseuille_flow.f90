@@ -8,6 +8,7 @@ program setup_fluid
   use h5md_module
   use particle_system_io
   use mpcd
+  use md
   use threefry_module
   use ParseText
   use iso_c_binding
@@ -32,6 +33,7 @@ program setup_fluid
   type(h5md_element_t) :: elem_T
   type(h5md_element_t) :: elem_v_com
   integer(HID_T) :: box_group, solvent_group
+  integer(HID_T) :: fields_group
   type(particle_system_io_t) :: solvent_io
 
   integer(c_int64_t) :: seed
@@ -93,7 +95,6 @@ program setup_fluid
   call tz% init(0.d0, solvent_cells% edges(3), L(3))
   call rhoz% init(0.d0, solvent_cells% edges(3), L(3))
   call vx% init(0.d0, solvent_cells% edges(3), L(3))
-  !call h5gcreate_f(datafile% id, 'observables', datafile% observables, error)
 
   solvent_io%force_info%store = .false.
   solvent_io%species_info%store = .false.
@@ -112,43 +113,51 @@ program setup_fluid
   call elem% create_fixed(box_group, 'edges', L*1.d0)
   call h5gclose_f(box_group, error)
 
-  call elem_tz% create_time(datafile% observables, 'tz', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
-  call elem_tz_count% create_time(datafile% observables, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
-  call elem_vx% create_time(datafile% observables, 'vx', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
-  call elem_vx_count% create_time(datafile% observables, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME))
-  call elem_rhoz% create_time(datafile% observables, 'rhoz', rhoz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call h5gcreate_f(datafile%id, 'fields', fields_group, error)
+  call elem_tz% create_time(fields_group, 'tz', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_tz_count% create_time(fields_group, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_vx% create_time(fields_group, 'vx', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_rhoz% create_time(fields_group, 'rhoz', rhoz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_T% create_time(datafile% observables, 'temperature', T, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_v_com% create_time(datafile% observables, 'center_of_mass_velocity', v_com, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call h5gclose_f(fields_group, error)
 
   call solvent% sort(solvent_cells)
 
+  solvent%force(1,:) = gravity_field(1)
+  solvent%force_old(1,:) = gravity_field(1)
+
   wall_v = 0
-  wall_t = [1.0d0, 1.0d0]
+  wall_t = set_temperature
   solvent_cells%bc = [ PERIODIC_BC, PERIODIC_BC, BOUNCE_BACK_BC ]
   do i = 1, N_therm
-     call wall_mpcd_step(solvent, solvent_cells, state, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
-          bulk_temperature=set_temperature)
      call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
+     call apply_pbc(solvent, solvent_cells%edges)
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
      call solvent% sort(solvent_cells)
+     call wall_mpcd_step(solvent, solvent_cells, state, &
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
+          bulk_temperature=set_temperature)
+     call md_vel(solvent, tau)
   end do
 
   do i = 1, N_loop
      if (mod(i,100)==0) then
         write(*,*) i 
      end if
+     call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
+     call apply_pbc(solvent, solvent_cells%edges)
+     call random_number(solvent_cells% origin)
+     solvent_cells% origin = solvent_cells% origin - 1
+     call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], thermostat=thermostat, &
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
           bulk_temperature=set_temperature)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
-     call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
-     call random_number(solvent_cells% origin)
-     solvent_cells% origin = solvent_cells% origin - 1
-
-     call solvent% sort(solvent_cells)
+     call md_vel(solvent, tau)
 
      T = compute_temperature(solvent, solvent_cells, tz)
      call elem_v_com%append(v_com, i, i*tau)
