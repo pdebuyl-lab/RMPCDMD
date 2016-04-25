@@ -40,12 +40,14 @@ contains
 
     integer :: k, jump(3)
 
+    call particles%time_apply_pbc%tic()
     !$omp parallel do private(jump)
     do k = 1, particles% Nmax
        jump = floor(particles% pos(:,k) / edges)
        particles% image(:,k) = particles% image(:,k) + jump
        particles% pos(:,k) = particles% pos(:,k) - jump*edges
     end do
+    call particles%time_apply_pbc%tac()
 
   end subroutine apply_pbc
 
