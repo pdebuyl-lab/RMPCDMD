@@ -305,6 +305,8 @@ contains
        this% force_old_store(:, start) = this% force_old(:, i)
        this% id_old(start) = this% id(i)
        this% species_old(start) = this% species(i)
+       this% flag_old(start) = this% flag(i)
+       this% wall_flag_old(start) = this% wall_flag(i)
     end do
 
     cells% cell_start = cells% cell_start - cells% cell_count
@@ -317,6 +319,8 @@ contains
     call switch(this% force_old, this% force_old_store)
     call switch(this% id, this% id_old)
     call switch(this% species, this% species_old)
+    call switch(this% wall_flag, this% wall_flag_old)
+    call switch(this% flag, this% flag_old)
 
   end subroutine sort
 
