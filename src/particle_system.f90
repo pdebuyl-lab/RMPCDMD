@@ -59,6 +59,7 @@ module particle_system
      integer, pointer :: wall_flag_pointer(:)
      type(timer_t) :: time_stream, time_step, time_sort, time_count, time_ct
      type(timer_t) :: time_md_pos, time_md_vel, time_self_force, time_max_disp
+     type(timer_t) :: time_apply_pbc
      type(timer_t) :: time_rattle_pos, time_rattle_vel
    contains
      procedure :: init
@@ -155,6 +156,7 @@ contains
     call this%time_max_disp%init('maximum disp')
     call this%time_rattle_pos%init('rattle_pos')
     call this%time_rattle_vel%init('rattle_vel')
+    call this%time_apply_pbc%init('apply_pbc')
 
   end subroutine init
 
