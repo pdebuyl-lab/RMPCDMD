@@ -34,7 +34,6 @@ program setup_single_dimer
   integer :: rho
   integer :: N
   integer :: error
-  integer :: number_of_angles
   integer :: N_colloids
   integer, parameter :: n_bins_conc = 90
   double precision :: conc_z_cyl(n_bins_conc)   
@@ -105,7 +104,6 @@ program setup_single_dimer
   max_speed = PTread_d(config,'max_speed')
   prob = PTread_d(config,'probability')
 
-  number_of_angles = PTread_i(config, 'number_of_angles')
   store_rho_xy = PTread_l(config, 'store_rho_xy')
   dimer = PTread_l(config, 'dimer')
   if (dimer) then
