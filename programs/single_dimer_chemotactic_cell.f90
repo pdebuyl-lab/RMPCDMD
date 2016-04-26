@@ -71,15 +71,15 @@ program setup_single_dimer
   integer :: i, L(3),  n_threads
   integer :: j, k, m
   
-  type(timer_t) :: flag_timer, change_timer, buffer_timer, varia, randomize_timer
+  type(timer_t) :: flag_timer, change_timer, buffer_timer, varia
   integer(HID_T) :: timers_group
 
   integer, allocatable :: rho_xy(:,:,:)
 
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped,order,dimer 
-  integer :: bufferlength, randomisation_length
-  double precision :: max_speed
+  integer :: bufferlength
+  double precision :: max_speed, z, Lz
   integer :: steps_fixed
   fixed = .true.
   on_track = .true.
@@ -90,7 +90,6 @@ program setup_single_dimer
   call flag_timer%init('flag')
   call change_timer%init('change')
   call buffer_timer%init('buffer')
-  call randomize_timer%init('randomize')
   call varia%init('varia')
 
   n_threads = omp_get_max_threads()
@@ -102,7 +101,6 @@ program setup_single_dimer
   g = 0
   g(1) = PTread_d(config, 'g')
   bufferlength = PTread_i(config, 'buffer_length')
-  randomisation_length = PTread_i(config, 'randomisation_length')
   max_speed = PTread_d(config,'max_speed')
   prob = PTread_d(config,'probability')
 
@@ -114,7 +112,7 @@ program setup_single_dimer
      N_colloids = 1
   end if 
   L = PTread_ivec(config, 'L', 3)
-  L(1) = L(1) + bufferlength + randomisation_length
+  L(1) = L(1) + bufferlength
   
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
@@ -258,18 +256,18 @@ program setup_single_dimer
   if (dimer) then
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
      if (order) then
-        colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1 + randomisation_length
+        colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
         colloids% pos(1,2) = colloids% pos(1,1) + d
         colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
      else
-        colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1 + randomisation_length
+        colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1
         colloids% pos(1,1) = colloids% pos(1,2) + d
         colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
      end if
   else
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
      colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*sigma_N
-     colloids% pos(1,:) = sigma_N*2**(1.d0/6.d0) + 1 + randomisation_length
+     colloids% pos(1,:) = sigma_N*2**(1.d0/6.d0) + 1
   end if
 
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
@@ -284,8 +282,11 @@ program setup_single_dimer
 
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
 
+  Lz = solvent_cells%edges(3)
   do i=1, solvent% Nmax
-     solvent% vel(1,i) = threefry_normal(state(1))*sqrt(T) + max_speed*solvent% pos(3,i)*(L(3) - solvent% pos(3,i))/(L(3)/2)**2
+     z = solvent%pos(3,i)
+     solvent% vel(1,i) = threefry_normal(state(1))*sqrt(T) + &
+          max_speed*z*(Lz-z)/(Lz/2)**2
      solvent% vel(2,i) = threefry_normal(state(1))*sqrt(T)
      solvent% vel(3,i) = threefry_normal(state(1))*sqrt(T)
   end do
@@ -352,13 +353,13 @@ program setup_single_dimer
    
         if (on_track) then 
            if (dimer) then
-              if ((colloids% pos(1,1) > (bufferlength+randomisation_length+sigma_C)) &
-              .and. (colloids% pos(1,2) > (bufferlength+randomisation_length+sigma_N))) then
+              if ((colloids% pos(1,1) > (bufferlength+sigma_C)) &
+              .and. (colloids% pos(1,2) > (bufferlength+sigma_N))) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if
            else
-              if (colloids% pos(1,1) > (bufferlength+randomisation_length+sigma_N)) then
+              if (colloids% pos(1,1) > (bufferlength+sigma_N)) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if 
@@ -396,9 +397,6 @@ program setup_single_dimer
         call buffer_timer%tic()
         call buffer_particles(solvent,solvent_cells%edges)
         call buffer_timer%tac()
-        call randomize_timer%tic()
-        call randomize_particles(solvent, solvent_cells% edges, randomisation_length, max_speed, T)
-        call randomize_timer%tac()
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
@@ -552,7 +550,6 @@ program setup_single_dimer
   call h5md_write_dataset(timers_group, flag_timer%name, flag_timer%total)
   call h5md_write_dataset(timers_group, change_timer%name, change_timer%total)
   call h5md_write_dataset(timers_group, buffer_timer%name, buffer_timer%total)
-  call h5md_write_dataset(timers_group, randomize_timer%name, randomize_timer%total)
   call h5md_write_dataset(timers_group, neigh%time_update%name, neigh%time_update%total)
   call h5md_write_dataset(timers_group, varia%name, varia%total)
   call h5md_write_dataset(timers_group, neigh%time_force%name, neigh%time_force%total)
@@ -561,7 +558,7 @@ program setup_single_dimer
        solvent%time_step%total + solvent%time_count%total + solvent%time_sort%total + &
        solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
        flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + &
-       varia%total + neigh%time_force%total + randomize_timer%total)
+       varia%total + neigh%time_force%total)
 
   call h5gclose_f(timers_group, error)
 
@@ -697,7 +694,7 @@ contains
      do k = 1, particles% Nmax
         s = particles% species(k)
         if (s <= 0) continue
-        if ((particles% pos(1,k) > randomisation_length) .and. (particles% pos(1,k) < randomisation_length + bufferlength)) then
+        if ((particles% pos(1,k) > 0) .and. (particles% pos(1,k) < bufferlength)) then
            if (particles% pos(2,k) < edges(2)/2.d0) then
               bulk_change(s) = bulk_change(s) - 1
               particles% species(k) = 1
@@ -712,34 +709,6 @@ contains
         end if 
      end do
   end subroutine buffer_particles
-
-  subroutine randomize_particles(particles, edges, randomisation_length, max_speed,T)
-     type(particle_system_t), intent(inout) :: particles
-     double precision, intent(in) :: edges(3), max_speed, T
-     integer, intent(in) :: randomisation_length
-
-     integer :: k, thread_id
-     double precision :: z, Lz, factor, T_sqrt
-     
-     Lz = edges(3)
-     T_sqrt = sqrt(T)
-     factor = max_speed/(Lz/2)**2
-     !$omp parallel private(thread_id)
-     thread_id = omp_get_thread_num() + 1
-     !$omp do private(k, z)
-     do k = 1, particles% Nmax
-        if (particles% pos(1,k) < randomisation_length) then
-           z = particles% pos(3,k)
-           particles% vel(1,k) = threefry_normal(state(thread_id))*T_sqrt &
-                + factor*z*(Lz - z)
-           particles% vel(2,k) = threefry_normal(state(thread_id))*T_sqrt
-           particles% vel(3,k) = threefry_normal(state(thread_id))*T_sqrt
-        end if
-     end do
-     !$omp end do
-     !$omp end parallel
-
-   end subroutine randomize_particles
 
   subroutine compute_rho_xy
     integer :: i, s, ix, iy
