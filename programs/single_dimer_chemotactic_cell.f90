@@ -217,10 +217,6 @@ program setup_single_dimer
   solvent_io%species_info%time = N_loop*N_MD_steps*dt
   call solvent_io%init(hfile, 'solvent', solvent)
 
-  open(17,file ='dimerdata_FullExp_1.txt')
-  open(18, file ='concentration.txt')
-  open(19,file ='dimerdata_vx_flow_wall.txt') 
- 
   if (dimer) then
      colloids% species(1) = 1
      colloids% species(2) = 2
@@ -456,9 +452,6 @@ program setup_single_dimer
         total_energy = e1+e2+e_wall+colloids% mass(1)*sum(colloids% vel(:,1)**2) + sum(solvent% vel**2)/2
      end if
 
-     write(17,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax), &
-                 colloids% vel, total_energy 
-                 
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
 
@@ -521,12 +514,6 @@ program setup_single_dimer
            fixed = .false.
         end if
      end if
-     !if (.not. on_track) then
-     !   if (modulo(i,20)==0) then
-     !      call concentration_field_cylindrical
-     !      write(18,*) conc_z_cyl, colloid_pos
-     !    end if
-     !end if 
      
   end do setup
 
