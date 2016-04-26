@@ -65,6 +65,7 @@ program setup_single_dimer
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
   integer(HID_T) :: box_group
+  type(h5md_element_t) :: elem_vx, elem_vx_count
 
   type(PTo) :: config
   integer :: i, L(3),  n_threads
@@ -233,11 +234,15 @@ program setup_single_dimer
   solvent% force = 0
   solvent% species = 1
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
+  call vx% init(0.d0, solvent_cells% edges(3), L(3))
 
   allocate(rho_xy(N_species, L(2), L(1)))
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
   call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
        step=N_MD_steps, time=N_MD_steps*dt)
+  call elem_vx% create_time(fields_group, 'vx', vx% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME))
+
   call h5gclose_f(fields_group, error)
 
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
@@ -313,8 +318,6 @@ program setup_single_dimer
   colloids% force_old = colloids% force
   catalytic_change = 0
 
-  call vx% init(0.d0, solvent_cells% edges(3), L(3))
-
   i = 0
 
   write(*,*) colloids% pos
@@ -376,9 +379,10 @@ program setup_single_dimer
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
 
-        if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+        if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
            call varia%tic()
            call apply_pbc(colloids, solvent_cells% edges)
+           call apply_pbc(solvent, solvent_cells% edges)
            call varia%tac()
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
@@ -460,11 +464,21 @@ program setup_single_dimer
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
 
+     call apply_pbc(colloids, solvent_cells% edges)
+     call apply_pbc(solvent, solvent_cells% edges)
+     call solvent% sort(solvent_cells)
+     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
+     solvent% pos_old = solvent% pos
+     colloids% pos_old = colloids% pos
+
+     call wall_mpcd_step(solvent, solvent_cells, state, &
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho])
+
      call compute_vx(solvent, vx)
      if (modulo(i, 50) == 0) then
         call vx% norm()
-        write(19,*) vx% data
-        flush(19)
+        call elem_vx% append(vx% data, i, i*tau)
+        call elem_vx_count% append(vx% count, i, i*tau)
         call vx% reset()
      end if
 
@@ -473,12 +487,6 @@ program setup_single_dimer
      call varia%tac()
      call rho_xy_el%append(rho_xy)
 
-     call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
-
-     call wall_mpcd_step(solvent, solvent_cells, state, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[10, 10], bulk_temperature = T)
-     
      temperature = compute_temperature(solvent, solvent_cells)
      if (dimer) then
          kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
@@ -558,6 +566,8 @@ program setup_single_dimer
   call h5gclose_f(timers_group, error)
 
   call rho_xy_el%close()
+  call elem_vx% close()
+  call elem_vx_count% close()
   call dimer_io%close()
   call hfile%close()
   call h5close_f(error)
