@@ -1,43 +1,38 @@
-h5md_file = test_wall_in_y.h5
+h5md_file = cell.h5
 
 # simulation parameters
-N_MD = 10
-N_loop = 5000
+N_MD = 50
+N_loop = 1000
 probability = 1
 
 # number of initialisation steps
-steps_fixed = 600
-
+steps_fixed = 200
 
 # cell parameters
 g = 0.001
-buffer_length = 10
+buffer_length = 20
+store_rho_xy = T
 
-randomisation_length = 10
-L = 60 50 15
-seed = 564234345
+L = 50 32 15
+seed = 2908921000268185248
 
 # max speed from poiseuille profile (see poiseuille simulation)
-max_speed = 0.0543
+max_speed = 0.0597
  
 # fluid parameters
 rho = 10
 T = 1
-tau = 0.1
-
+tau = 1
 
 # dimer parameters 
 # T: 2 colloids as dimer, F: 1 N-type colloid, 
-dimer = F
+dimer = T
 sigma_C = 2
 sigma_N = 2
 d = 4.5
 
 epsilon_C = 1 1 1
-epsilon_N = 1 5.0 1
+epsilon_N = 1 1 1
 
 # order (T: CN ; F: NC)
 order = F
-
-# local concentration
-number_of_angles = 6
