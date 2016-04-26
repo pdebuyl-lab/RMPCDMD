@@ -78,6 +78,7 @@ program setup_single_dimer
 
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped,order,dimer 
+  logical :: store_rho_xy
   integer :: bufferlength
   double precision :: max_speed, z, Lz
   integer :: steps_fixed
@@ -105,6 +106,7 @@ program setup_single_dimer
   prob = PTread_d(config,'probability')
 
   number_of_angles = PTread_i(config, 'number_of_angles')
+  store_rho_xy = PTread_l(config, 'store_rho_xy')
   dimer = PTread_l(config, 'dimer')
   if (dimer) then
      N_colloids = 2
@@ -230,9 +232,9 @@ program setup_single_dimer
   call solvent_cells%init(L, 1.d0,has_walls = .true.)
   call vx% init(0.d0, solvent_cells% edges(3), L(3))
 
-  allocate(rho_xy(N_species, L(2), L(1)))
+  if (store_rho_xy) allocate(rho_xy(N_species, L(2), L(1)))
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
-  call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
+  if (store_rho_xy)  call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
        step=N_MD_steps, time=N_MD_steps*dt)
   call elem_vx% create_time(fields_group, 'vx', vx% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME))
@@ -474,9 +476,11 @@ program setup_single_dimer
      end if
 
      call varia%tic()
-     call compute_rho_xy
+     if (store_rho_xy) then
+        call compute_rho_xy
+        call rho_xy_el%append(rho_xy)
+     end if
      call varia%tac()
-     call rho_xy_el%append(rho_xy)
 
      temperature = compute_temperature(solvent, solvent_cells)
      if (dimer) then
@@ -550,7 +554,7 @@ program setup_single_dimer
 
   call h5gclose_f(timers_group, error)
 
-  call rho_xy_el%close()
+  if (store_rho_xy) call rho_xy_el%close()
   call elem_vx% close()
   call elem_vx_count% close()
   call dimer_io%close()
