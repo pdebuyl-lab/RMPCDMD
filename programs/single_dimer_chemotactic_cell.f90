@@ -507,6 +507,7 @@ program setup_single_dimer
      call dimer_io%position%append(colloids%pos)
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
+     call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
 
      if (fixed) then
         if (i >= steps_fixed) then
