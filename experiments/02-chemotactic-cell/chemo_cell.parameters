@@ -4,6 +4,7 @@ h5md_file = cell.h5
 N_MD = 50
 N_loop = 1000
 probability = 1
+alpha = 1.5708
 
 # number of initialisation steps
 steps_fixed = 200

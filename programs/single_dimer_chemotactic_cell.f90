@@ -38,7 +38,7 @@ program setup_single_dimer
   integer, parameter :: n_bins_conc = 90
   double precision :: conc_z_cyl(n_bins_conc)   
 
-  double precision :: sigma_N, sigma_C, max_cut
+  double precision :: sigma_N, sigma_C, max_cut,alpha
   double precision :: shift, total_energy
   double precision :: sigma(3,2), sigma_cut(3,2), epsilon(3,2)
   double precision,allocatable :: mass(:)
@@ -103,7 +103,7 @@ program setup_single_dimer
   bufferlength = PTread_i(config, 'buffer_length')
   max_speed = PTread_d(config,'max_speed')
   prob = PTread_d(config,'probability')
-
+  alpha = PTread_d(config,'alpha')
   store_rho_xy = PTread_l(config, 'store_rho_xy')
   dimer = PTread_l(config, 'dimer')
   if (dimer) then
@@ -462,8 +462,8 @@ program setup_single_dimer
      solvent% pos_old = solvent% pos
      colloids% pos_old = colloids% pos
 
-     call wall_mpcd_step(solvent, solvent_cells, state, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho])
+     call wall_mpcd_step_with_angle(solvent, solvent_cells, state, &
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], alpha=alpha)
 
      call compute_vx(solvent, vx)
      if (modulo(i, 50) == 0) then
