@@ -133,6 +133,7 @@ program setup_fluid
   solvent_cells%bc = [ PERIODIC_BC, PERIODIC_BC, BOUNCE_BACK_BC ]
   do i = 1, N_therm
      call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
+     call md_vel(solvent, tau)
      call apply_pbc(solvent, solvent_cells%edges)
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
@@ -140,7 +141,6 @@ program setup_fluid
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
           bulk_temperature=set_temperature)
-     call md_vel(solvent, tau)
   end do
 
   do i = 1, N_loop
@@ -148,6 +148,7 @@ program setup_fluid
         write(*,*) i 
      end if
      call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
+     call md_vel(solvent, tau)
      call apply_pbc(solvent, solvent_cells%edges)
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
@@ -157,7 +158,6 @@ program setup_fluid
           bulk_temperature=set_temperature)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
-     call md_vel(solvent, tau)
 
      T = compute_temperature(solvent, solvent_cells, tz)
      call elem_v_com%append(v_com, i, i*tau)
