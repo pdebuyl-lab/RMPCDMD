@@ -94,6 +94,7 @@ program setup_sphere_thermo_trap
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
+  N_therm = PTread_i(config, 'N_therm')
 
   wall_t = PTread_dvec(config, 'wall_T', 2)
   T = PTread_d(config, 'T')
@@ -222,9 +223,6 @@ program setup_sphere_thermo_trap
   colloids% force_old = colloids% force
 
   i = 0
-  N_therm = 500
-
-  solvent_cells%bc = [PERIODIC_BC, PERIODIC_BC, BOUNCE_BACK_BC]
   wall_v = 0
 
   write(*,*) 'Running for', N_loop, 'loops'
@@ -241,10 +239,8 @@ program setup_sphere_thermo_trap
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
-           call varia%tic()
            call apply_pbc(colloids, solvent_cells% edges)
            call apply_pbc(solvent, solvent_cells% edges)
-           call varia%tac()
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
            call varia%tic()
@@ -278,6 +274,7 @@ program setup_sphere_thermo_trap
      solvent%pos_old = solvent% pos
      colloids%pos_old = colloids% pos
 
+     call rescale_at_walls
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho])
 
@@ -329,6 +326,7 @@ program setup_sphere_thermo_trap
   call h5md_write_dataset(timers_group, solvent%time_sort%name, solvent%time_sort%total)
   call h5md_write_dataset(timers_group, solvent%time_ct%name, solvent%time_ct%total)
   call h5md_write_dataset(timers_group, solvent%time_max_disp%name, solvent%time_max_disp%total)
+  call h5md_write_dataset(timers_group, solvent%time_apply_pbc%name, solvent%time_apply_pbc%total)
   call h5md_write_dataset(timers_group, neigh%time_update%name, neigh%time_update%total)
   call h5md_write_dataset(timers_group, varia%name, varia%total)
   call h5md_write_dataset(timers_group, neigh%time_force%name, neigh%time_force%total)
@@ -336,8 +334,8 @@ program setup_sphere_thermo_trap
   call h5md_write_dataset(timers_group, 'total', solvent%time_stream%total + &
        solvent%time_step%total + solvent%time_count%total + solvent%time_sort%total + &
        solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
-       flag_timer%total + change_timer%total + neigh%time_update%total + &
-       varia%total + neigh%time_force%total)
+       flag_timer%total + change_timer%total + solvent%time_apply_pbc%total+ &
+       neigh%time_update%total + varia%total + neigh%time_force%total)
 
   call h5gclose_f(timers_group, error)
 
@@ -364,5 +362,51 @@ contains
     end do
 
   end function compute_force_harmonic_trap
+
+  subroutine rescale_at_walls
+
+    integer :: i
+    integer :: cell_idx, n, start, wall_idx, cell(3)
+    double precision :: local_v(3), local_k, local_T, factor
+
+    do cell_idx = 1, solvent_cells% N
+       if (solvent_cells% cell_count(cell_idx) <= 1) cycle
+
+       start = solvent_cells% cell_start(cell_idx)
+       n = solvent_cells% cell_count(cell_idx)
+
+       ! Find whether we are in a wall cell
+       cell = compact_h_to_p(cell_idx - 1, solvent_cells% M) + 1
+       if (cell(3) == 1) then
+          wall_idx = 1
+       else if (cell(3) == solvent_cells% L(3)) then
+          wall_idx = 2
+          local_T = 1.1
+       else
+          wall_idx = -1
+       end if
+       if (wall_idx==-1) cycle
+       local_T = wall_t(wall_idx)
+
+       local_v = 0
+       do i = start, start + n - 1
+          local_v = local_v + solvent% vel(:, i)
+       end do
+       local_v = local_v / n
+
+       local_k = 0
+       do i = start, start + n - 1
+          local_k = local_k + sum((solvent% vel(:, i)-local_v)**2)/2
+       end do
+       local_k = local_k/(3*(n-1))
+       factor = sqrt(local_T/(2*local_k))
+
+       do i = start, start + n - 1
+          solvent% vel(:, i) = local_v + factor*(solvent% vel(:, i)-local_v)
+       end do
+
+    end do
+
+  end subroutine rescale_at_walls
 
 end program setup_sphere_thermo_trap
