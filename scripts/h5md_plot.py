@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from __future__ import print_function, division
 
 import argparse
 
@@ -43,6 +44,7 @@ with h5py.File(args.file, 'r') as f:
             plt.subplot(3,1,i+1)
             if args.hist:
                 plt.hist(data[:,i], bins=32)
+                print('xyz'[i], 'mean', data[:,i].mean(), 'std', data[:,i].std())
             else:
                 plt.plot(data[:,i])
                 plt.ylabel('xyz'[i])
