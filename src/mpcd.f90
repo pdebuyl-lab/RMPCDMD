@@ -13,6 +13,7 @@ module mpcd
   public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
   public :: bulk_reaction
+  public :: mpcd_stream_nogravity_zwall
 
 contains
 
@@ -581,5 +582,50 @@ contains
     !$omp end parallel
 
   end subroutine bulk_reaction
+
+  subroutine mpcd_stream_nogravity_zwall(particles, cells, dt)
+    type(particle_system_t), intent(inout) :: particles
+    type(cell_system_t), intent(in) :: cells
+    double precision, intent(in) :: dt
+
+    integer :: i
+    double precision :: delta, L(3)
+    double precision, dimension(3) :: old_pos, old_vel
+    double precision, dimension(3) :: new_pos, new_vel
+    double precision :: t_c, t_b, t_ab
+    logical :: bounce
+
+    L = cells%edges
+
+    call particles%time_stream%tic()
+    !$omp parallel do private(i, old_pos, old_vel, new_pos, new_vel, bounce, t_c)
+    particles_loop: do i = 1, particles% Nmax
+       old_pos = particles%pos(:,i)
+       old_vel = particles%vel(:,i)
+       new_pos = old_pos + old_vel*dt + particles%force(:,i)*dt**2 / 2
+       bounce = .false.
+
+       if (new_pos(3)<0) then
+          t_c = -old_pos(3)/old_vel(3)
+          bounce = .true.
+       else if (new_pos(3)>L(3)) then
+          t_c = (L(3)-old_pos(3))/old_vel(3)
+          bounce = .true.
+       else
+          new_vel = old_vel
+       end if
+
+       if (bounce) then
+          new_pos = new_pos - old_vel*2*(dt-t_c)
+          new_vel = - old_vel
+          particles%wall_flag(i) = 1
+       end if
+
+       particles%pos(:,i) = new_pos
+       particles%vel(:,i) = new_vel
+    end do particles_loop
+    call particles%time_stream%tac()
+
+  end subroutine mpcd_stream_nogravity_zwall
 
 end module mpcd
