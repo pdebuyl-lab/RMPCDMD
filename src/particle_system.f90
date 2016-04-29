@@ -141,7 +141,7 @@ contains
     allocate(this% wall_flag1(Nmax))
     allocate(this% wall_flag2(Nmax))
     this% wall_flag => this% wall_flag1
-    this% wall_flag_old => this% flag2
+    this% wall_flag_old => this% wall_flag2
 
     this% wall_flag = 0
 
