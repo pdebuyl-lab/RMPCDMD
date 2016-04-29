@@ -462,7 +462,7 @@ program setup_single_dimer
      solvent% pos_old = solvent% pos
      colloids% pos_old = colloids% pos
 
-     call wall_mpcd_step_with_angle(solvent, solvent_cells, state, &
+     call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], alpha=alpha)
 
      call compute_vx(solvent, vx)

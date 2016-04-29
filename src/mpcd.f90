@@ -7,8 +7,8 @@ module mpcd
 
   private
 
-  public :: compute_temperature, simple_mpcd_step, simple_mpcd_step_with_angle
-  public :: wall_mpcd_step, wall_mpcd_step_with_angle
+  public :: compute_temperature, simple_mpcd_step
+  public :: wall_mpcd_step
   public :: mpcd_stream_periodic, mpcd_stream_zwall
   public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
@@ -38,78 +38,28 @@ contains
     n(3) = 1.d0 - 2.d0*s
   end function rand_sphere
 
-  subroutine simple_mpcd_step(particles, cells, state, temperature)
+  subroutine simple_mpcd_step(particles, cells, state, alpha)
     use omp_lib
     class(particle_system_t), intent(inout) :: particles
     class(cell_system_t), intent(in) :: cells
     type(threefry_rng_t), intent(inout) :: state(:)
-    double precision, intent(in), optional :: temperature
-
-    integer :: i, start, n
-    integer :: cell_idx
-    double precision :: local_v(3), omega(3,3), vec(3)
-    logical :: thermostat
-    integer :: thread_id
-
-    thermostat = present(temperature)
-    if (thermostat) error stop 'thermostatting not implemented'
-
-    call particles%time_step%tic()
-    !$omp parallel
-    thread_id = omp_get_thread_num() + 1
-    !$omp do private(start, n, local_v, i, vec, omega)
-    do cell_idx = 1, cells% N
-       if (cells% cell_count(cell_idx) <= 1) cycle
-
-       start = cells% cell_start(cell_idx)
-       n = cells% cell_count(cell_idx)
-
-       local_v = 0
-       do i = start, start + n - 1
-          local_v = local_v + particles% vel(:, i)
-       end do
-       local_v = local_v / n
-
-       vec = rand_sphere(state(thread_id))
-       omega = &
-            reshape( (/ &
-            vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
-            vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
-            vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
-            /), (/3, 3/))
-
-       do i = start, start + n - 1
-          particles% vel(:, i) = local_v + matmul(omega, (particles% vel(:, i)-local_v))
-       end do
-
-    end do
-    !$omp end do
-    !$omp end parallel
-    call particles%time_step%tac()
-
-  end subroutine simple_mpcd_step
-
-  subroutine simple_mpcd_step_with_angle(particles, cells, state, temperature,alpha)
-    use omp_lib
-    class(particle_system_t), intent(inout) :: particles
-    class(cell_system_t), intent(in) :: cells
-    type(threefry_rng_t), intent(inout) :: state(:)
-    double precision, intent(in), optional :: temperature
-    double precision, intent(in) :: alpha
+    double precision, intent(in), optional :: alpha
 
     integer :: i, start, n
     integer :: cell_idx
     double precision :: local_v(3), omega(3,3), vec(3)
     double precision :: sin_alpha, cos_alpha
-    logical :: thermostat
     integer :: thread_id
 
-    thermostat = present(temperature)
-    if (thermostat) error stop 'thermostatting not implemented'
+    if (present(alpha)) then
+       sin_alpha = sin(alpha)
+       cos_alpha = cos(alpha)
+    else
+       sin_alpha = 1
+       cos_alpha = 0
+    end if
 
     call particles%time_step%tic()
-    sin_alpha = sin(alpha)
-    cos_alpha = cos(alpha)
     !$omp parallel
     thread_id = omp_get_thread_num() + 1
     !$omp do private(start, n, local_v, i, vec, omega)
@@ -145,11 +95,13 @@ contains
     !$omp end parallel
     call particles%time_step%tac()
 
-  end subroutine simple_mpcd_step_with_angle
+  end subroutine simple_mpcd_step
 
+  !! Collisions in partially filled cells at the walls use the rule of
   !! Lamura, Gompper, Ihle and Kroll, EPL 56, 319-325 (2001)
   !! http://dx.doi.org/10.1209/epl/i2001-00522-9
-  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, thermostat, bulk_temperature)
+  subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, &
+       thermostat, bulk_temperature, alpha)
     use hilbert
     use omp_lib
     class(particle_system_t), intent(inout) :: particles
@@ -160,122 +112,7 @@ contains
     integer, optional, intent(in) :: wall_n(2)
     logical, intent(in), optional :: thermostat
     double precision, intent(in), optional :: bulk_temperature
-
-    integer :: i, start, n
-    integer :: cell_idx
-    double precision :: local_v(3), omega(3,3), vec(3)
-    integer :: n_virtual
-    integer :: cell(3)
-    integer :: wall_idx
-    double precision :: virtual_v(3), t_factor
-    logical :: all_present, all_absent
-    logical :: do_thermostat
-    integer :: thread_id
-
-    all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
-    all_absent = .not. present(wall_temperature) .and. .not. present(wall_v) .and. .not. present(wall_n)
-    if ( .not. (all_present .or. all_absent) ) &
-         error stop 'wall parameters must be all present or all absent in wall_mpcd_step'
-
-    if (present(thermostat)) then
-       do_thermostat = thermostat
-       if (do_thermostat) then
-          if (present(bulk_temperature)) then
-             t_factor = sqrt(bulk_temperature)
-          else
-             error stop 'thermostat requested but no temperature given in wall_mpcd_step'
-          end if
-       end if
-    else
-       do_thermostat = .false.
-    end if
-
-    call particles%time_step%tic()
-    !$omp parallel private(thread_id)
-    thread_id = omp_get_thread_num() + 1
-    !$omp do private(cell_idx, start, n, n_virtual, virtual_v, cell, wall_idx, local_v, i, vec, omega)
-    do cell_idx = 1, cells% N
-       if (cells% cell_count(cell_idx) <= 1) cycle
-
-       start = cells% cell_start(cell_idx)
-       n = cells% cell_count(cell_idx)
-       n_virtual = 0
-
-       ! Find whether we are in a wall cell
-       cell = compact_h_to_p(cell_idx - 1, cells% M) + 1
-       if (all_present .and. (cell(3) == 1)) then
-          wall_idx = 1
-       else if (all_present .and. (cell(3) == cells% L(3))) then
-          wall_idx = 2
-       else
-          wall_idx = -1
-       end if
-
-       if (wall_idx > 0) then
-          if (n < wall_n(wall_idx)) then
-             n_virtual = wall_n(wall_idx) - n
-             virtual_v(1) = threefry_normal(state(thread_id))
-             virtual_v(2) = threefry_normal(state(thread_id))
-             virtual_v(3) = threefry_normal(state(thread_id))
-             virtual_v = virtual_v * sqrt(n_virtual*wall_temperature(wall_idx))
-          end if
-       end if
-
-       local_v = 0
-       do i = start, start + n - 1
-          local_v = local_v + particles% vel(:, i)
-       end do
-       if (n_virtual > 0) then
-          local_v = (local_v + virtual_v) / wall_n(wall_idx)
-       else
-          local_v = local_v / n
-       end if
-
-       if ( (do_thermostat) .and. (wall_idx<0) ) then
-          virtual_v = 0
-          do i = start, start + n - 1
-             vec(1) = threefry_normal(state(thread_id))
-             vec(2) = threefry_normal(state(thread_id))
-             vec(3) = threefry_normal(state(thread_id))
-             particles% vel(:, i) = vec*t_factor
-             virtual_v = virtual_v + particles% vel(:, i)
-          end do
-          virtual_v = local_v - virtual_v / dble(n)
-          do i = start, start + n - 1
-             particles% vel(:, i) = particles% vel(:, i) + virtual_v
-          end do
-       else
-          vec = rand_sphere(state(thread_id))
-          omega = &
-               reshape( (/ &
-               vec(1)**2, vec(1)*vec(2) + vec(3), vec(1)*vec(3) - vec(2) ,&
-               vec(2)*vec(1) - vec(3) , vec(2)**2 , vec(2)*vec(3) + vec(1),&
-               vec(3)*vec(1) + vec(2), vec(3)*vec(2) - vec(1), vec(3)**2 &
-               /), (/3, 3/))
-          do i = start, start + n - 1
-             particles%vel(:,i) = local_v + matmul(omega, particles%vel(:,i)-local_v)
-          end do
-       end if
-    end do
-    !$omp end do
-    !$omp end parallel
-    call particles%time_step%tac()
-
-  end subroutine wall_mpcd_step
-
-  subroutine wall_mpcd_step_with_angle(particles, cells, state, wall_temperature, wall_v, wall_n, &
-             thermostat,bulk_temperature,alpha)
-    use hilbert
-    use omp_lib
-    class(particle_system_t), intent(inout) :: particles
-    class(cell_system_t), intent(in) :: cells
-    type(threefry_rng_t), intent(inout) :: state(:)
-    double precision, intent(in) :: alpha
-    double precision, optional, intent(in) :: wall_temperature(2)
-    double precision, optional, intent(in) :: wall_v(3,2)
-    integer, optional, intent(in) :: wall_n(2)
-    logical, intent(in), optional :: thermostat
-    double precision, intent(in), optional :: bulk_temperature
+    double precision, intent(in), optional :: alpha
 
     integer :: i, start, n
     integer :: cell_idx
@@ -307,9 +144,15 @@ contains
        do_thermostat = .false.
     end if
 
+    if (present(alpha)) then
+       sin_alpha = sin(alpha)
+       cos_alpha = cos(alpha)
+    else
+       sin_alpha = 1
+       cos_alpha = 0
+    end if
+
     call particles%time_step%tic()
-    sin_alpha = sin(alpha)
-    cos_alpha = cos(alpha)
     !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
     !$omp do private(cell_idx, start, n, n_virtual, virtual_v, cell, wall_idx, local_v, i, vec, omega)
@@ -384,7 +227,7 @@ contains
     !$omp end parallel
     call particles%time_step%tac()
 
-  end subroutine wall_mpcd_step_with_angle
+  end subroutine wall_mpcd_step
 
   function compute_temperature(particles, cells, tz) result(te)
     use hilbert, only : compact_h_to_p
