@@ -100,6 +100,7 @@ contains
     integer :: i, start, n
     integer :: cell_idx
     double precision :: local_v(3), omega(3,3), vec(3)
+    double precision :: sin_alpha, cos_alpha
     logical :: thermostat
     integer :: thread_id
 
@@ -107,6 +108,8 @@ contains
     if (thermostat) error stop 'thermostatting not implemented'
 
     call particles%time_step%tic()
+    sin_alpha = sin(alpha)
+    cos_alpha = cos(alpha)
     !$omp parallel
     thread_id = omp_get_thread_num() + 1
     !$omp do private(start, n, local_v, i, vec, omega)
@@ -125,12 +128,12 @@ contains
        vec = rand_sphere(state(thread_id))
        omega = &
             reshape( (/ &
-            cos(alpha)+vec(1)**2*(1-cos(alpha)), vec(1)*vec(2)*(1-cos(alpha)) - vec(3)*sin(alpha), &
-            vec(1)*vec(3)*(1-cos(alpha)) + vec(2)*sin(alpha) ,&
-            vec(2)*vec(1)*(1-cos(alpha)) + vec(3)*sin(alpha) , cos(alpha)+vec(2)**2*(1-cos(alpha)) ,&
-            vec(2)*vec(3)*(1-cos(alpha)) - vec(1)*sin(alpha),&
-            vec(3)*vec(1)*(1-cos(alpha)) - vec(2)*sin(alpha), vec(3)*vec(2)*(1-cos(alpha)) + vec(1)*sin(alpha),&
-            cos(alpha) + vec(3)**2*(1-cos(alpha)) &
+            cos_alpha+vec(1)**2*(1-cos_alpha), vec(1)*vec(2)*(1-cos_alpha) - vec(3)*sin_alpha, &
+            vec(1)*vec(3)*(1-cos_alpha) + vec(2)*sin_alpha ,&
+            vec(2)*vec(1)*(1-cos_alpha) + vec(3)*sin_alpha , cos_alpha+vec(2)**2*(1-cos_alpha) ,&
+            vec(2)*vec(3)*(1-cos_alpha) - vec(1)*sin_alpha,&
+            vec(3)*vec(1)*(1-cos_alpha) - vec(2)*sin_alpha, vec(3)*vec(2)*(1-cos_alpha) + vec(1)*sin_alpha,&
+            cos_alpha + vec(3)**2*(1-cos_alpha) &
             /), (/3, 3/))
 
        do i = start, start + n - 1
@@ -277,6 +280,7 @@ contains
     integer :: i, start, n
     integer :: cell_idx
     double precision :: local_v(3), omega(3,3), vec(3)
+    double precision :: sin_alpha, cos_alpha
     integer :: n_virtual
     integer :: cell(3)
     integer :: wall_idx
@@ -304,6 +308,8 @@ contains
     end if
 
     call particles%time_step%tic()
+    sin_alpha = sin(alpha)
+    cos_alpha = cos(alpha)
     !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
     !$omp do private(cell_idx, start, n, n_virtual, virtual_v, cell, wall_idx, local_v, i, vec, omega)
@@ -361,12 +367,12 @@ contains
           vec = rand_sphere(state(thread_id))
           omega = &
                reshape( (/ &
-               cos(alpha)+vec(1)**2*(1-cos(alpha)), vec(1)*vec(2)*(1-cos(alpha)) - vec(3)*sin(alpha), &
-               vec(1)*vec(3)*(1-cos(alpha)) + vec(2)*sin(alpha) ,&
-               vec(2)*vec(1)*(1-cos(alpha)) + vec(3)*sin(alpha) , cos(alpha)+vec(2)**2*(1-cos(alpha)) ,&
-               vec(2)*vec(3)*(1-cos(alpha)) - vec(1)*sin(alpha),&
-               vec(3)*vec(1)*(1-cos(alpha)) - vec(2)*sin(alpha), vec(3)*vec(2)*(1-cos(alpha)) + vec(1)*sin(alpha),&
-               cos(alpha) + vec(3)**2*(1-cos(alpha)) &
+               cos_alpha+vec(1)**2*(1-cos_alpha), vec(1)*vec(2)*(1-cos_alpha) - vec(3)*sin_alpha, &
+               vec(1)*vec(3)*(1-cos_alpha) + vec(2)*sin_alpha ,&
+               vec(2)*vec(1)*(1-cos_alpha) + vec(3)*sin_alpha , cos_alpha+vec(2)**2*(1-cos_alpha) ,&
+               vec(2)*vec(3)*(1-cos_alpha) - vec(1)*sin_alpha,&
+               vec(3)*vec(1)*(1-cos_alpha) - vec(2)*sin_alpha, vec(3)*vec(2)*(1-cos_alpha) + vec(1)*sin_alpha,&
+               cos_alpha + vec(3)**2*(1-cos_alpha) &
                /), (/3, 3/))
 
           do i = start, start + n - 1
