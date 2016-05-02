@@ -43,7 +43,7 @@ program setup_fluid
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
   double precision :: gravity_field(3)
-  double precision :: T, set_temperature, tau
+  double precision :: T, set_temperature, tau, alpha
   logical :: thermostat
 
   call PTparse(config,get_input_filename(),11)
@@ -62,6 +62,7 @@ program setup_fluid
   thermostat = PTread_l(config, 'thermostat')
   
   tau = PTread_d(config, 'tau')
+  alpha = PTread_d(config, 'alpha')
   N_therm = PTread_i(config, 'N_therm')
   N_loop = PTread_i(config, 'N_loop')
   gravity_field = 0
@@ -140,7 +141,7 @@ program setup_fluid
      call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
-          bulk_temperature=set_temperature)
+          bulk_temperature=set_temperature,alpha=alpha)
   end do
 
   do i = 1, N_loop
@@ -155,7 +156,7 @@ program setup_fluid
      call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
-          bulk_temperature=set_temperature)
+          bulk_temperature=set_temperature, alpha = alpha)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
 
