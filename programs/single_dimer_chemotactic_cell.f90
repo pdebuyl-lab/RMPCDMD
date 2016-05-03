@@ -254,11 +254,11 @@ program setup_single_dimer
      if (order) then
         colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
         colloids% pos(1,2) = colloids% pos(1,1) + d
-        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 !+ 1.5d0*maxval([sigma_C,sigma_N])
      else
         colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1
         colloids% pos(1,1) = colloids% pos(1,2) + d
-        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 !+ 1.5d0*maxval([sigma_C,sigma_N])
      end if
   else
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
@@ -434,12 +434,14 @@ program setup_single_dimer
         end if 
         if (.not.fixed) then
            if (dimer) then
-              call flag_timer%tic()
-              call flag_particles
-              call flag_timer%tac()
-              call change_timer%tic()
-              call change_species
-              call change_timer%tac()
+              if (.not. on_track) then
+                 call flag_timer%tic()
+                 call flag_particles
+                 call flag_timer%tac()
+                 call change_timer%tic()
+                 call change_species
+                 call change_timer%tac()
+              end if
            end if
         end if
 
