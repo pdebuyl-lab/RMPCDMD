@@ -181,11 +181,10 @@ program setup_single_dimer
   call solvent_io%init(hfile, 'solvent', solvent)
 
   do k = 1, solvent%Nmax
-     solvent% vel(1,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
-     solvent% vel(2,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
-     solvent% vel(3,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
+     solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(2,k) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(3,k) = threefry_normal(state(1))*sqrt(T)
   end do
-  solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
   solvent% species = 1
