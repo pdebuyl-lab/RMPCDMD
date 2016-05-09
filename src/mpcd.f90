@@ -21,6 +21,9 @@ module mpcd
 
 contains
 
+  !> Return random point on the surface of a sphere
+  !!
+  !! Ref. \cite marsaglia_random_sphere_1972
   function rand_sphere(state) result(n)
     type(threefry_rng_t), intent(inout) :: state
     double precision :: n(3)

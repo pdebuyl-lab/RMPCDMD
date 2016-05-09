@@ -7,12 +7,14 @@ MPCD
 The MPCD algorithim introduced in :cite:`malevanets_kapral_mpcd_1999` is implemented in
 :doxytag:`simple_mpcd_step`.
 
-MD
---
+Molecular Dynamics
+------------------
 
-Velocity verlet, see :cite:`malevanets_kapral_mpcd_2000`
+Molecular Dynamics (MD) is implemented using the Velocity verlet integration scheme
+REF. Solvent particles and colloids evolve at the MD timestep :math:`dt`. This coupling was
+proposed in Ref. :cite:`malevanets_kapral_mpcd_2000`.
 
-See :doxytag:`md_pos`
+The implementation in RMPCDMD is found in :doxytag:`md_pos` and :doxytag:`md_vel`.
 
 Convenience routines
 --------------------
@@ -20,9 +22,8 @@ Convenience routines
 Temperature computation
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-A general routine to compute the temperature `compute_temperature
-<../../html/namespacempcd.html#a0dfdbae6c690cf5d011e7fd0ef78969e>`_ computes cell-wise the
-kinetic energy relative to the cell's center-of-mass.
+A general routine to compute the temperature :doxytag:`compute_temperature` computes
+cell-wise the kinetic energy relative to the cell's center-of-mass.
 
  .. math::
     T = \frac{1}{3N_c} \sum_\xi \frac{1}{N_\xi-1} \sum_i m_i \left( v_i - v_\xi \right)^2
