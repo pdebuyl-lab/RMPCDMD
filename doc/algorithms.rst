@@ -5,7 +5,7 @@ MPCD
 ----
 
 The MPCD algorithim introduced in :cite:`malevanets_kapral_mpcd_1999` is implemented in
-`simple_mpcd_step <../../html/namespacempcd.html#a904ff785da42e439a0330fae1785c057>`_.
+:doxytag:`simple_mpcd_step`.
 
 MD
 --
