@@ -15,6 +15,9 @@ About the code
 :Authors: Pierre de Buyl, Peter Colberg, Laurens Deprez
 :License: BSD
 
+Development of the code takes place on `GitHub <https://github.com/>`_. The code repository
+is `pdebuyl-lab/RMPCDMD <https://github.com/pdebuyl-lab/RMPCDMD>`_
+
 Contents:
 
 .. toctree::
