@@ -11,6 +11,9 @@ module common
 
   integer, parameter :: max_path_length = 255
 
+  !> Container for a profile, e.g. v(x)
+  !!
+  !! The result is \f$v(x) = \frac{\sum_i v_i \delta(x_i - x)}{\sum_i \delta(x_i - x)}\f$
   type profile_t
      double precision, allocatable :: data(:)
      integer, allocatable :: count(:)
@@ -28,6 +31,9 @@ module common
      procedure, private :: profile_norm
   end type profile_t
 
+  !> Container for a profile, e.g. p(x)
+  !!
+  !! The result is \f$p(x) = \frac{\sum_i \delta(x_i - x)}{N}\f$
   type histogram_t
      double precision, allocatable :: data(:,:)
      double precision :: xmin
@@ -60,6 +66,7 @@ module common
 
 contains
 
+  !> Return x-y distance with minimum image convention
   pure function rel_pos(x, y, L) result(r)
     double precision, intent(in) :: x(3), y(3), L(3)
 

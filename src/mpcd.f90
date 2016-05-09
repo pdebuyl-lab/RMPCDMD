@@ -1,3 +1,7 @@
+!> Routines to perform MPCD dynamics
+!!
+!! \manual{algorithms}.
+
 module mpcd
   use common
   use particle_system
@@ -38,6 +42,10 @@ contains
     n(3) = 1.d0 - 2.d0*s
   end function rand_sphere
 
+  !> Perform a collision.
+  !!
+  !! Use the rule defined in Ref. \cite malevanets_kapral_mpcd_1999 to collide the particles
+  !! cell-wise. \manual{algorithms,mpcd}
   subroutine simple_mpcd_step(particles, cells, state, alpha)
     use omp_lib
     class(particle_system_t), intent(inout) :: particles
@@ -229,6 +237,9 @@ contains
 
   end subroutine wall_mpcd_step
 
+  !> Compute the temperature of a mpcd solvent
+  !!
+  !! See the <a href="../manual/algorithms.html#temperature-computation">doc</a>
   function compute_temperature(particles, cells, tz) result(te)
     use hilbert, only : compact_h_to_p
     type(particle_system_t), intent(inout) :: particles
