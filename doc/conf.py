@@ -36,7 +36,7 @@ extensions = [
     'doxytag',
 ]
 
-doxytag_relative_path = '../api/'
+doxytag_relative_path = 'api/'
 doxytag_tagfile = 'rmpcdmd_tags.xml'
 
 # Add any paths that contain templates here, relative to this directory.

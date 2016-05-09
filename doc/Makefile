@@ -7,9 +7,14 @@ SPHINXBUILD   = sphinx-build
 PAPER         =
 BUILDDIR      = _build
 
+SSH_HOST=
+SSH_PORT=22
+SSH_USER=
+SSH_TARGET_DIR=/home/pierre/lab_html/rmpcdmd
+
 # User-friendly check for sphinx-build
 ifeq ($(shell which $(SPHINXBUILD) >/dev/null 2>&1; echo $$?), 1)
-$(error The '$(SPHINXBUILD)' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the '$(SPHINXBUILD)' executable. Alternatively you can add the directory with the executable to your PATH. If you don't have Sphinx installed, grab it from http://sphinx-doc.org/)
+$(error The '$(SPHINXBUILD)' command was not found. Make sure you have Sphinx installed, then set the SPHINXBUILD environment variable to point to the full path of the '$(SPHINXBUILD)' executable. Alternatively you can add the directory with the executable to your PATH. If you don t have Sphinx installed, grab it from http://sphinx-doc.org/)
 endif
 
 # Internal variables.
@@ -43,9 +48,13 @@ api:
 	doxygen doxygen_conf
 .PHONY: html
 html: api
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/manual
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)
 	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)/manual."
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)."
+
+.PHONY: rsync_upload
+rsync_upload: html
+	rsync -e "ssh -p $(SSH_PORT)" -P -rvz --delete --exclude="tmp/" --exclude="rmpcdmd/" $(BUILDDIR)/ $(SSH_USER)@$(SSH_HOST):$(SSH_TARGET_DIR) --cvs-exclude
 
 .PHONY: dirhtml
 dirhtml:
