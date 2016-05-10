@@ -1,3 +1,7 @@
+!> Compute compact Hilbert indices
+!!
+!! Ref. \cite hamilton_compact_hilbert_tr
+
 module hilbert
   implicit none
   private
