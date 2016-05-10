@@ -1,4 +1,4 @@
-program setup_single_dimer
+program single_dimer_pbc
   use common
   use cell_system
   use particle_system
@@ -496,4 +496,4 @@ contains
     end do
   end subroutine refuel
 
-end program setup_single_dimer
+end program single_dimer_pbc
