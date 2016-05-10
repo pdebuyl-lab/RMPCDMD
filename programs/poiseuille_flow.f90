@@ -1,4 +1,10 @@
-program setup_fluid
+!> Simulate a forced flow between two plates
+!!
+!! Consider a pure fluid under a constant acceleration in the x-direction. Bounce-back
+!! boundary conditions are used in the z-direction in addition to ghost cells for the
+!! collisions near the walls.
+
+program poiseuille_flow
   use common
   use cell_system
   use particle_system
@@ -211,4 +217,4 @@ program setup_fluid
        solvent%time_stream%total + solvent%time_step%total + solvent%time_count%total +&
        solvent%time_sort%total + solvent%time_ct%total
 
-end program setup_fluid
+end program poiseuille_flow
