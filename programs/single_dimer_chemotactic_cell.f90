@@ -262,7 +262,7 @@ program setup_single_dimer
      end if
   else
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*sigma_N
+     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 !+ 1.5d0*sigma_N
      colloids% pos(1,:) = sigma_N*2**(1.d0/6.d0) + 1
   end if
 
