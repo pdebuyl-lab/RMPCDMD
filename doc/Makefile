@@ -43,8 +43,10 @@ help:
 clean:
 	rm -rf $(BUILDDIR)/*
 
+_build:
+	mkdir _build
 .PHONY: api
-api:
+api: | _build
 	doxygen doxygen_conf
 .PHONY: html
 html: api
