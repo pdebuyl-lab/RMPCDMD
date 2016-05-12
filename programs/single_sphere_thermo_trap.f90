@@ -33,6 +33,9 @@ program setup_sphere_thermo_trap
   type(profile_t) :: vx
   type(h5md_element_t) :: elem_tz, elem_tz_count
   type(h5md_element_t) :: elem_rhoz
+  double precision, allocatable :: v_xz(:,:,:)
+  integer, allocatable :: v_xz_count(:,:)
+  type(h5md_element_t) :: v_xz_el
 
   integer :: rho
   integer :: N
@@ -87,6 +90,7 @@ program setup_sphere_thermo_trap
   call h5open_f(error)
 
   L = PTread_ivec(config, 'L', 3)
+  if (modulo(L(2),2) /= 0) error stop 'non-even Ly is not supported'
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
   tau =PTread_d(config, 'tau')
@@ -178,12 +182,16 @@ program setup_sphere_thermo_trap
   call tz% init(0.d0, solvent_cells% edges(3), L(3))
   call rhoz% init(0.d0, solvent_cells% edges(3), L(3))
 
+  allocate(v_xz_count(L(3), L(1)))
+  allocate(v_xz(2, L(3), L(1)))
+
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
   call vx_el%create_time(fields_group, 'vx', vx%data, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
        step=N_MD_steps, time=N_MD_steps*dt)
   call elem_tz% create_time(fields_group, 'tz', tz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_tz_count% create_time(fields_group, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_rhoz% create_time(fields_group, 'rhoz', rhoz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call v_xz_el%create_time(fields_group, 'v_xz', v_xz, ior(H5MD_TIME, H5MD_STORE_TIME))
   call h5gclose_f(fields_group, error)
 
   call h5gcreate_f(sphere_io%group, 'box', box_group, error)
@@ -298,6 +306,8 @@ program setup_sphere_thermo_trap
         rhoz% data = rhoz% data / rhoz% dx
         call elem_rhoz% append(rhoz% data, i, i*tau)
         rhoz% data = 0
+        call compute_vxz
+        call v_xz_el%append(v_xz, i, i*tau)
         call varia%tac()
 
         call sphere_io%position%append(colloids%pos)
@@ -408,5 +418,33 @@ contains
     end do
 
   end subroutine rescale_at_walls
+
+  subroutine compute_vxz
+    integer :: i, j, s, ix, iy, iz
+
+    v_xz_count = 0
+    v_xz = 0
+    do i = 1, solvent%Nmax
+       s = solvent%species(i)
+       if (s <= 0) cycle
+       ix = modulo(floor(solvent%pos(1,i)/solvent_cells%a), L(1)) + 1
+       iy = modulo(floor(solvent%pos(2,i)/solvent_cells%a), L(2)) + 1
+       iz = modulo(floor(solvent%pos(3,i)/solvent_cells%a), L(3)) + 1
+       if ( (iy == L(2)/2) .or. (iy == 1+L(2)/2) ) then
+          v_xz_count(iz, ix) = v_xz_count(iz, ix) + 1
+          v_xz(1, iz, ix) = v_xz(1, iz, ix) + solvent%vel(1, i)
+          v_xz(2, iz, ix) = v_xz(2, iz, ix) + solvent%vel(3, i)
+       end if
+    end do
+
+    do i = 1, L(1)
+       do j = 1, L(3)
+          if (v_xz_count(j, i) > 0) then
+             v_xz(:, j, i) = v_xz(:, j, i) / v_xz_count(j, i)
+          end if
+       end do
+    end do
+
+  end subroutine compute_vxz
 
 end program setup_sphere_thermo_trap
