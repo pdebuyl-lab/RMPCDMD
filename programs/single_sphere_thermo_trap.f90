@@ -49,7 +49,7 @@ program setup_sphere_thermo_trap
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
 
   double precision :: e1, e2
-  double precision :: tau, dt , T
+  double precision :: tau, dt , T, alpha
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: N_therm
@@ -94,6 +94,7 @@ program setup_sphere_thermo_trap
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
   tau =PTread_d(config, 'tau')
+  alpha = PTread_d(config,'alpha')
 
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
@@ -284,7 +285,7 @@ program setup_sphere_thermo_trap
 
      call rescale_at_walls
      call wall_mpcd_step(solvent, solvent_cells, state, &
-          wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho])
+          wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], alpha=alpha)
 
      if (i>N_therm) then
         temperature = compute_temperature(solvent, solvent_cells, tz)
