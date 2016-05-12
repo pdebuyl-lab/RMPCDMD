@@ -15,7 +15,7 @@ program test_particle_system_0
 
   call system_clock(count=clock)
   call init_genrand(mt, int(clock, c_long))
-
+  write(*,*) clock
   call test% init()
 
   call p% init(N)
