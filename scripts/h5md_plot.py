@@ -13,6 +13,7 @@ parser.add_argument('--field', type=str)
 parser.add_argument('--com', action='store_true')
 parser.add_argument('--hist', action='store_true')
 parser.add_argument('--mean', action='store_true')
+parser.add_argument('--index', type=int)
 args = parser.parse_args()
 
 import numpy as np
@@ -56,11 +57,14 @@ with h5py.File(args.file, 'r') as f:
 
     elif args.field:
         g = f['fields'][args.field]
+        value = g['value']
+        if len(value.shape)==3:
+            value = value[:,:,args.index]
         if args.mean:
-            plt.plot(g['value'][:].mean(axis=0))
+            plt.plot(value.mean(axis=0))
         else:
-            N = g['value'].shape[0]
-            plt.plot(g['value'][::N//4].T)
+            N = value.shape[0]
+            plt.plot(value[::N//4].T)
         plt.title(args.field)
 
 plt.show()
