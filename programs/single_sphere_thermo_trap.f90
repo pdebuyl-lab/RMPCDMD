@@ -233,6 +233,8 @@ program setup_sphere_thermo_trap
 
   i = 0
   wall_v = 0
+  v_xz_count = 0
+  v_xz = 0
 
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
@@ -308,7 +310,12 @@ program setup_sphere_thermo_trap
         call elem_rhoz% append(rhoz% data, i, i*tau)
         rhoz% data = 0
         call compute_vxz
-        call v_xz_el%append(v_xz, i, i*tau)
+        if (modulo(i, 10)==0) then
+           call div_vxz(10)
+           call v_xz_el%append(v_xz, i, i*tau)
+           v_xz_count = 0
+           v_xz = 0
+        end if
         call varia%tac()
 
         call sphere_io%position%append(colloids%pos)
@@ -421,10 +428,8 @@ contains
   end subroutine rescale_at_walls
 
   subroutine compute_vxz
-    integer :: i, j, s, ix, iy, iz
+    integer :: i, s, ix, iy, iz
 
-    v_xz_count = 0
-    v_xz = 0
     do i = 1, solvent%Nmax
        s = solvent%species(i)
        if (s <= 0) cycle
@@ -438,14 +443,20 @@ contains
        end if
     end do
 
+  end subroutine compute_vxz
+
+  subroutine div_vxz(n_frames)
+    integer, intent(in) :: n_frames
+
+    integer :: i, j
     do i = 1, L(1)
        do j = 1, L(3)
           if (v_xz_count(j, i) > 0) then
-             v_xz(:, j, i) = v_xz(:, j, i) / v_xz_count(j, i)
+             v_xz(:, j, i) = v_xz(:, j, i) / (v_xz_count(j, i)*n_frames)
           end if
        end do
     end do
 
-  end subroutine compute_vxz
+  end subroutine div_vxz
 
 end program setup_sphere_thermo_trap
