@@ -20,6 +20,7 @@ Features:
   - MPCD collision rule for the solvent
   - Chemical activity (either catalytic at a colloid or in the bulk)
   - Rattle constrained dynamics for rigid bodies
+  - Walls (specular, bounce-back, virtual particles)
   - OpenMP multithreaded operation
 
 Development of the code takes place on `GitHub <https://github.com/>`_. The code repository
@@ -27,11 +28,13 @@ is `pdebuyl-lab/RMPCDMD <https://github.com/pdebuyl-lab/RMPCDMD>`_
 
 The source code features inline comments, published with Doxygen: `api <api/index.html>`_.
 
-Contents:
+Contents
+--------
 
 .. toctree::
    :maxdepth: 2
 
    algorithms
-   bibliography
+   design
+   zbibliography
 

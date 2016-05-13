@@ -8,5 +8,6 @@ Contents:
 
    index
    algorithms
-   bibliography
+   design
+   zbibliography
 
