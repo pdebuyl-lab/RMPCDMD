@@ -45,8 +45,10 @@ clean:
 
 _build:
 	mkdir _build
-.PHONY: api
-api: | _build
+
+api: _build/api
+
+_build/api: doxygen_conf index.md ../src/*.f90 ../test/*.f90 ../programs/*.f90 | _build
 	doxygen doxygen_conf
 .PHONY: html
 html: api
