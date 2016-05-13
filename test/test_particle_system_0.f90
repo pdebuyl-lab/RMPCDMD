@@ -16,7 +16,7 @@ program test_particle_system_0
   call system_clock(count=clock)
   call init_genrand(mt, int(clock, c_long))
   write(*,*) clock
-  call test% init()
+  call test% init(d_tol=4*epsilon(1.d0))
 
   call p% init(N)
   L = [ 1.d0, 20.d0, 5.d0 ]
