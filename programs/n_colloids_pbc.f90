@@ -32,7 +32,7 @@ program n_colloids_pbc
   double precision :: so_max, co_max
 
   double precision :: e1, e2
-  double precision :: tau, dt, T
+  double precision :: tau, dt, T, T_init, T_final
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
   integer :: n_threads
@@ -56,7 +56,9 @@ program n_colloids_pbc
 
   L = PTread_ivec(config, 'L', 3)
   rho = PTread_i(config, 'rho')
-  T = PTread_d(config, 'T')
+  T_init = PTread_d(config, 'T')
+  T = T_init
+  T_final = PTread_d(config, 'T_final')
   tau = PTread_d(config, 'tau')
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
@@ -176,7 +178,8 @@ program n_colloids_pbc
      solvent% pos_old = solvent% pos
      colloids% pos_old = colloids% pos
 
-     call simple_mpcd_step(solvent, solvent_cells, state)
+     T = T_init + (i-1)*(T_final-T_init)/(N_loop-1)
+     call mpcd_at_step(solvent, solvent_cells, state, T)
 
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax)
      if (modulo(i,10)==0) &
