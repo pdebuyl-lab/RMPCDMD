@@ -179,7 +179,8 @@ contains
           r_sq = sum(d**2)
           if ( r_sq <= lj_params% cut_sq(s2, s1) ) then
              f = lj_force(d, r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
-             e = e + lj_energy(r_sq, lj_params% epsilon(s2, s1), lj_params% sigma(s2, s1))
+             e = e + lj_energy(r_sq, lj_params% epsilon(s2, s1), &
+                  lj_params% sigma(s2, s1), lj_params% cut_energy(s2, s1))
              f1 = f1 + f
              !$omp atomic
              ps2%force(1, idx) = ps2% force(1,idx) - f(1)
@@ -225,7 +226,8 @@ contains
              f = lj_force(d, r_sq, lj_params% epsilon(s2,s1), lj_params% sigma(s2,s1))
              ps% force(:, i) = ps% force(:, i) + f
              ps% force(:, j) = ps% force(:, j) - f
-             e = e + lj_energy(r_sq, lj_params% epsilon(s2,s1), lj_params% sigma(s2,s1))
+             e = e + lj_energy(r_sq, lj_params% epsilon(s2,s1), &
+                  lj_params% sigma(s2,s1), lj_params% cut_energy(s2,s1))
           end if
        end do
     end do
