@@ -78,6 +78,10 @@ add_executable(single_sphere_thermo_trap
 	programs/single_sphere_thermo_trap.f90)
 target_link_libraries(single_sphere_thermo_trap RMPCDMD ParseText)
 
+add_executable(n_colloids_pbc
+programs/n_colloids_pbc.f90)
+target_link_libraries(n_colloids_pbc RMPCDMD fortran_h5md ParseText)
+
 add_executable(test_cell_system_0
 test/test_cell_system_0.f90)
 target_link_libraries(test_cell_system_0 RMPCDMD fortran_tester)
