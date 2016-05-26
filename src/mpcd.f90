@@ -22,6 +22,7 @@ module mpcd
 
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
+  public :: mpcd_at_step
   public :: mpcd_stream_periodic, mpcd_stream_zwall
   public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
@@ -116,6 +117,61 @@ contains
     call particles%time_step%tac()
 
   end subroutine simple_mpcd_step
+
+  !> Perform a collision.
+  !!
+  !! MPCD with Anderson thermostat defined in Ref. \cite noguchi_epl_2007 to collide the
+  !! particles cell-wise. \manual{algorithms,mpcd}
+  subroutine mpcd_at_step(particles, cells, state, temperature)
+    use omp_lib
+    class(particle_system_t), intent(inout) :: particles
+    class(cell_system_t), intent(in) :: cells
+    type(threefry_rng_t), intent(inout) :: state(:)
+    double precision, intent(in) :: temperature
+
+    integer :: i, start, n
+    integer :: cell_idx
+    double precision :: local_v(3), vec(3), virtual_v(3)
+    double precision :: t_factor
+    integer :: thread_id
+
+    t_factor = sqrt(temperature)
+
+    call particles%time_step%tic()
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(cell_idx, start, n, local_v, virtual_v, i, vec)
+    do cell_idx = 1, cells% N
+       if (cells% cell_count(cell_idx) <= 1) cycle
+
+       start = cells% cell_start(cell_idx)
+       n = cells% cell_count(cell_idx)
+
+       local_v = 0
+       do i = start, start + n - 1
+          local_v = local_v + particles% vel(:, i)
+       end do
+       local_v = local_v / n
+
+       virtual_v = 0
+       do i = start, start + n - 1
+          vec(1) = threefry_normal(state(thread_id))*t_factor
+          vec(2) = threefry_normal(state(thread_id))*t_factor
+          vec(3) = threefry_normal(state(thread_id))*t_factor
+          particles% vel(:, i) = vec
+          virtual_v = virtual_v + particles% vel(:, i)
+       end do
+       virtual_v = local_v - virtual_v / dble(n)
+       do i = start, start + n - 1
+          particles% vel(:, i) = particles% vel(:, i) + virtual_v
+       end do
+
+    end do
+    !$omp end do
+    !$omp end parallel
+    call particles%time_step%tac()
+
+  end subroutine mpcd_at_step
 
   !> Collisions in partially filled cells at the walls use the rule of
   !! Lamura, Gompper, Ihle and Kroll, EPL 56, 319-325 (2001)
