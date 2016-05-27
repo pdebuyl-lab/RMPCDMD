@@ -9,5 +9,6 @@ Contents:
    index
    algorithms
    design
+   install
    zbibliography
 

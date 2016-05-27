@@ -9,6 +9,16 @@ RMPCDMD
 RMPCDMD is a software for the simulation of colloids via Molecular Dynamics,
 embedded in a MPCD fluid.
 
+Ready-to-execute simulation programs are provided for the dimer nanomotor in Periodic
+Boundary Conditions (PBC), the forced Poiseuille flow or for N colloids in PBC. These
+programs only require the setting of parameters in the ad-hoc text file for execution.
+
+The implementation of the algorithms is organized in *modules* and is available for users to
+prepare their own simulation setup, then requiring programming in Fortran.
+
+See :ref:`install` for obtaining and building RMPCDMD. The contact person for RMPCDMD is
+`Pierre de Buyl <http://pdebuyl.be>`_.
+
 About the code
 --------------
 
@@ -36,5 +46,6 @@ Contents
 
    algorithms
    design
+   install
    zbibliography
 
