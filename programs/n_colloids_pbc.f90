@@ -181,6 +181,7 @@ program n_colloids_pbc
      T = T_init + (i-1)*(T_final-T_init)/(N_loop-1)
      call mpcd_at_step(solvent, solvent_cells, state, T)
 
+     if (modulo(i,100)==0) &
      write(15,*) colloids% pos + colloids% image * spread(solvent_cells% edges, dim=2, ncopies=colloids% Nmax)
      if (modulo(i,10)==0) &
      write(*,'(6f16.3)') e1, e2, mass*sum(colloids% vel**2)/2, sum(solvent% vel**2)/2, &
