@@ -35,5 +35,5 @@ d = 4.5
 epsilon_C = 1 1 1
 epsilon_N = 1 1 1
 
-# order (T: CN ; F: NC)
-order = F
+# orientation of the dimer
+N_in_front = F

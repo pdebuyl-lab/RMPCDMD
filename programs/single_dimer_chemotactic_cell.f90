@@ -76,7 +76,7 @@ program setup_single_dimer
   integer, allocatable :: rho_xy(:,:,:)
 
   double precision :: g(3) !gravity
-  logical :: fixed, on_track, stopped,order,dimer 
+  logical :: fixed, on_track, stopped, N_in_front, dimer
   logical :: store_rho_xy
   integer :: bufferlength
   double precision :: max_speed, z, Lz
@@ -119,7 +119,7 @@ program setup_single_dimer
 
   T = PTread_d(config, 'T')
   d = PTread_d(config, 'd')
-  order = PTread_l(config, 'order')
+  N_in_front = PTread_l(config, 'N_in_front')
 
   wall_v = 0
   wall_t = [T, T]
@@ -176,7 +176,7 @@ program setup_single_dimer
   call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_chemotactic_cell', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
-  order = PTread_l(config, 'order')
+
   call PTkill(config)
 
   dimer_io%force_info%store = .false.
@@ -251,7 +251,7 @@ program setup_single_dimer
 
   if (dimer) then
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-     if (order) then
+     if (N_in_front) then
         colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
         colloids% pos(1,2) = colloids% pos(1,1) + d
         colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
