@@ -76,6 +76,7 @@ program setup_sphere_thermo_trap
   double precision :: g
   ! trap parameters
   double precision :: k, trap_center(3)
+  logical :: move
 
   call PTparse(config,get_input_filename(),11)
 
@@ -119,6 +120,7 @@ program setup_sphere_thermo_trap
 
   call solvent% init(N,N_species)
 
+  move = PTread_l(config, 'move')
   call colloids% init(1, N_species_colloids, mass)
   colloids% species(1) = 1
   colloids% vel = 0
@@ -243,7 +245,8 @@ program setup_sphere_thermo_trap
      md_loop: do j = 1, N_MD_steps
         call mpcd_stream_nogravity_zwall(solvent, solvent_cells, dt)
 
-        colloids% pos = colloids% pos + dt * colloids% vel + &
+
+        if (move) colloids% pos = colloids% pos + dt * colloids% vel + &
              dt**2 * colloids% force / (2*colloids% mass(1))
 
         so_max = solvent% maximum_displacement()
@@ -270,7 +273,7 @@ program setup_sphere_thermo_trap
         e2 = compute_force_harmonic_trap(colloids, k, trap_center)
 
         call md_vel(solvent, dt)
-        colloids% vel = colloids% vel + &
+        if (move) colloids% vel = colloids% vel + &
              dt * ( colloids% force + colloids% force_old ) / (2 * colloids% mass(1))
 
      end do md_loop
