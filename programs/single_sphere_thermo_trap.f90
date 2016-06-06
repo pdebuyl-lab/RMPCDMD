@@ -33,8 +33,8 @@ program setup_sphere_thermo_trap
   type(profile_t) :: vx
   type(h5md_element_t) :: elem_tz, elem_tz_count
   type(h5md_element_t) :: elem_rhoz
-  double precision, allocatable :: v_xz(:,:,:)
-  integer, allocatable :: v_xz_count(:,:)
+  double precision, allocatable :: v_xz(:,:,:), v_xyz(:,:,:)
+  integer, allocatable :: v_xz_count(:,:), v_xyz_count(:,:)
   type(h5md_element_t) :: v_xz_el
 
   integer :: rho
@@ -52,6 +52,7 @@ program setup_sphere_thermo_trap
   double precision :: tau, dt , T, alpha
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
+  integer :: vxz_interval
   integer :: N_therm
   integer :: n_extra_sorting
   double precision :: kin_e, temperature
@@ -101,6 +102,7 @@ program setup_sphere_thermo_trap
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
   N_therm = PTread_i(config, 'N_therm')
+  vxz_interval = PTread(config, 'vxz_interval')
 
   wall_t = PTread_dvec(config, 'wall_T', 2)
   T = PTread_d(config, 'T')
@@ -186,7 +188,9 @@ program setup_sphere_thermo_trap
   call rhoz% init(0.d0, solvent_cells% edges(3), L(3))
 
   allocate(v_xz_count(L(3), L(1)))
+  allocate(v_xyz_count(L(3), L(2), L(1)))
   allocate(v_xz(2, L(3), L(1)))
+  allocate(v_xyz(3, L(3), L(2), L(1)))
 
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
   call vx_el%create_time(fields_group, 'vx', vx%data, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
@@ -237,10 +241,12 @@ program setup_sphere_thermo_trap
   wall_v = 0
   v_xz_count = 0
   v_xz = 0
+  v_xyz_count = 0
+  v_xyz = 0
 
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
-  setup: do i = 1, N_loop
+  setup: do i = 1, N_loop+N_therm
      if (modulo(i,50) == 0) write(*,'(i09)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call mpcd_stream_nogravity_zwall(solvent, solvent_cells, dt)
@@ -312,9 +318,9 @@ program setup_sphere_thermo_trap
         rhoz% data = rhoz% data / rhoz% dx
         call elem_rhoz% append(rhoz% data, i, i*tau)
         rhoz% data = 0
-        call compute_vxz
-        if (modulo(i, 10)==0) then
-           call div_vxz(10)
+        call compute_vxz_and_vxyz
+        if (modulo(i-N_therm, vxz_interval)==0) then
+           call div_vxz()
            call v_xz_el%append(v_xz, i, i*tau)
            v_xz_count = 0
            v_xz = 0
@@ -338,6 +344,9 @@ program setup_sphere_thermo_trap
   call solvent_io%velocity%append(solvent%vel)
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
+
+  call div_vxyz()
+  call dummy_element%create_fixed(fields_group, 'v_xyz', v_xyz)
 
   call h5gcreate_f(hfile%id, 'timers', timers_group, error)
   call h5md_write_dataset(timers_group, solvent%time_stream%name, solvent%time_stream%total)
@@ -430,7 +439,7 @@ contains
 
   end subroutine rescale_at_walls
 
-  subroutine compute_vxz
+  subroutine compute_vxz_and_vxyz
     integer :: i, s, ix, iy, iz
 
     do i = 1, solvent%Nmax
@@ -439,6 +448,8 @@ contains
        ix = modulo(floor(solvent%pos(1,i)/solvent_cells%a), L(1)) + 1
        iy = modulo(floor(solvent%pos(2,i)/solvent_cells%a), L(2)) + 1
        iz = modulo(floor(solvent%pos(3,i)/solvent_cells%a), L(3)) + 1
+       v_xyz_count(iz, iy, ix) = v_xyz_count(iz, iy, ix) + 1
+       v_xyz(:, iz, iy, ix) = v_xyz(:, iz, iy, ix) + solvent%vel(:, i)
        if ( (iy == L(2)/2) .or. (iy == 1+L(2)/2) ) then
           v_xz_count(iz, ix) = v_xz_count(iz, ix) + 1
           v_xz(1, iz, ix) = v_xz(1, iz, ix) + solvent%vel(1, i)
@@ -446,20 +457,34 @@ contains
        end if
     end do
 
-  end subroutine compute_vxz
+  end subroutine compute_vxz_and_vxyz
 
-  subroutine div_vxz(n_frames)
-    integer, intent(in) :: n_frames
+  subroutine div_vxz()
 
     integer :: i, j
     do i = 1, L(1)
        do j = 1, L(3)
           if (v_xz_count(j, i) > 0) then
-             v_xz(:, j, i) = v_xz(:, j, i) / (v_xz_count(j, i)*n_frames)
+             v_xz(:, j, i) = v_xz(:, j, i) / v_xz_count(j, i)
           end if
        end do
     end do
 
   end subroutine div_vxz
+
+  subroutine div_vxyz()
+
+    integer :: i, j
+    do i = 1, L(1)
+       do j = 1, L(2)
+          do k = 1, L(3)
+             if (v_xyz_count(k, j, i) > 0) then
+                v_xyz(:, k, j, i) = v_xyz(:, k, j, i) / v_xyz_count(k, j, i)
+             end if
+          end do
+       end do
+    end do
+
+  end subroutine div_vxyz
 
 end program setup_sphere_thermo_trap
