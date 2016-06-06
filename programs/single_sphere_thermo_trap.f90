@@ -199,7 +199,6 @@ program setup_sphere_thermo_trap
   call elem_tz_count% create_time(fields_group, 'tz_count', tz% count, ior(H5MD_TIME, H5MD_STORE_TIME))
   call elem_rhoz% create_time(fields_group, 'rhoz', rhoz% data, ior(H5MD_TIME, H5MD_STORE_TIME))
   call v_xz_el%create_time(fields_group, 'v_xz', v_xz, ior(H5MD_TIME, H5MD_STORE_TIME))
-  call h5gclose_f(fields_group, error)
 
   call h5gcreate_f(sphere_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
@@ -244,7 +243,7 @@ program setup_sphere_thermo_trap
   v_xyz_count = 0
   v_xyz = 0
 
-  write(*,*) 'Running for', N_loop, 'loops'
+  write(*,*) 'Running for', N_loop+N_therm, 'loops'
   !start RMPCDMD
   setup: do i = 1, N_loop+N_therm
      if (modulo(i,50) == 0) write(*,'(i09)',advance='no') i
@@ -347,6 +346,7 @@ program setup_sphere_thermo_trap
 
   call div_vxyz()
   call dummy_element%create_fixed(fields_group, 'v_xyz', v_xyz)
+  call h5gclose_f(fields_group, error)
 
   call h5gcreate_f(hfile%id, 'timers', timers_group, error)
   call h5md_write_dataset(timers_group, solvent%time_stream%name, solvent%time_stream%total)
