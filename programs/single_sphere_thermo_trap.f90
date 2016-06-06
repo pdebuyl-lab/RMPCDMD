@@ -33,8 +33,8 @@ program setup_sphere_thermo_trap
   type(profile_t) :: vx
   type(h5md_element_t) :: elem_tz, elem_tz_count
   type(h5md_element_t) :: elem_rhoz
-  double precision, allocatable :: v_xz(:,:,:), v_xyz(:,:,:)
-  integer, allocatable :: v_xz_count(:,:), v_xyz_count(:,:)
+  double precision, allocatable :: v_xz(:,:,:), v_xyz(:,:,:,:)
+  integer, allocatable :: v_xz_count(:,:), v_xyz_count(:,:,:)
   type(h5md_element_t) :: v_xz_el
 
   integer :: rho
@@ -102,7 +102,7 @@ program setup_sphere_thermo_trap
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
   N_therm = PTread_i(config, 'N_therm')
-  vxz_interval = PTread(config, 'vxz_interval')
+  vxz_interval = PTread_i(config, 'vxz_interval')
 
   wall_t = PTread_dvec(config, 'wall_T', 2)
   T = PTread_d(config, 'T')
@@ -474,7 +474,7 @@ contains
 
   subroutine div_vxyz()
 
-    integer :: i, j
+    integer :: i, j, k
     do i = 1, L(1)
        do j = 1, L(2)
           do k = 1, L(3)
