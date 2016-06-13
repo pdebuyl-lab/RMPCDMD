@@ -14,6 +14,10 @@ add_subdirectory(random_module)
 
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY} ${HDF5_Fortran_INCLUDE_DIR})
 
+set(RMPCDMD_PROGRAMS poiseuille_flow single_dimer_pbc single_janus_pbc
+single_dimer_chemotactic_cell single_dimer_channel_flow single_sphere_thermo_trap
+n_colloids_pbc)
+
 add_library(RMPCDMD
 src/common.f90
 src/cell_system.f90
@@ -38,9 +42,10 @@ add_executable(setup_thermal_fluid
 test/setup_thermal_fluid.f90)
 target_link_libraries(setup_thermal_fluid RMPCDMD fortran_h5md ParseText)
 
-add_executable(poiseuille_flow
-programs/poiseuille_flow.f90)
-target_link_libraries(poiseuille_flow RMPCDMD fortran_h5md ParseText)
+foreach(program_name IN LISTS RMPCDMD_PROGRAMS)
+add_executable(${program_name} programs/${program_name}.f90)
+target_link_libraries(${program_name} RMPCDMD fortran_h5md ParseText)
+endforeach(program_name)
 
 add_executable(setup_simple_colloids
 test/setup_simple_colloids.f90)
@@ -57,30 +62,6 @@ target_link_libraries(setup_simple_rattle RMPCDMD fortran_h5md ParseText)
 add_executable(setup_single_catalytic_fixed_sphere
 test/setup_single_catalytic_fixed_sphere.f90)
 target_link_libraries(setup_single_catalytic_fixed_sphere RMPCDMD fortran_h5md ParseText)
-
-add_executable(single_dimer_pbc
-programs/single_dimer_pbc.f90)
-target_link_libraries(single_dimer_pbc RMPCDMD fortran_h5md ParseText)
-
-add_executable(single_janus_pbc
-programs/single_janus_pbc.f90)
-target_link_libraries(single_janus_pbc RMPCDMD fortran_h5md ParseText)
-
-add_executable(single_dimer_chemotactic_cell
-programs/single_dimer_chemotactic_cell.f90)
-target_link_libraries(single_dimer_chemotactic_cell RMPCDMD ParseText)
-
-add_executable(single_dimer_channel_flow
-programs/single_dimer_channel_flow.f90)
-target_link_libraries(single_dimer_channel_flow RMPCDMD ParseText)
-
-add_executable(single_sphere_thermo_trap
-	programs/single_sphere_thermo_trap.f90)
-target_link_libraries(single_sphere_thermo_trap RMPCDMD ParseText)
-
-add_executable(n_colloids_pbc
-programs/n_colloids_pbc.f90)
-target_link_libraries(n_colloids_pbc RMPCDMD fortran_h5md ParseText)
 
 add_executable(test_cell_system_0
 test/test_cell_system_0.f90)
