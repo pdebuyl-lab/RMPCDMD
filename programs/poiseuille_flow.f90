@@ -3,6 +3,17 @@
 !! Consider a pure fluid under a constant acceleration in the x-direction. Bounce-back
 !! boundary conditions are used in the z-direction in addition to ghost cells for the
 !! collisions near the walls.
+!!
+!! \param L           length of simulation box in the 3 dimensions
+!! \param g           strength of the constant acceleration in x
+!! \param rho         fluid number density
+!! \param T           Temperature. Used for setting initial velocities, for wall
+!!                    thermostatting and (if enabled) bulk thermostatting.
+!! \param tau         MPCD collision time
+!! \param alpha       MPCD collision angle
+!! \param thermostat  whether to enable bulk thermostatting
+!! \param N_therm     number of unsampled thermalization MPCD timesteps
+!! \param N_loop      number of MPCD timesteps
 
 program poiseuille_flow
   use common
