@@ -1,0 +1,67 @@
+#!/bin/bash
+
+RMPCDMD_HOME=@RMPCDMD_SOURCE_DIR@
+#RMPCDMD_PROGRAMS=$(echo "@RMPCDMD_PROGRAMS@" | tr \; ',\ ')
+RMPCDMD_PROGRAMS="@RMPCDMD_PROGRAMS@"
+RMPCDMD_PROGRAMS="${RMPCDMD_PROGRAMS//\;/, }"
+
+RMPCDMD_greeting() {
+    echo "Welcome to RMPCMD (see http://lab.pdebuyl.be/rmpcmd/ for more information)"
+    echo "usage: rmpcdmd action [arguments]"
+    echo "Available actions:"
+    echo "    - run     Perform a simulation"
+    echo "    - seeder  Return a signed 64-bit integer seed from /dev/urandom"
+    echo "    - plot    Display the results of a simulation"
+}
+
+run_usage() {
+    echo "usage: rmpcdmd run program mysim.parameters mysim.h5 SEED"
+    echo "    - program         one of"
+    echo "                      ${RMPCDMD_PROGRAMS}" | fmt -s -c
+    echo "    - sim.parameters  Input file for the simulation"
+    echo "    - sim.h5          H5MD output file for the simulation"
+    echo "    - SEED            signed 64-bit integer seed"
+}
+
+if [ $# -lt 1 ]; then
+    RMPCDMD_greeting
+    exit 0
+fi
+
+if [ "$1" = "seeder" ]
+then
+    shift
+    "${RMPCDMD_HOME}/scripts/seeder.sh" "$@"
+elif [ "$1" = "run" ]
+then
+    shift
+    if [ $# -ne 4 ] ; then
+	run_usage
+	exit 0
+    fi
+    echo "RMPCDMD running" "$1"
+    if [ "${OMP_NUM_THREADS}" != "" ] ; then
+	echo "OMP_NUM_THREADS = ${OMP_NUM_THREADS}"
+    else
+	echo "OMP_NUM_THREADS not set"
+    fi
+    echo -n "Start time -- "
+    date
+    start_time=$(date +'%s')
+    # check that program is in list
+    # check that input, output and seed are given
+    program="$1"
+    shift
+    echo $program $@
+    time "${RMPCDMD_HOME}/build/${program}" "$@"
+    echo -n "End time -- "
+    date
+    end_time=$(date +'%s')
+    echo "$((end_time-start_time))s elapsed"
+elif [ "$1" = "plot" ]
+then
+    shift
+    python "${RMPCDMD_HOME}/scripts/h5md_plot.py" "$@"
+else
+    echo "Unknown command"
+fi

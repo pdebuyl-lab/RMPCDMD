@@ -18,6 +18,8 @@ set(RMPCDMD_PROGRAMS poiseuille_flow single_dimer_pbc single_janus_pbc
 single_dimer_chemotactic_cell single_dimer_channel_flow single_sphere_thermo_trap
 n_colloids_pbc)
 
+configure_file(scripts/rmpcdmd.in rmpcdmd @ONLY)
+
 add_library(RMPCDMD
 src/common.f90
 src/cell_system.f90
