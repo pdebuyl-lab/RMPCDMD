@@ -55,6 +55,13 @@ then
 	start_time=$(date +'%s')
 	# check that input, output and seed are given
 	shift
+	if [ "$3" = "auto" ]; then
+	    IN="$1"
+	    ls -lh "$IN"
+	    OUT="$2"
+	    SEED=$("${RMPCDMD_HOME}/scripts/seeder.sh")
+	    set -- "$IN" "$OUT" "$SEED"
+	fi
 	echo $program $@
 	time "${RMPCDMD_HOME}/build/${program}" "$@"
 	echo -n "End time -- "
