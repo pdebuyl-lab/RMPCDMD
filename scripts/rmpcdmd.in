@@ -1,8 +1,9 @@
 #!/bin/bash
 
 RMPCDMD_HOME=@RMPCDMD_SOURCE_DIR@
-#RMPCDMD_PROGRAMS=$(echo "@RMPCDMD_PROGRAMS@" | tr \; ',\ ')
 RMPCDMD_PROGRAMS="@RMPCDMD_PROGRAMS@"
+RMPCDMD_PROGRAMS_LIST="${RMPCDMD_PROGRAMS//\;/
+}"
 RMPCDMD_PROGRAMS="${RMPCDMD_PROGRAMS//\;/, }"
 
 RMPCDMD_greeting() {
@@ -39,25 +40,33 @@ then
 	run_usage
 	exit 0
     fi
-    echo "RMPCDMD running" "$1"
-    if [ "${OMP_NUM_THREADS}" != "" ] ; then
-	echo "OMP_NUM_THREADS = ${OMP_NUM_THREADS}"
-    else
-	echo "OMP_NUM_THREADS not set"
-    fi
-    echo -n "Start time -- "
-    date
-    start_time=$(date +'%s')
-    # check that program is in list
-    # check that input, output and seed are given
     program="$1"
-    shift
-    echo $program $@
-    time "${RMPCDMD_HOME}/build/${program}" "$@"
-    echo -n "End time -- "
-    date
-    end_time=$(date +'%s')
-    echo "$((end_time-start_time))s elapsed"
+    # check that program is in list
+    if echo "$RMPCDMD_PROGRAMS_LIST" | grep -w -q -F "$program"
+    then
+	echo "RMPCDMD running" "$1"
+	if [ "${OMP_NUM_THREADS}" != "" ] ; then
+	    echo "OMP_NUM_THREADS = ${OMP_NUM_THREADS}"
+	else
+	    echo "OMP_NUM_THREADS not set"
+	fi
+	echo -n "Start time -- "
+	date
+	start_time=$(date +'%s')
+	# check that input, output and seed are given
+	shift
+	echo $program $@
+	time "${RMPCDMD_HOME}/build/${program}" "$@"
+	echo -n "End time -- "
+	date
+	end_time=$(date +'%s')
+	echo "$((end_time-start_time))s elapsed"
+    else
+	run_usage
+	echo "ERROR: Program $program not in RMPCDMD"
+	exit 1
+    fi
+
 elif [ "$1" = "plot" ]
 then
     shift
