@@ -51,7 +51,7 @@ program single_dimer_pbc
   integer :: n_threads
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
-  integer(HID_T) :: fields_group
+  integer(HID_T) :: fields_group, params_group
   integer(HID_T) :: box_group
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
@@ -83,29 +83,32 @@ program single_dimer_pbc
   call time_change%init('change')
 
   call h5open_f(error)
+  call hfile%create(args%output_file, 'RMPCDMD::single_dimer_pbc', &
+       'N/A', 'Pierre de Buyl')
+  call h5gcreate_f(hfile%id, 'parameters', params_group, error)
 
-  prob = PTread_d(config,'probability')
-  bulk_rmpcd = PTread_l(config, 'bulk_rmpcd')
-  bulk_rate = PTread_d(config, 'bulk_rate')
+  prob = PTread_d(config,'probability', loc=params_group)
+  bulk_rmpcd = PTread_l(config, 'bulk_rmpcd', loc=params_group)
+  bulk_rate = PTread_d(config, 'bulk_rate', loc=params_group)
 
-  L = PTread_ivec(config, 'L', 3)
-  rho = PTread_i(config, 'rho')
+  L = PTread_ivec(config, 'L', 3, loc=params_group)
+  rho = PTread_i(config, 'rho', loc=params_group)
   N = rho *L(1)*L(2)*L(3)
 
-  T = PTread_d(config, 'T')
-  d = PTread_d(config, 'd')
+  T = PTread_d(config, 'T', loc=params_group)
+  d = PTread_d(config, 'd', loc=params_group)
   
-  tau = PTread_d(config, 'tau')
-  N_MD_steps = PTread_i(config, 'N_MD')
+  tau = PTread_d(config, 'tau', loc=params_group)
+  N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
   dt = tau / N_MD_steps
-  N_loop = PTread_i(config, 'N_loop')
+  N_loop = PTread_i(config, 'N_loop', loc=params_group)
 
-  sigma_C = PTread_d(config, 'sigma_C')
-  sigma_N = PTread_d(config, 'sigma_N')
+  sigma_C = PTread_d(config, 'sigma_C', loc=params_group)
+  sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
 
   ! solvent index first, colloid index second, in solvent_colloid_lj
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2, loc=params_group)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2, loc=params_group)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
@@ -114,10 +117,10 @@ program single_dimer_pbc
 
   call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
 
-  epsilon(1,1) = PTread_d(config, 'epsilon_C_C')
-  epsilon(1,2) = PTread_d(config, 'epsilon_N_C')
-  epsilon(2,1) = PTread_d(config, 'epsilon_N_C')
-  epsilon(2,2) = PTread_d(config, 'epsilon_N_N')
+  epsilon(1,1) = PTread_d(config, 'epsilon_C_C', loc=params_group)
+  epsilon(1,2) = PTread_d(config, 'epsilon_N_C', loc=params_group)
+  epsilon(2,1) = epsilon(1,2)
+  epsilon(2,2) = PTread_d(config, 'epsilon_N_N', loc=params_group)
 
   sigma(1,1) = 2*sigma_C
   sigma(1,2) = sigma_C + sigma_N
@@ -134,10 +137,9 @@ program single_dimer_pbc
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
-  call hfile%create(args%output_file, 'RMPCDMD::single_dimer_pbc', &
-       'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
+  call h5gclose_f(params_group, error)
   call PTkill(config)
   
   colloids% species(1) = 1
@@ -240,6 +242,7 @@ program single_dimer_pbc
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
 
+  call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
   write(*,*) 'Running for', N_loop, 'loops'
   write(*,*) 'mass', mass 
   call main%tic()
