@@ -86,7 +86,7 @@ program single_dimer_pbc
   call hfile%create(args%output_file, 'RMPCDMD::single_dimer_pbc', &
        'N/A', 'Pierre de Buyl')
   call h5gcreate_f(hfile%id, 'parameters', params_group, error)
-
+  call hdf5_util_write_dataset(params_group, 'seed', args%seed)
   prob = PTread_d(config,'probability', loc=params_group)
   bulk_rmpcd = PTread_l(config, 'bulk_rmpcd', loc=params_group)
   bulk_rate = PTread_d(config, 'bulk_rate', loc=params_group)
