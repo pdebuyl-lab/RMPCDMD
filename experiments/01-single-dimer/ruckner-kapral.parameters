@@ -10,8 +10,6 @@ bulk_rate = 0.001
 # simulation parameters
 N_MD = 200
 N_loop = 400
-seed = 7428301037362090395
-h5md_file = ruckner-kapral.h5
 
 # interaction parameters
 sigma_N = 2.0
