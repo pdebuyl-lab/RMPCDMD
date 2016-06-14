@@ -1,4 +1,5 @@
 module common
+  use iso_c_binding
   implicit none
   private
 
@@ -7,7 +8,9 @@ module common
   public :: histogram_t
   public :: switch
   public :: get_input_filename
+  public :: get_input_args
   public :: timer_t
+  public :: args_t
 
   integer, parameter :: max_path_length = 255
 
@@ -63,6 +66,12 @@ module common
      module procedure :: switch_i1
      module procedure :: switch_i2
   end interface switch
+
+  type args_t
+     character(len=max_path_length) :: input_file
+     character(len=max_path_length) :: output_file
+     integer(c_int64_t) :: seed
+  end type args_t
 
 contains
 
@@ -212,6 +221,33 @@ contains
     call get_command_argument(1, r)
 
   end function get_input_filename
+
+  type(args_t) function get_input_args() result(args)
+
+    integer :: iostat
+    character(max_path_length) :: r
+
+    if (command_argument_count() /= 3) then
+       write(*,*) 'Welcome to RMPCMD http://lab.pdebuyl.be/rmpcdmd/'
+       write(*,*) 'Usage:'
+       write(*,*) '    rmpcdmd run program_name input output seed'
+       write(*,*) &
+            '    where input is the filename of the parameters file, output is the name'
+       write(*,*) &
+            '    of the H5MD output file and seed is a signed 64-bit integer'
+       error stop
+    end if
+
+    call get_command_argument(1, args%input_file)
+    call get_command_argument(2, args%output_file)
+    call get_command_argument(3, r)
+    read(r, *, iostat=iostat) args%seed
+    if (iostat /= 0) then
+       write(*,*) 'Error when reading the seed value (third command-line argument)'
+       error stop
+    end if
+
+  end function get_input_args
 
   subroutine timer_init(this, name)
     class(timer_t), intent(out) :: this

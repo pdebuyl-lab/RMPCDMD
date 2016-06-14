@@ -67,12 +67,14 @@ program single_dimer_pbc
   type(histogram_t) :: z_hist
   type(h5md_element_t) :: z_hist_el
   double precision :: cyl_shell_rmin, cyl_shell_rmax
+  type(args_t) :: args
 
-  call PTparse(config,get_input_filename(),11)
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
+  call threefry_rng_init(state, args%seed)
 
   call main%init('main')
   call varia%init('varia')
@@ -132,7 +134,7 @@ program single_dimer_pbc
 
   call colloids% init(2,2, mass) !there will be 2 species of colloids
 
-  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_pbc', &
+  call hfile%create(args%output_file, 'RMPCDMD::single_dimer_pbc', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 

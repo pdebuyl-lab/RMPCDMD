@@ -53,7 +53,6 @@ program poiseuille_flow
   integer(HID_T) :: fields_group
   type(particle_system_io_t) :: solvent_io
 
-  integer(c_int64_t) :: seed
   integer :: i, L(3), error, N, n_threads
   integer :: rho
   integer :: N_loop, N_therm
@@ -63,12 +62,14 @@ program poiseuille_flow
   double precision :: T, set_temperature, tau
   double precision :: alpha
   logical :: thermostat
+  type(args_t) :: args
 
-  call PTparse(config,get_input_filename(),11)
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
+  call threefry_rng_init(state, args%seed)
 
   call h5open_f(error)
 
@@ -106,7 +107,7 @@ program poiseuille_flow
 
   call solvent_cells%count_particles(solvent% pos)
 
-  call datafile% create(PTread_s(config, 'h5md_file'), 'RMPCDMD:poiseuille_flow', &
+  call datafile% create(args%output_file, 'RMPCDMD:poiseuille_flow', &
        'N/A', 'Pierre de Buyl')
 
   call PTkill(config)

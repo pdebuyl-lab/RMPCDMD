@@ -45,12 +45,14 @@ program n_colloids_pbc
 
   integer :: i, L(3), N, N_colloids
   integer :: j, k
+  type(args_t) :: args
 
-  call PTparse(config,get_input_filename(),11)
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, 719287321987291_c_long)
+  call threefry_rng_init(state, args%seed)
 
   call h5open_f(error)
 
