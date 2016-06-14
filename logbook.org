@@ -21,3 +21,15 @@ The displacement routine has been accelerated by resetting particles in the PBC 
 upon resorting, so that the call to =rel_pos= can be removed.
 
 No idea yet for compact_p_to_h.
+
+* Documentation
+<2016-06-14 Tue>
+
+The organization for the documentation is:
+- A general documentation is generated with sphinx on the basis of the =doc/*.rst= files.
+- A doxygen-generated API, reading from the Fortran source files in =src/=, =programs/= and
+  =test/=.
+- An explicit relation the documentation and the API is provided in doxygen by linking to
+  the relevant documentation page and in the documentation by a sphinx directive that
+  locates doxygen names.
+- The website for RMPCDMD is based on the sphinx documentation.
