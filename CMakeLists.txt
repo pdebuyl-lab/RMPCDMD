@@ -7,7 +7,7 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 enable_testing()
 
-set(PT_HDF5 ON)
+set(PT_HDF5 ON CACHE BOOL "")
 add_subdirectory(ParseText)
 add_subdirectory(fortran_h5md)
 add_subdirectory(fortran_tester)
