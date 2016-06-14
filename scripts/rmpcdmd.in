@@ -24,6 +24,10 @@ run_usage() {
     echo "    - SEED            signed 64-bit integer seed"
 }
 
+generate_seed() {
+    dd count=1 bs=8 if=/dev/urandom 2>/dev/null | od -A n -t d8
+}
+
 if [ $# -lt 1 ]; then
     RMPCDMD_greeting
     exit 0
@@ -32,7 +36,7 @@ fi
 if [ "$1" = "seeder" ]
 then
     shift
-    "${RMPCDMD_HOME}/scripts/seeder.sh" "$@"
+    generate_seed
 elif [ "$1" = "run" ]
 then
     shift
@@ -59,7 +63,7 @@ then
 	    IN="$1"
 	    ls -lh "$IN"
 	    OUT="$2"
-	    SEED=$("${RMPCDMD_HOME}/scripts/seeder.sh")
+	    SEED=$(generate_seed)
 	    set -- "$IN" "$OUT" "$SEED"
 	fi
 	echo $program $@
