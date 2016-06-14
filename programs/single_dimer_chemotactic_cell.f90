@@ -81,9 +81,6 @@ program setup_single_dimer
   integer :: bufferlength
   double precision :: max_speed, z, Lz
   integer :: steps_fixed
-  fixed = .true.
-  on_track = .true.
-  stopped = .false.
 
   call PTparse(config,get_input_filename(),11)
 
@@ -316,6 +313,9 @@ program setup_single_dimer
   catalytic_change = 0
 
   i = 0
+  fixed = .true.
+  on_track = .true.
+  stopped = .false.
 
   write(*,*) colloids% pos
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
