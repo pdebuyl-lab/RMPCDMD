@@ -61,7 +61,6 @@ then
 	shift
 	if [ "$3" = "auto" ]; then
 	    IN="$1"
-	    ls -lh "$IN"
 	    OUT="$2"
 	    SEED=$(generate_seed)
 	    set -- "$IN" "$OUT" "$SEED"
