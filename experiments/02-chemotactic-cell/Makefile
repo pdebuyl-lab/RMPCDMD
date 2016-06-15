@@ -7,6 +7,6 @@ include ../Makefile
 
 simulation: chemo_cell.h5
 
-%.h5: %.parameters $(RMPCDMD)/build/single_dimer_chemotactic_cell
-	rmpcdmd run single_dimer_chemotactic_cell $< $@ auto
+%.h5: %.parameters $(RMPCDMD)/build/chemotactic_cell
+	rmpcdmd run chemotactic_cell $< $@ auto
 

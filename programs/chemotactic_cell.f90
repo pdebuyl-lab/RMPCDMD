@@ -1,4 +1,4 @@
-program setup_single_dimer
+ program chemotactic_cell
   use md
   use neighbor_list
   use common
@@ -18,7 +18,7 @@ program setup_single_dimer
   implicit none
 
   type(threefry_rng_t), allocatable :: state(:)
-  
+
   integer, parameter :: N_species = 3
 
   type(cell_system_t) :: solvent_cells
@@ -36,7 +36,7 @@ program setup_single_dimer
   integer :: error
   integer :: N_colloids
   integer, parameter :: n_bins_conc = 90
-  double precision :: conc_z_cyl(n_bins_conc)   
+  double precision :: conc_z_cyl(n_bins_conc)
 
   double precision :: sigma_N, sigma_C, max_cut,alpha
   double precision :: shift, total_energy
@@ -69,7 +69,7 @@ program setup_single_dimer
   type(PTo) :: config
   integer :: i, L(3),  n_threads
   integer :: j, k, m
-  
+
   type(timer_t) :: flag_timer, change_timer, buffer_timer, varia
   integer(HID_T) :: timers_group
 
@@ -109,10 +109,10 @@ program setup_single_dimer
      N_colloids = 2
   else
      N_colloids = 1
-  end if 
+  end if
   L = PTread_ivec(config, 'L', 3)
   L(1) = L(1) + bufferlength
-  
+
   rho = PTread_i(config, 'rho')
   N = rho *L(1)*L(2)*L(3)
 
@@ -122,13 +122,13 @@ program setup_single_dimer
 
   wall_v = 0
   wall_t = [T, T]
-  
+
   tau =PTread_d(config, 'tau')
   N_MD_steps = PTread_i(config, 'N_MD')
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop')
   steps_fixed = PTread_i(config, 'steps_fixed')
-  
+
   sigma_C = PTread_d(config, 'sigma_C')
   sigma_N = PTread_d(config, 'sigma_N')
 
@@ -149,7 +149,7 @@ program setup_single_dimer
   sigma_cut = sigma*2**(1.d0/6.d0)
   call colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
-  
+
   epsilon = 1.d0
   sigma(1,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*3**(1.d0/6.d0)
@@ -164,7 +164,7 @@ program setup_single_dimer
      mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   else
      mass = rho * sigma_N**3 * 4 * 3.14159265/3
-  end if 
+  end if
 
   write(*,*) 'mass =', mass
 
@@ -221,7 +221,7 @@ program setup_single_dimer
      colloids% species(2) = 2
   else
      colloids% species = 2
-  end if 
+  end if
   colloids% vel = 0
 
   solvent% force = 0
@@ -330,7 +330,7 @@ program setup_single_dimer
         call mpcd_stream_xforce_yzwall(solvent, solvent_cells, dt, g(1))
 
         colloids% pos_rattle = colloids% pos
-        
+
         if (.not. fixed) then
            if (on_track) then
               !only update the flow direction
@@ -343,13 +343,13 @@ program setup_single_dimer
                  colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
                       dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
               end do
-           end if 
+           end if
            if (dimer) then
               call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
            end if
-        end if  
-   
-        if (on_track) then 
+        end if
+
+        if (on_track) then
            if (dimer) then
               if ((colloids% pos(1,1) > (bufferlength+sigma_C)) &
               .and. (colloids% pos(1,2) > (bufferlength+sigma_N))) then
@@ -360,16 +360,16 @@ program setup_single_dimer
               if (colloids% pos(1,1) > (bufferlength+sigma_N)) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
-              end if 
+              end if
            end if
         end if
-        
+
         if (.not. on_track) then
-           do k=1, colloids% Nmax 
+           do k=1, colloids% Nmax
               if (colloids% pos(1,k) > solvent_cells% edges(1)) then
                  stopped = .true.
                  write(*,*) 'stopped', stopped
-              end if 
+              end if
            end do
         end if
 
@@ -406,14 +406,14 @@ program setup_single_dimer
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (.not. on_track) then
            e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj, 3)
-        end if 
+        end if
         if (on_track) then
            colloids% force(2,:) = 0
            colloids% force(3,:) = 0
            if (fixed) then
               colloids% force(1,:) = 0
-           end if 
-        end if 
+           end if
+        end if
 
         call md_vel(solvent, dt)
 
@@ -432,8 +432,8 @@ program setup_single_dimer
            end if
            if (dimer) then
               call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
-           end if 
-        end if 
+           end if
+        end if
         if (.not.fixed) then
            if (dimer) then
               call flag_timer%tic()
@@ -519,7 +519,7 @@ program setup_single_dimer
            fixed = .false.
         end if
      end if
-     
+
   end do setup
 
   call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com, add=.false., force=.true.)
@@ -621,11 +621,11 @@ contains
     integer :: check
     logical :: far_enough_from_wall
     double precision :: range_min1(3),range_min2(3),range_max1(3),range_max2(3)
-    
+
     dz = 2.d0*d/n_bins_conc
     dimer_orient = colloids% pos(:,2) - colloids% pos(:,1)
     z = dimer_orient/sqrt(dot_product(dimer_orient,dimer_orient))
-   
+
     x = (/0.d0, 1.d0, -dimer_orient(2)/dimer_orient(3)/)
     x = x/sqrt(dot_product(x,x))
     y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
@@ -643,7 +643,7 @@ contains
        far_enough_from_wall = .true.
     else
        far_enough_from_wall = .false.
-    end if 
+    end if
     if (far_enough_from_wall) then
        do o = 1, solvent% Nmax
           solvent_pos(:,o) = solvent% pos(:,o) - colloids% pos(:,1)
@@ -660,10 +660,10 @@ contains
           if ((solvent_pos(1,o) < 2*max_cut).and.(solvent_pos(3,o)<1.5d0*d).and.(solvent_pos(3,o)>-0.5d0*d)) then
              if (solvent% species(o)==2) then
                 check = floor((solvent_pos(3,o)+0.5d0*d)/dz)
-                check = check+1 
+                check = check+1
                 conc_z_cyl(check) = conc_z_cyl(check) + 1
              end if
-          end if 
+          end if
        end do
        colloid_pos(:,1) = 0
        colloid_pos(3,1) = colloids% pos(3,1)
@@ -672,13 +672,13 @@ contains
     else
        conc_z_cyl = 0
        colloid_pos = 0
-    end if 
+    end if
   end subroutine concentration_field_cylindrical
 
   subroutine buffer_particles(particles,edges)
      type(particle_system_t), intent(inout) :: particles
      double precision, intent(in) :: edges(3)
-  
+
      integer :: k, s
 
      bulk_change = 0
@@ -697,8 +697,8 @@ contains
               particles% species(k) = 3
               s = 3
               bulk_change(s) = bulk_change(s) + 1
-           end if  
-        end if 
+           end if
+        end if
      end do
   end subroutine buffer_particles
 
@@ -716,4 +716,4 @@ contains
 
   end subroutine compute_rho_xy
 
-end program setup_single_dimer
+end program chemotactic_cell

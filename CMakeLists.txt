@@ -16,7 +16,7 @@ add_subdirectory(random_module)
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY} ${HDF5_Fortran_INCLUDE_DIR})
 
 set(RMPCDMD_PROGRAMS poiseuille_flow single_dimer_pbc single_janus_pbc
-single_dimer_chemotactic_cell single_dimer_channel_flow single_sphere_thermo_trap
+chemotactic_cell single_dimer_channel_flow single_sphere_thermo_trap
 n_colloids_pbc)
 
 configure_file(scripts/rmpcdmd.in rmpcdmd @ONLY)
