@@ -61,16 +61,18 @@ invoking cmake (see the OS X installation notes for an example).
 Installation on OS X
 --------------------
 
-The first step is to install a development environment, and thus the
-`XCode <https://developer.apple.com/xcode/>`_ software from Apple.
+The first step is to install a development environment, and thus the `XCode
+<https://developer.apple.com/xcode/>`_ software from Apple (we have tested RMPCDMD with
+XCode 7.3.1 on OS X El Capitan).
 
-We have tested the build by relying on `MacPorts <https://www.macports.org/>`_ for gcc, git,
-cmake and make. Install MacPorts and then the dependencies::
+We used `MacPorts <https://www.macports.org/>`_ for gcc, git, cmake and make. Install
+MacPorts (a GUI installer is available at https://www.macports.org/install.php) and then
+the dependencies::
 
     sudo port install gcc-5 cmake git
 
 The rest is similar to Linux except that the name of the compiler has to be specified
-manuall at the command-line to prevent the automatic selection of Apple's provided
+manually at the command-line to prevent the automatic selection of Apple's provided
 compiler. Also, HDF5 is built locally::
 
     git clone https://github.com/pdebuyl-lab/RMPCDMD
