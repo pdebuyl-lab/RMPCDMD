@@ -8,7 +8,12 @@ HDF5_SRC_MD5SUM=7d572f8f3b798a628b8245af0391a0ca
 BASEPATH="$(pwd)"
 
 verify_sum() {
-    echo "${HDF5_SRC_MD5SUM} ${HDF5_TARBALL}" | md5sum --quiet -c
+   if which md5sum ; then
+      echo "${HDF5_SRC_MD5SUM} ${HDF5_TARBALL}" | md5sum --quiet -c
+   else
+      LOCAL_SUM=$(openssl md5 -r ${HDF5_TARBALL})
+      [ "$LOCAL_SUM" = "${HDF5_SRC_MD5SUM} *${HDF5_TARBALL}" ]
+   fi
 }
 
 verify_sum
