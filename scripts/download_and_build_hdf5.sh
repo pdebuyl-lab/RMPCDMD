@@ -13,10 +13,10 @@ verify_sum() {
 
 verify_sum
 if [ "$?" != "0" ] ; then
-    wget ${HDF5_SRC_URL}
+    curl -o "${HDF5_TARBALL}" "${HDF5_SRC_URL}"
 fi
 
-verify_sum && tar zxf ${HDF5_TARBALL}
+verify_sum && tar zxf "${HDF5_TARBALL}"
 if [ "$?" = "0" ] ; then
     cd ${HDF5_NAME}
     ./configure --enable-fortran --enable-fortran2003 --disable-shared --prefix="${BASEPATH}/_${HDF5_NAME}"
