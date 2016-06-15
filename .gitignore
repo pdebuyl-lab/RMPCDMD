@@ -1,3 +1,6 @@
 *~
 /build
 *.pyc
+hdf5-*/
+_hdf5-*
+hdf5-*.tar.gz
