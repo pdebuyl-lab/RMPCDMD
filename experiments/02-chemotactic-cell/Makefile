@@ -8,5 +8,5 @@ include ../Makefile
 simulation: chemo_cell.h5
 
 %.h5: %.parameters $(RMPCDMD)/build/chemotactic_cell
-	rmpcdmd run chemotactic_cell $< $@ auto
+	$(RMPCDMD)/build/rmpcdmd run chemotactic_cell $< $@ auto
 
