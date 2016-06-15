@@ -9,7 +9,7 @@ BASEPATH="$(pwd)"
 
 verify_sum() {
    if which md5sum ; then
-      echo "${HDF5_SRC_MD5SUM} ${HDF5_TARBALL}" | md5sum --quiet -c
+      echo "${HDF5_SRC_MD5SUM}  ${HDF5_TARBALL}" | md5sum --quiet -c
    else
       LOCAL_SUM=$(openssl md5 -r ${HDF5_TARBALL})
       [ "$LOCAL_SUM" = "${HDF5_SRC_MD5SUM} *${HDF5_TARBALL}" ]
