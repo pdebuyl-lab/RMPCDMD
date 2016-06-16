@@ -58,7 +58,7 @@
   double precision :: colloid_pos(3,2)
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
-  integer(HID_T) :: fields_group
+  integer(HID_T) :: fields_group, params_group
   type(h5md_element_t) :: rho_xy_el
   type(thermo_t) :: thermo_data
   type(particle_system_io_t) :: dimer_io
@@ -105,43 +105,47 @@
 
   call h5open_f(error)
 
+  call hfile%create(args%output_file, 'RMPCDMD::chemotactic_cell', 'N/A', 'Pierre de Buyl')
+  call h5gcreate_f(hfile%id, 'parameters', params_group, error)
+  call hdf5_util_write_dataset(params_group, 'seed', args%seed)
+
   g = 0
-  g(1) = PTread_d(config, 'g')
-  bufferlength = PTread_i(config, 'buffer_length')
-  max_speed = PTread_d(config,'max_speed')
-  prob = PTread_d(config,'probability')
-  alpha = PTread_d(config,'alpha')
-  store_rho_xy = PTread_l(config, 'store_rho_xy')
-  dimer = PTread_l(config, 'dimer')
+  g(1) = PTread_d(config, 'g', loc=params_group)
+  bufferlength = PTread_i(config, 'buffer_length', loc=params_group)
+  max_speed = PTread_d(config,'max_speed', loc=params_group)
+  prob = PTread_d(config,'probability', loc=params_group)
+  alpha = PTread_d(config,'alpha', loc=params_group)
+  store_rho_xy = PTread_l(config, 'store_rho_xy', loc=params_group)
+  dimer = PTread_l(config, 'dimer', loc=params_group)
   if (dimer) then
      N_colloids = 2
   else
      N_colloids = 1
   end if
-  L = PTread_ivec(config, 'L', 3)
+  L = PTread_ivec(config, 'L', 3, loc=params_group)
   L(1) = L(1) + bufferlength
 
-  rho = PTread_i(config, 'rho')
+  rho = PTread_i(config, 'rho', loc=params_group)
   N = rho *L(1)*L(2)*L(3)
 
-  T = PTread_d(config, 'T')
-  d = PTread_d(config, 'd')
-  N_in_front = PTread_l(config, 'N_in_front')
+  T = PTread_d(config, 'T', loc=params_group)
+  d = PTread_d(config, 'd', loc=params_group)
+  N_in_front = PTread_l(config, 'N_in_front', loc=params_group)
 
   wall_v = 0
   wall_t = [T, T]
 
-  tau =PTread_d(config, 'tau')
-  N_MD_steps = PTread_i(config, 'N_MD')
+  tau = PTread_d(config, 'tau', loc=params_group)
+  N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
   dt = tau / N_MD_steps
-  N_loop = PTread_i(config, 'N_loop')
-  steps_fixed = PTread_i(config, 'steps_fixed')
+  N_loop = PTread_i(config, 'N_loop', loc=params_group)
+  steps_fixed = PTread_i(config, 'steps_fixed', loc=params_group)
 
-  sigma_C = PTread_d(config, 'sigma_C')
-  sigma_N = PTread_d(config, 'sigma_N')
+  sigma_C = PTread_d(config, 'sigma_C', loc=params_group)
+  sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
 
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', N_species)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', N_species)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', N_species, loc=params_group)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', N_species, loc=params_group)
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
 
@@ -164,8 +168,6 @@
   shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
   call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
 
-  write(*,*) epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift
-
   allocate(mass(N_colloids))
   if (dimer) then
      mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
@@ -174,14 +176,10 @@
      mass = rho * sigma_N**3 * 4 * 3.14159265/3
   end if
 
-  write(*,*) 'mass =', mass
-
   call solvent% init(N,N_species, system_name='solvent')
 
   call colloids% init(N_colloids,2, mass, system_name='colloids') !there will be 2 species of colloids
 
-  call hfile%create(args%output_file, 'RMPCDMD::single_dimer_chemotactic_cell', &
-       'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
   call PTkill(config)
@@ -327,7 +325,6 @@
   on_track = .true.
   stopped = .false.
 
-  write(*,*) colloids% pos
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
 
   write(*,*) 'Running for', N_loop, 'loops'
