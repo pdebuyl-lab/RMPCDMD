@@ -45,6 +45,9 @@ Under Linux, execute the following in a terminal
     cmake ..
     make VERBOSE=1
 
+Then copy the file `rmpcdmd` in a location where executables are found
+(i.e. ``$HOME/.local/bin`` or ``$HOME/bin`` for instance).
+
 For OS X, refer to the [documentation](http://lab.pdebuyl.be/rmpcdmd/).
 
 ## Run the code

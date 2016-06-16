@@ -10,5 +10,6 @@ Contents:
    algorithms
    design
    install
+   run
    zbibliography
 

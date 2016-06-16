@@ -29,8 +29,13 @@ executing::
 
 in the build directory (*not in the source directory*).
 
-Installation on Linux
----------------------
+After successfully building the program, copy the file `rmpcdmd` in a location where
+executables are found (i.e. ``$HOME/.local/bin`` or ``$HOME/bin`` for instance). This file
+provides a unique interface to RMPCDMD.
+
+
+Building on Linux
+-----------------
 
 On a Debian distribution (or derivative, e.g. Ubuntu), as root::
 
@@ -58,8 +63,8 @@ If your HDF5 installation is properly setup, CMake should find it automatically.
 not the case, you may define the environment variable ``HDF5_ROOT=/path/to/hdf5`` before
 invoking cmake (see the OS X installation notes for an example).
 
-Installation on OS X
---------------------
+Building on OS X
+----------------
 
 The first step is to install a development environment, and thus the `XCode
 <https://developer.apple.com/xcode/>`_ software from Apple (we have tested RMPCDMD with
@@ -87,8 +92,8 @@ compiler. Also, HDF5 is built locally::
 
 The compiler names given here may vary depending on your setup.
 
-Installation on Windows
------------------------
+Building on Windows
+-------------------
 
 Installation on Windows is not tested at this time. The major difficulty is likely related
 to a functional installation of HDF5 for Fortran under Windows, that is only provided for
