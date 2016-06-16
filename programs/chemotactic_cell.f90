@@ -70,7 +70,9 @@
   integer :: i, L(3),  n_threads
   integer :: j, k, m
 
-  type(timer_t) :: flag_timer, change_timer, buffer_timer, varia
+  type(timer_t), target :: flag_timer, change_timer, buffer_timer, varia
+  double precision :: total_time
+  type(timer_list_t) :: timer_list
   integer(HID_T) :: timers_group
 
   integer, allocatable :: rho_xy(:,:,:)
@@ -90,6 +92,12 @@
   call change_timer%init('change')
   call buffer_timer%init('buffer')
   call varia%init('varia')
+
+  call timer_list%init(13)
+  call timer_list%append(flag_timer)
+  call timer_list%append(change_timer)
+  call timer_list%append(buffer_timer)
+  call timer_list%append(varia)
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
@@ -168,9 +176,9 @@
 
   write(*,*) 'mass =', mass
 
-  call solvent% init(N,N_species)
+  call solvent% init(N,N_species, system_name='solvent')
 
-  call colloids% init(N_colloids,2, mass) !there will be 2 species of colloids
+  call colloids% init(N_colloids,2, mass, system_name='colloids') !there will be 2 species of colloids
 
   call hfile%create(args%output_file, 'RMPCDMD::single_dimer_chemotactic_cell', &
        'N/A', 'Pierre de Buyl')
@@ -532,25 +540,19 @@
   call solvent_io%species%append(solvent%species)
 
   call h5gcreate_f(hfile%id, 'timers', timers_group, error)
-  call h5md_write_dataset(timers_group, solvent%time_stream%name, solvent%time_stream%total)
-  call h5md_write_dataset(timers_group, solvent%time_md_vel%name, solvent%time_md_vel%total)
-  call h5md_write_dataset(timers_group, solvent%time_step%name, solvent%time_step%total)
-  call h5md_write_dataset(timers_group, solvent%time_count%name, solvent%time_count%total)
-  call h5md_write_dataset(timers_group, solvent%time_sort%name, solvent%time_sort%total)
-  call h5md_write_dataset(timers_group, solvent%time_ct%name, solvent%time_ct%total)
-  call h5md_write_dataset(timers_group, solvent%time_max_disp%name, solvent%time_max_disp%total)
-  call h5md_write_dataset(timers_group, flag_timer%name, flag_timer%total)
-  call h5md_write_dataset(timers_group, change_timer%name, change_timer%total)
-  call h5md_write_dataset(timers_group, buffer_timer%name, buffer_timer%total)
-  call h5md_write_dataset(timers_group, neigh%time_update%name, neigh%time_update%total)
-  call h5md_write_dataset(timers_group, varia%name, varia%total)
-  call h5md_write_dataset(timers_group, neigh%time_force%name, neigh%time_force%total)
+  call timer_list%append(solvent%time_stream)
+  call timer_list%append(solvent%time_md_vel)
+  call timer_list%append(solvent%time_step)
+  call timer_list%append(solvent%time_count)
+  call timer_list%append(solvent%time_sort)
+  call timer_list%append(solvent%time_ct)
+  call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(neigh%time_update)
+  call timer_list%append(neigh%time_force)
 
-  call h5md_write_dataset(timers_group, 'total', solvent%time_stream%total + &
-       solvent%time_step%total + solvent%time_count%total + solvent%time_sort%total + &
-       solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
-       flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + &
-       varia%total + neigh%time_force%total)
+  call timer_list%write(timers_group, total_time)
+
+  call h5md_write_dataset(timers_group, 'total', total_time)
 
   call h5gclose_f(timers_group, error)
 

@@ -10,6 +10,7 @@ module common
   public :: get_input_filename
   public :: get_input_args
   public :: timer_t
+  public :: timer_list_t
   public :: args_t
 
   integer, parameter :: max_path_length = 255
@@ -60,6 +61,22 @@ module common
      procedure :: tic
      procedure :: tac
   end type timer_t
+
+  type timer_pointer_t
+     type(timer_t), pointer :: p
+  end type timer_pointer_t
+
+  type timer_list_t
+     type(timer_pointer_t), allocatable :: timers(:)
+     integer :: current_idx
+   contains
+     generic, public :: init => timer_list_init
+     procedure, private :: timer_list_init
+     generic, public :: append => timer_list_append
+     procedure, private :: timer_list_append
+     generic, public :: write => timer_list_write
+     procedure, private :: timer_list_write
+  end type timer_list_t
 
   interface switch
      module procedure :: switch_d2
@@ -249,11 +266,20 @@ contains
 
   end function get_input_args
 
-  subroutine timer_init(this, name)
+  subroutine timer_init(this, name, system_name)
     class(timer_t), intent(out) :: this
     character(len=*), intent(in) :: name
+    character(len=*), optional, intent(in) :: system_name
 
-    this%name = name
+    if (present(system_name)) then
+       if (len(system_name) > 0) then
+          this%name = system_name//' '//name
+       else
+          this%name = name
+       end if
+    else
+       this%name = name
+    end if
     this%total = 0
 
   end subroutine timer_init
@@ -269,5 +295,44 @@ contains
     class(timer_t), intent(inout) :: this
     this%total = this%total + omp_get_wtime() - this%tic_time
   end subroutine tac
+
+  subroutine timer_list_init(this, n)
+    class(timer_list_t), intent(out) :: this
+    integer, intent(in) :: n
+
+    allocate(this%timers(n))
+    this%current_idx = 0
+
+  end subroutine timer_list_init
+
+  subroutine timer_list_append(this, timer_target)
+    class(timer_list_t), intent(inout) :: this
+    type(timer_t), target, intent(in) :: timer_target
+
+    this%current_idx = this%current_idx + 1
+    if (this%current_idx > size(this%timers)) error stop 'exceeded timer_list_t size'
+    this%timers(this%current_idx)%p => timer_target
+
+  end subroutine timer_list_append
+
+  subroutine timer_list_write(this, group, total_out)
+    use hdf5, only: HID_T
+    use h5md_module, only: h5md_write_dataset
+    implicit none
+    class(timer_list_t), intent(inout) :: this
+    integer(HID_T), intent(inout) :: group
+    double precision, optional, intent(out) :: total_out
+
+    integer :: i
+
+    total_out = 0
+    do i = 1, size(this%timers)
+       if (associated(this%timers(i)%p)) then
+          call h5md_write_dataset(group, this%timers(i)%p%name, this%timers(i)%p%total)
+          total_out = total_out + this%timers(i)%p%total
+       end if
+    end do
+
+  end subroutine timer_list_write
 
 end module common
