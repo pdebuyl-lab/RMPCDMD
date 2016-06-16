@@ -33,6 +33,8 @@ After successfully building the program, copy the file `rmpcdmd` in a location w
 executables are found (i.e. ``$HOME/.local/bin`` or ``$HOME/bin`` for instance). This file
 provides a unique interface to RMPCDMD.
 
+To analyze simulation data, RMPCDMD provides the command ``rmpcdmd plot`` (see :ref:`run`)
+that requires Python a a number of packages (see below).
 
 Building on Linux
 -----------------
@@ -119,3 +121,29 @@ installation notes).
 
 The script downloads HDF5 1.8.17 and installs it under ``_hdf5-1.8.17``. You can remove the
 directory ``hdf5-1.8.17`` (no leading underscore) after the execution of the script.
+
+Python
+------
+
+Several analysis scripts in the ``experiments/`` directory and a command-line tool ``rmpcdmd
+plot`` are provided. They all rely on the Python programming language and the following
+Python packages:
+
+* `NumPy <http://numpy.org/>`_
+* `SciPy <http://scipy.org/>`_
+* `matplotlib <http://matplotlib.org/>`_
+* `h5py <http://www.h5py.org/>`_
+
+Installing those tools under Linux is straightforward::
+
+    sudo apt-get install python-numpy python-scipy python-matplotlib python-h5py
+
+for Debian-based systems or::
+
+    sudo yum install numpy scipy h5py python-matplotlib
+
+for Red-Hat based systems.
+
+On OS X, we recommend to use a Python "super package" such as `Enthought Canopy
+<https://www.enthought.com/products/canopy/>`_ or `Anaconda
+<https://www.continuum.io/why-anaconda>`_ from Continuum that bundle the required software.
