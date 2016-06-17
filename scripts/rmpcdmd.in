@@ -13,6 +13,7 @@ RMPCDMD_greeting() {
     echo "    - run     Perform a simulation"
     echo "    - seeder  Return a signed 64-bit integer seed from /dev/urandom"
     echo "    - plot    Display the results of a simulation"
+    echo "    - timers  Display the times of a simulation"
 }
 
 run_usage() {
@@ -81,6 +82,10 @@ elif [ "$1" = "plot" ]
 then
     shift
     python "${RMPCDMD_HOME}/scripts/h5md_plot.py" "$@"
+elif [ "$1" = "timers" ]
+then
+    shift
+    python "${RMPCDMD_HOME}/scripts/timers_plot.py" "$@"
 else
     echo "Unknown command"
 fi
