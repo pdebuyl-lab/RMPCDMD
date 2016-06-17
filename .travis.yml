@@ -13,7 +13,7 @@ script:
   - ctest -V
   - sudo make install
   - rmpcdmd run single_dimer_pbc ../test/dimer_test.parameters dimer_test.h5 auto
-  - python ../dimer_test.py dimer_test.h5 
+  - python ../test/dimer_test.py dimer_test.h5
 
 after_failure:
   - cat hdf5_build.out
