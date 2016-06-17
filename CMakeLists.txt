@@ -20,6 +20,7 @@ chemotactic_cell single_dimer_channel_flow single_sphere_thermo_trap
 n_colloids_pbc)
 
 configure_file(scripts/rmpcdmd.in rmpcdmd @ONLY)
+install(PROGRAMS ${CMAKE_BINARY_DIR}/rmpcdmd DESTINATION bin)
 
 add_library(RMPCDMD
 src/common.f90
