@@ -60,6 +60,8 @@ with h5py.File(args.file, 'r') as f:
         value = g['value']
         if len(value.shape)==3:
             value = value[:,:,args.index]
+        else:
+            value = value[:]
         if args.mean:
             plt.plot(value.mean(axis=0))
         else:
