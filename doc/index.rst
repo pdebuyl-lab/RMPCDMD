@@ -3,8 +3,18 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-RMPCDMD
-=======
+.. only:: html
+
+    RMPCDMD
+    =======
+
+.. only:: latex
+
+    About RMPCDMD
+    =============
+
+:Authors: Pierre de Buyl, Peter Colberg, Laurens Deprez
+:License: BSD
 
 RMPCDMD is a software for the simulation of colloids via Molecular Dynamics,
 embedded in a MPCD fluid.
@@ -19,11 +29,6 @@ prepare their own simulation setup, then requiring programming in Fortran.
 See :ref:`install` for obtaining and building RMPCDMD. The contact person for RMPCDMD is
 `Pierre de Buyl <http://pdebuyl.be>`_.
 
-About the code
---------------
-
-:Authors: Pierre de Buyl, Peter Colberg, Laurens Deprez
-:License: BSD
 
 Features:
 
@@ -37,16 +42,4 @@ Development of the code takes place on `GitHub <https://github.com/>`_. The code
 is `pdebuyl-lab/RMPCDMD <https://github.com/pdebuyl-lab/RMPCDMD>`_
 
 The source code features inline comments, published with Doxygen: `api <api/index.html>`_.
-
-Contents
---------
-
-.. toctree::
-   :maxdepth: 2
-
-   algorithms
-   design
-   install
-   run
-   zbibliography
 
