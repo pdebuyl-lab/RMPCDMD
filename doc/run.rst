@@ -48,6 +48,22 @@ Usage::
 
 Returns a signed 64-bit integer seed.
 
+``rmpcdmd timers``
+------------------
+
+Usage::
+
+    rmpcdmd timers [-h] datafile [--plot]
+
+Arguments
+
+* ``-h`` display the the full command-line syntax and exit
+* ``datafile`` a datafile produced by one of the simulation programs
+* ``--plot`` plots the timers data as a bargraph instead of printing to the terminal.
+
+Prints (or plot in the ``--plot`` option is given) the value of the timers in the simulation
+file ``datafile``.
+
 ``experiments/`` directory
 --------------------------
 
