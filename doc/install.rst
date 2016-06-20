@@ -36,6 +36,15 @@ provides a unique interface to RMPCDMD.
 To analyze simulation data, RMPCDMD provides the command ``rmpcdmd plot`` (see :ref:`run`)
 that requires Python a a number of packages (see below).
 
+.. note:: Once CMake has been executed, the RMPCDMD directory cannot be moved. If it is
+          moved, the complete configuration procedure has to be restarted and the
+          `rmpcdmd` program (in ``$HOME/.local/bin`` or ``$HOME/bin``) must be replaced
+          by the newly created version.
+
+.. note:: The `rmpcdmd` program does not contain the simulations programs themselves and
+          relies on their presence at the location of compilation.
+
+
 Building on Linux
 -----------------
 
