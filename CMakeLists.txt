@@ -22,6 +22,11 @@ n_colloids_pbc)
 configure_file(scripts/rmpcdmd.in rmpcdmd @ONLY)
 install(PROGRAMS ${CMAKE_BINARY_DIR}/rmpcdmd DESTINATION bin)
 
+find_package(Git)
+
+execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --dirty OUTPUT_VARIABLE REVISION OUTPUT_STRIP_TRAILING_WHITESPACE)
+configure_file(src/rmpcdmd_module.f90.in ${RMPCDMD_BINARY_DIR}/rmpcdmd_module.f90 @ONLY)
+
 add_library(RMPCDMD
 src/common.f90
 src/cell_system.f90
@@ -32,7 +37,7 @@ src/particle_system_io.f90
 src/mpcd.f90
 src/md.f90
 src/neighbor_list.f90
-src/rmpcdmd_module.f90)
+${RMPCDMD_BINARY_DIR}/rmpcdmd_module.f90)
 target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module)
 
 add_executable(setup_simple_fluid
