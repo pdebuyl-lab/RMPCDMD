@@ -51,5 +51,5 @@ is `pdebuyl-lab/RMPCDMD <https://github.com/pdebuyl-lab/RMPCDMD>`_
 The source code features inline comments, published with Doxygen: `api <api/index.html>`_.
 
 The use of the Hilbert curve sorting and of the Threefry Random Number Generator
-(:cite:`random123`) is inspired by Peter Colberg's code `nano-dimer
-<https://colberg.org/nano-dimer/>`_.
+(:cite:`random123`) is inspired by Peter Colberg's code `nano-dimer`
+:cite:`colberg_nanodimer_web`.
