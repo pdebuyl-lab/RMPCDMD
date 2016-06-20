@@ -29,7 +29,7 @@ programs only require the setting of parameters in the ad-hoc text file for exec
 Highlights:
 
 - The simulation of dimer nanomotors, reproducing the pioneering work of Rückner and
-  Kapral :cite:`ruckner_kapral_prl_2007` are well tested.
+  Kapral :cite:`ruckner_kapral_prl_2007` is well tested.
 - This code is a research code, so other features are probably *under development*. This
   should not prevent you from using it!
 - We have a :ref:`tutorial` on nanomotor simulations.
@@ -41,6 +41,7 @@ Features:
 - Rattle constrained dynamics for rigid bodies
 - Walls (specular, bounce-back, virtual particles)
 - Hilbert curve based spatial sorting of solvent particles
+- `H5MD <http://nongnu.org/h5md>`_ trajectory file output :cite:`h5md_cpc_2014`
 - Fortran 2008 codebase using modules and *no global variable*
 - OpenMP multithreaded operation
 
@@ -49,3 +50,6 @@ is `pdebuyl-lab/RMPCDMD <https://github.com/pdebuyl-lab/RMPCDMD>`_
 
 The source code features inline comments, published with Doxygen: `api <api/index.html>`_.
 
+The use of the Hilbert curve sorting and of the Threefry Random Number Generator
+(:cite:`random123`) is inspired by Peter Colberg's code `nano-dimer
+<https://colberg.org/nano-dimer/>`_.
