@@ -9,9 +9,6 @@ mesoscopic modeling of chemically active fluids with embedded colloids.
 This software represents the development version of the author to
 perform his research on nanomotor modeling.
 
-Contributions from Peter Colberg, either in the code or via
-discussions, are warmly acknowledged.
-
 ## Status
 
 A former version of this code, still available in the branches `trs`
@@ -65,4 +62,5 @@ BSD 3-clause, see [LICENSE](LICENSE).
 ## Contributors
 
 Peter Colberg: general programming improvements, OpenMP, debugging  
-Laurens Deprez: single colloid setup, gravity field and corresponding bounce-back, shake/rattle for dimers
+Laurens Deprez: single colloid setup, gravity field and corresponding bounce-back, shake/rattle for dimers  
+Mu-Jie Huang: parts of the tutorial

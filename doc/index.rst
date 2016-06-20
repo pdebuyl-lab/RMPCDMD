@@ -13,7 +13,7 @@
     About RMPCDMD
     =============
 
-:Authors: Pierre de Buyl, Peter Colberg, Laurens Deprez
+:Authors: Pierre de Buyl, Peter Colberg, Laurens Deprez, Mu-Jie Huang
 :License: BSD
 
 RMPCDMD is a software for the simulation of colloids via Molecular Dynamics,

@@ -9,5 +9,6 @@ Table of contents
    design
    install
    run
+   tutorial
    zbibliography
 
