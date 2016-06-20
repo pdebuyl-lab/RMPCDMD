@@ -43,12 +43,12 @@ help:
 clean:
 	rm -rf $(BUILDDIR)/*
 
-_build:
-	mkdir _build
+_build/html:
+	mkdir -p _build/html
 
-api: _build/api
+api: _build/html/api
 
-_build/api: doxygen_conf index.md ../src/*.f90 ../test/*.f90 ../programs/*.f90 | _build
+_build/html/api: doxygen_conf index.md ../src/*.f90 ../test/*.f90 ../programs/*.f90 | _build/html
 	doxygen doxygen_conf
 .PHONY: html
 html: api
