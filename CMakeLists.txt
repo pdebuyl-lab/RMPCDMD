@@ -24,8 +24,8 @@ install(PROGRAMS ${CMAKE_BINARY_DIR}/rmpcdmd DESTINATION bin)
 
 find_package(Git)
 
-execute_process(COMMAND ${GIT_EXECUTABLE} describe --tags --dirty OUTPUT_VARIABLE REVISION OUTPUT_STRIP_TRAILING_WHITESPACE)
-configure_file(src/rmpcdmd_module.f90.in ${RMPCDMD_BINARY_DIR}/rmpcdmd_module.f90 @ONLY)
+add_custom_target(RMPCDMD_REVISION_TARGET ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake)
+execute_process(COMMAND ${CMAKE_COMMAND} -D RMPCDMD_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake)
 
 add_library(RMPCDMD
 src/common.f90
@@ -39,6 +39,7 @@ src/md.f90
 src/neighbor_list.f90
 ${RMPCDMD_BINARY_DIR}/rmpcdmd_module.f90)
 target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module)
+add_dependencies(RMPCDMD RMPCDMD_REVISION_TARGET)
 
 add_executable(setup_simple_fluid
 test/setup_simple_fluid.f90)

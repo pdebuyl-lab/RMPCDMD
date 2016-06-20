@@ -10,6 +10,6 @@ module rmpcdmd_module
   use md
   implicit none
 
-  character(len=*), parameter :: RMPCDMD_REVISION = '@REVISION@'
+  character(len=*), parameter :: RMPCDMD_REVISION = '@RMPCDMD_REVISION@'
 
 end module rmpcdmd_module
