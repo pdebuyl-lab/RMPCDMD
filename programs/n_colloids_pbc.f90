@@ -1,15 +1,8 @@
 program n_colloids_pbc
-  use common
-  use cell_system
-  use particle_system
-  use hilbert
-  use neighbor_list
+  use rmpcdmd_module
   use hdf5
   use h5md_module
-  use interaction
   use threefry_module
-  use mpcd
-  use md
   use ParseText
   use iso_c_binding
   use omp_lib

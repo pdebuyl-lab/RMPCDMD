@@ -31,7 +31,8 @@ src/particle_system.f90
 src/particle_system_io.f90
 src/mpcd.f90
 src/md.f90
-src/neighbor_list.f90)
+src/neighbor_list.f90
+src/rmpcdmd_module.f90)
 target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module)
 
 add_executable(setup_simple_fluid

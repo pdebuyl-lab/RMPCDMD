@@ -16,16 +16,9 @@
 !! \param N_loop      number of MPCD timesteps
 
 program poiseuille_flow
-  use common
-  use cell_system
-  use particle_system
-  use hilbert
-  use interaction
+  use rmpcdmd_module
   use hdf5
   use h5md_module
-  use particle_system_io
-  use mpcd
-  use md
   use threefry_module
   use ParseText
   use iso_c_binding
