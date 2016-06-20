@@ -52,13 +52,13 @@ _build/api: doxygen_conf index.md ../src/*.f90 ../test/*.f90 ../programs/*.f90 |
 	doxygen doxygen_conf
 .PHONY: html
 html: api
-	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)
+	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
 	@echo
-	@echo "Build finished. The HTML pages are in $(BUILDDIR)."
+	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
 .PHONY: rsync_upload
 rsync_upload: html
-	rsync -e "ssh -p $(SSH_PORT)" -P -rvz --delete --exclude="tmp/" --exclude="rmpcdmd/" $(BUILDDIR)/ $(SSH_USER)@$(SSH_HOST):$(SSH_TARGET_DIR) --cvs-exclude
+	rsync -e "ssh -p $(SSH_PORT)" -P -rvz --delete --exclude="tmp/" --exclude="rmpcdmd/" $(BUILDDIR)/html/ $(SSH_USER)@$(SSH_HOST):$(SSH_TARGET_DIR) --cvs-exclude
 
 .PHONY: dirhtml
 dirhtml:
