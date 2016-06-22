@@ -7,12 +7,25 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/modules)
 
 enable_testing()
 
+set(PT_HDF5 ON CACHE BOOL "")
 add_subdirectory(ParseText)
 add_subdirectory(fortran_h5md)
 add_subdirectory(fortran_tester)
 add_subdirectory(random_module)
 
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY} ${HDF5_Fortran_INCLUDE_DIR})
+
+set(RMPCDMD_PROGRAMS poiseuille_flow single_dimer_pbc single_janus_pbc
+chemotactic_cell single_dimer_channel_flow single_sphere_thermo_trap
+n_colloids_pbc)
+
+configure_file(scripts/rmpcdmd.in rmpcdmd @ONLY)
+install(PROGRAMS ${CMAKE_BINARY_DIR}/rmpcdmd DESTINATION bin)
+
+find_package(Git)
+
+add_custom_target(RMPCDMD_REVISION_TARGET ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake)
+execute_process(COMMAND ${CMAKE_COMMAND} -D RMPCDMD_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake)
 
 add_library(RMPCDMD
 src/common.f90
@@ -23,8 +36,10 @@ src/particle_system.f90
 src/particle_system_io.f90
 src/mpcd.f90
 src/md.f90
-src/neighbor_list.f90)
+src/neighbor_list.f90
+${RMPCDMD_BINARY_DIR}/rmpcdmd_module.f90)
 target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module)
+add_dependencies(RMPCDMD RMPCDMD_REVISION_TARGET)
 
 add_executable(setup_simple_fluid
 test/setup_simple_fluid.f90)
@@ -38,9 +53,10 @@ add_executable(setup_thermal_fluid
 test/setup_thermal_fluid.f90)
 target_link_libraries(setup_thermal_fluid RMPCDMD fortran_h5md ParseText)
 
-add_executable(poiseuille_flow
-programs/poiseuille_flow.f90)
-target_link_libraries(poiseuille_flow RMPCDMD fortran_h5md ParseText)
+foreach(program_name IN LISTS RMPCDMD_PROGRAMS)
+add_executable(${program_name} programs/${program_name}.f90)
+target_link_libraries(${program_name} RMPCDMD fortran_h5md ParseText)
+endforeach(program_name)
 
 add_executable(setup_simple_colloids
 test/setup_simple_colloids.f90)
@@ -57,26 +73,6 @@ target_link_libraries(setup_simple_rattle RMPCDMD fortran_h5md ParseText)
 add_executable(setup_single_catalytic_fixed_sphere
 test/setup_single_catalytic_fixed_sphere.f90)
 target_link_libraries(setup_single_catalytic_fixed_sphere RMPCDMD fortran_h5md ParseText)
-
-add_executable(single_dimer_pbc
-programs/single_dimer_pbc.f90)
-target_link_libraries(single_dimer_pbc RMPCDMD fortran_h5md ParseText)
-
-add_executable(single_janus_pbc
-programs/single_janus_pbc.f90)
-target_link_libraries(single_janus_pbc RMPCDMD fortran_h5md ParseText)
-
-add_executable(single_dimer_chemotactic_cell
-programs/single_dimer_chemotactic_cell.f90)
-target_link_libraries(single_dimer_chemotactic_cell RMPCDMD ParseText)
-
-add_executable(single_dimer_channel_flow
-programs/single_dimer_channel_flow.f90)
-target_link_libraries(single_dimer_channel_flow RMPCDMD ParseText)
-
-add_executable(single_sphere_thermo_trap
-	programs/single_sphere_thermo_trap.f90)
-target_link_libraries(single_sphere_thermo_trap RMPCDMD ParseText)
 
 add_executable(test_cell_system_0
 test/test_cell_system_0.f90)

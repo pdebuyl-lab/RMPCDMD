@@ -1,16 +1,7 @@
-program setup_single_dimer
-  use md
-  use neighbor_list
-  use common
-  use cell_system
-  use particle_system
-  use particle_system_io
-  use hilbert
-  use interaction
+ program chemotactic_cell
+  use rmpcdmd_module
   use hdf5
   use h5md_module
-  use particle_system_io
-  use mpcd
   use threefry_module
   use ParseText
   use iso_c_binding
@@ -18,7 +9,7 @@ program setup_single_dimer
   implicit none
 
   type(threefry_rng_t), allocatable :: state(:)
-  
+
   integer, parameter :: N_species = 3
 
   type(cell_system_t) :: solvent_cells
@@ -36,7 +27,7 @@ program setup_single_dimer
   integer :: error
   integer :: N_colloids
   integer, parameter :: n_bins_conc = 90
-  double precision :: conc_z_cyl(n_bins_conc)   
+  double precision :: conc_z_cyl(n_bins_conc)
 
   double precision :: sigma_N, sigma_C, max_cut,alpha
   double precision :: shift, total_energy
@@ -58,7 +49,7 @@ program setup_single_dimer
   double precision :: colloid_pos(3,2)
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
-  integer(HID_T) :: fields_group
+  integer(HID_T) :: fields_group, params_group
   type(h5md_element_t) :: rho_xy_el
   type(thermo_t) :: thermo_data
   type(particle_system_io_t) :: dimer_io
@@ -69,72 +60,83 @@ program setup_single_dimer
   type(PTo) :: config
   integer :: i, L(3),  n_threads
   integer :: j, k, m
-  
-  type(timer_t) :: flag_timer, change_timer, buffer_timer, varia
+
+  type(timer_t), target :: flag_timer, change_timer, buffer_timer, varia
+  double precision :: total_time
+  type(timer_list_t) :: timer_list
   integer(HID_T) :: timers_group
 
   integer, allocatable :: rho_xy(:,:,:)
 
   double precision :: g(3) !gravity
-  logical :: fixed, on_track, stopped,order,dimer 
+  logical :: fixed, on_track, stopped, N_in_front, dimer
   logical :: store_rho_xy
   integer :: bufferlength
   double precision :: max_speed, z, Lz
   integer :: steps_fixed
-  fixed = .true.
-  on_track = .true.
-  stopped = .false.
+  type(args_t) :: args
 
-  call PTparse(config,get_input_filename(),11)
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   call flag_timer%init('flag')
   call change_timer%init('change')
   call buffer_timer%init('buffer')
   call varia%init('varia')
 
+  call timer_list%init(13)
+  call timer_list%append(flag_timer)
+  call timer_list%append(change_timer)
+  call timer_list%append(buffer_timer)
+  call timer_list%append(varia)
+
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
+  call threefry_rng_init(state, args%seed)
 
   call h5open_f(error)
 
+  call hfile%create(args%output_file, 'RMPCDMD::chemotactic_cell', 'N/A', 'Pierre de Buyl')
+  call h5gcreate_f(hfile%id, 'parameters', params_group, error)
+  call hdf5_util_write_dataset(params_group, 'seed', args%seed)
+
   g = 0
-  g(1) = PTread_d(config, 'g')
-  bufferlength = PTread_i(config, 'buffer_length')
-  max_speed = PTread_d(config,'max_speed')
-  prob = PTread_d(config,'probability')
-  alpha = PTread_d(config,'alpha')
-  store_rho_xy = PTread_l(config, 'store_rho_xy')
-  dimer = PTread_l(config, 'dimer')
+  g(1) = PTread_d(config, 'g', loc=params_group)
+  bufferlength = PTread_i(config, 'buffer_length', loc=params_group)
+  max_speed = PTread_d(config,'max_speed', loc=params_group)
+  prob = PTread_d(config,'probability', loc=params_group)
+  alpha = PTread_d(config,'alpha', loc=params_group)
+  store_rho_xy = PTread_l(config, 'store_rho_xy', loc=params_group)
+  dimer = PTread_l(config, 'dimer', loc=params_group)
   if (dimer) then
      N_colloids = 2
   else
      N_colloids = 1
-  end if 
-  L = PTread_ivec(config, 'L', 3)
+  end if
+  L = PTread_ivec(config, 'L', 3, loc=params_group)
   L(1) = L(1) + bufferlength
-  
-  rho = PTread_i(config, 'rho')
+
+  rho = PTread_i(config, 'rho', loc=params_group)
   N = rho *L(1)*L(2)*L(3)
 
-  T = PTread_d(config, 'T')
-  d = PTread_d(config, 'd')
-  order = PTread_l(config, 'order')
+  T = PTread_d(config, 'T', loc=params_group)
+  d = PTread_d(config, 'd', loc=params_group)
+  N_in_front = PTread_l(config, 'N_in_front', loc=params_group)
 
   wall_v = 0
   wall_t = [T, T]
-  
-  tau =PTread_d(config, 'tau')
-  N_MD_steps = PTread_i(config, 'N_MD')
-  dt = tau / N_MD_steps
-  N_loop = PTread_i(config, 'N_loop')
-  steps_fixed = PTread_i(config, 'steps_fixed')
-  
-  sigma_C = PTread_d(config, 'sigma_C')
-  sigma_N = PTread_d(config, 'sigma_N')
 
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', N_species)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', N_species)
+  tau = PTread_d(config, 'tau', loc=params_group)
+  N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
+  dt = tau / N_MD_steps
+  N_loop = PTread_i(config, 'N_loop', loc=params_group)
+  steps_fixed = PTread_i(config, 'steps_fixed', loc=params_group)
+
+  sigma_C = PTread_d(config, 'sigma_C', loc=params_group)
+  sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
+
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', N_species, loc=params_group)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', N_species, loc=params_group)
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
 
@@ -150,14 +152,12 @@ program setup_single_dimer
   sigma_cut = sigma*2**(1.d0/6.d0)
   call colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
-  
+
   epsilon = 1.d0
   sigma(1,:) = [sigma_C, sigma_N]
   sigma_cut = sigma*3**(1.d0/6.d0)
   shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
   call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
-
-  write(*,*) epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:), shift
 
   allocate(mass(N_colloids))
   if (dimer) then
@@ -165,18 +165,14 @@ program setup_single_dimer
      mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   else
      mass = rho * sigma_N**3 * 4 * 3.14159265/3
-  end if 
+  end if
 
-  write(*,*) 'mass =', mass
+  call solvent% init(N,N_species, system_name='solvent')
 
-  call solvent% init(N,N_species)
+  call colloids% init(N_colloids,2, mass, system_name='colloids') !there will be 2 species of colloids
 
-  call colloids% init(N_colloids,2, mass) !there will be 2 species of colloids
-
-  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_chemotactic_cell', &
-       'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
-  order = PTread_l(config, 'order')
+
   call PTkill(config)
 
   dimer_io%force_info%store = .false.
@@ -222,7 +218,7 @@ program setup_single_dimer
      colloids% species(2) = 2
   else
      colloids% species = 2
-  end if 
+  end if
   colloids% vel = 0
 
   solvent% force = 0
@@ -251,7 +247,7 @@ program setup_single_dimer
 
   if (dimer) then
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-     if (order) then
+     if (N_in_front) then
         colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
         colloids% pos(1,2) = colloids% pos(1,1) + d
         colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 !+ 1.5d0*maxval([sigma_C,sigma_N])
@@ -316,8 +312,10 @@ program setup_single_dimer
   catalytic_change = 0
 
   i = 0
+  fixed = .true.
+  on_track = .true.
+  stopped = .false.
 
-  write(*,*) colloids% pos
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
 
   write(*,*) 'Running for', N_loop, 'loops'
@@ -328,7 +326,7 @@ program setup_single_dimer
         call mpcd_stream_xforce_yzwall(solvent, solvent_cells, dt, g(1))
 
         colloids% pos_rattle = colloids% pos
-        
+
         if (.not. fixed) then
            if (on_track) then
               !only update the flow direction
@@ -341,13 +339,13 @@ program setup_single_dimer
                  colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
                       dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
               end do
-           end if 
+           end if
            if (dimer) then
               call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
            end if
-        end if  
-   
-        if (on_track) then 
+        end if
+
+        if (on_track) then
            if (dimer) then
               if ((colloids% pos(1,1) > (bufferlength+sigma_C)) &
               .and. (colloids% pos(1,2) > (bufferlength+sigma_N))) then
@@ -358,16 +356,16 @@ program setup_single_dimer
               if (colloids% pos(1,1) > (bufferlength+sigma_N)) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
-              end if 
+              end if
            end if
         end if
-        
+
         if (.not. on_track) then
-           do k=1, colloids% Nmax 
+           do k=1, colloids% Nmax
               if (colloids% pos(1,k) > solvent_cells% edges(1)) then
                  stopped = .true.
                  write(*,*) 'stopped', stopped
-              end if 
+              end if
            end do
         end if
 
@@ -404,14 +402,14 @@ program setup_single_dimer
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (.not. on_track) then
            e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj, 3)
-        end if 
+        end if
         if (on_track) then
            colloids% force(2,:) = 0
            colloids% force(3,:) = 0
            if (fixed) then
               colloids% force(1,:) = 0
-           end if 
-        end if 
+           end if
+        end if
 
         call md_vel(solvent, dt)
 
@@ -430,8 +428,8 @@ program setup_single_dimer
            end if
            if (dimer) then
               call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
-           end if 
-        end if 
+           end if
+        end if
         if (.not.fixed) then
            if (dimer) then
               if (.not. on_track) then
@@ -519,7 +517,7 @@ program setup_single_dimer
            fixed = .false.
         end if
      end if
-     
+
   end do setup
 
   call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com, add=.false., force=.true.)
@@ -532,25 +530,19 @@ program setup_single_dimer
   call solvent_io%species%append(solvent%species)
 
   call h5gcreate_f(hfile%id, 'timers', timers_group, error)
-  call h5md_write_dataset(timers_group, solvent%time_stream%name, solvent%time_stream%total)
-  call h5md_write_dataset(timers_group, solvent%time_md_vel%name, solvent%time_md_vel%total)
-  call h5md_write_dataset(timers_group, solvent%time_step%name, solvent%time_step%total)
-  call h5md_write_dataset(timers_group, solvent%time_count%name, solvent%time_count%total)
-  call h5md_write_dataset(timers_group, solvent%time_sort%name, solvent%time_sort%total)
-  call h5md_write_dataset(timers_group, solvent%time_ct%name, solvent%time_ct%total)
-  call h5md_write_dataset(timers_group, solvent%time_max_disp%name, solvent%time_max_disp%total)
-  call h5md_write_dataset(timers_group, flag_timer%name, flag_timer%total)
-  call h5md_write_dataset(timers_group, change_timer%name, change_timer%total)
-  call h5md_write_dataset(timers_group, buffer_timer%name, buffer_timer%total)
-  call h5md_write_dataset(timers_group, neigh%time_update%name, neigh%time_update%total)
-  call h5md_write_dataset(timers_group, varia%name, varia%total)
-  call h5md_write_dataset(timers_group, neigh%time_force%name, neigh%time_force%total)
+  call timer_list%append(solvent%time_stream)
+  call timer_list%append(solvent%time_md_vel)
+  call timer_list%append(solvent%time_step)
+  call timer_list%append(solvent%time_count)
+  call timer_list%append(solvent%time_sort)
+  call timer_list%append(solvent%time_ct)
+  call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(neigh%time_update)
+  call timer_list%append(neigh%time_force)
 
-  call h5md_write_dataset(timers_group, 'total', solvent%time_stream%total + &
-       solvent%time_step%total + solvent%time_count%total + solvent%time_sort%total + &
-       solvent%time_ct%total + solvent%time_md_vel%total + solvent%time_max_disp%total + &
-       flag_timer%total + change_timer%total + buffer_timer%total + neigh%time_update%total + &
-       varia%total + neigh%time_force%total)
+  call timer_list%write(timers_group, total_time)
+
+  call h5md_write_dataset(timers_group, 'total', total_time)
 
   call h5gclose_f(timers_group, error)
 
@@ -621,11 +613,11 @@ contains
     integer :: check
     logical :: far_enough_from_wall
     double precision :: range_min1(3),range_min2(3),range_max1(3),range_max2(3)
-    
+
     dz = 2.d0*d/n_bins_conc
     dimer_orient = colloids% pos(:,2) - colloids% pos(:,1)
     z = dimer_orient/sqrt(dot_product(dimer_orient,dimer_orient))
-   
+
     x = (/0.d0, 1.d0, -dimer_orient(2)/dimer_orient(3)/)
     x = x/sqrt(dot_product(x,x))
     y = (/z(2)*x(3)-z(3)*x(2),z(3)*x(1)-z(1)*x(3),z(1)*x(2)-z(2)*x(1)/)
@@ -643,7 +635,7 @@ contains
        far_enough_from_wall = .true.
     else
        far_enough_from_wall = .false.
-    end if 
+    end if
     if (far_enough_from_wall) then
        do o = 1, solvent% Nmax
           solvent_pos(:,o) = solvent% pos(:,o) - colloids% pos(:,1)
@@ -660,10 +652,10 @@ contains
           if ((solvent_pos(1,o) < 2*max_cut).and.(solvent_pos(3,o)<1.5d0*d).and.(solvent_pos(3,o)>-0.5d0*d)) then
              if (solvent% species(o)==2) then
                 check = floor((solvent_pos(3,o)+0.5d0*d)/dz)
-                check = check+1 
+                check = check+1
                 conc_z_cyl(check) = conc_z_cyl(check) + 1
              end if
-          end if 
+          end if
        end do
        colloid_pos(:,1) = 0
        colloid_pos(3,1) = colloids% pos(3,1)
@@ -672,13 +664,13 @@ contains
     else
        conc_z_cyl = 0
        colloid_pos = 0
-    end if 
+    end if
   end subroutine concentration_field_cylindrical
 
   subroutine buffer_particles(particles,edges)
      type(particle_system_t), intent(inout) :: particles
      double precision, intent(in) :: edges(3)
-  
+
      integer :: k, s
 
      bulk_change = 0
@@ -697,8 +689,8 @@ contains
               particles% species(k) = 3
               s = 3
               bulk_change(s) = bulk_change(s) + 1
-           end if  
-        end if 
+           end if
+        end if
      end do
   end subroutine buffer_particles
 
@@ -716,4 +708,4 @@ contains
 
   end subroutine compute_rho_xy
 
-end program setup_single_dimer
+end program chemotactic_cell

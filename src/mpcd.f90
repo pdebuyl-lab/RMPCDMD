@@ -1,3 +1,16 @@
+!> Routines to perform MPCD dynamics
+!!
+!! \manual{algorithms}.
+!!
+!!
+!! MPCD collisions are implemented in simple_mpcd_step and wall_mpcd_step, that takes into
+!! account a wall in the z-direction.
+!!
+!! Streaming is achieved by the mpcd_stream_periodic, mpcd_stream_zwall,
+!! mpcd_stream_xforce_yzwall and mpcd_stream_nogravity_zwall routines. Only a single stream
+!! routine should be used, depending on the simulation setup. A further call to md_vel is
+!! needed in the presence of forces.
+
 module mpcd
   use common
   use particle_system
@@ -9,6 +22,7 @@ module mpcd
 
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
+  public :: mpcd_at_step
   public :: mpcd_stream_periodic, mpcd_stream_zwall
   public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
@@ -17,6 +31,9 @@ module mpcd
 
 contains
 
+  !> Return random point on the surface of a sphere
+  !!
+  !! Ref. \cite marsaglia_random_sphere_1972
   function rand_sphere(state) result(n)
     type(threefry_rng_t), intent(inout) :: state
     double precision :: n(3)
@@ -38,6 +55,10 @@ contains
     n(3) = 1.d0 - 2.d0*s
   end function rand_sphere
 
+  !> Perform a collision.
+  !!
+  !! Use the rule defined in Ref. \cite malevanets_kapral_mpcd_1999 to collide the particles
+  !! cell-wise. \manual{algorithms,mpcd}
   subroutine simple_mpcd_step(particles, cells, state, alpha)
     use omp_lib
     class(particle_system_t), intent(inout) :: particles
@@ -97,7 +118,62 @@ contains
 
   end subroutine simple_mpcd_step
 
-  !! Collisions in partially filled cells at the walls use the rule of
+  !> Perform a collision.
+  !!
+  !! MPCD with Anderson thermostat defined in Ref. \cite noguchi_epl_2007 to collide the
+  !! particles cell-wise. \manual{algorithms,mpcd}
+  subroutine mpcd_at_step(particles, cells, state, temperature)
+    use omp_lib
+    class(particle_system_t), intent(inout) :: particles
+    class(cell_system_t), intent(in) :: cells
+    type(threefry_rng_t), intent(inout) :: state(:)
+    double precision, intent(in) :: temperature
+
+    integer :: i, start, n
+    integer :: cell_idx
+    double precision :: local_v(3), vec(3), virtual_v(3)
+    double precision :: t_factor
+    integer :: thread_id
+
+    t_factor = sqrt(temperature)
+
+    call particles%time_step%tic()
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(cell_idx, start, n, local_v, virtual_v, i, vec)
+    do cell_idx = 1, cells% N
+       if (cells% cell_count(cell_idx) <= 1) cycle
+
+       start = cells% cell_start(cell_idx)
+       n = cells% cell_count(cell_idx)
+
+       local_v = 0
+       do i = start, start + n - 1
+          local_v = local_v + particles% vel(:, i)
+       end do
+       local_v = local_v / n
+
+       virtual_v = 0
+       do i = start, start + n - 1
+          vec(1) = threefry_normal(state(thread_id))*t_factor
+          vec(2) = threefry_normal(state(thread_id))*t_factor
+          vec(3) = threefry_normal(state(thread_id))*t_factor
+          particles% vel(:, i) = vec
+          virtual_v = virtual_v + particles% vel(:, i)
+       end do
+       virtual_v = local_v - virtual_v / dble(n)
+       do i = start, start + n - 1
+          particles% vel(:, i) = particles% vel(:, i) + virtual_v
+       end do
+
+    end do
+    !$omp end do
+    !$omp end parallel
+    call particles%time_step%tac()
+
+  end subroutine mpcd_at_step
+
+  !> Collisions in partially filled cells at the walls use the rule of
   !! Lamura, Gompper, Ihle and Kroll, EPL 56, 319-325 (2001)
   !! http://dx.doi.org/10.1209/epl/i2001-00522-9
   subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, &
@@ -229,6 +305,9 @@ contains
 
   end subroutine wall_mpcd_step
 
+  !> Compute the temperature of a mpcd solvent
+  !!
+  !! \manual{algorithms,temperature-computation}
   function compute_temperature(particles, cells, tz) result(te)
     use hilbert, only : compact_h_to_p
     type(particle_system_t), intent(inout) :: particles
@@ -287,7 +366,7 @@ contains
 
   end function compute_temperature
 
-  !! Compute density profile along z
+  !> Compute density profile along z
   subroutine compute_rho(particles, rhoz)
     type(particle_system_t), intent(in) :: particles
     type(histogram_t), intent(inout) :: rhoz
@@ -301,7 +380,8 @@ contains
     end do
 
   end subroutine compute_rho
-  
+
+  !> Compute x-velocity profile along z
   subroutine compute_vx(particles, vx)
     type(particle_system_t), intent(in) :: particles
     type(profile_t), intent(inout) :: vx
@@ -316,7 +396,7 @@ contains
 
   end subroutine compute_vx
 
-  !! Advance mpcd particles
+  !> Advance mpcd particles
   !!
   !! If the cell system has a wall in the z direction, a bounce-back collision is used.
   subroutine mpcd_stream_zwall(particles, cells, dt,g)
@@ -413,6 +493,7 @@ contains
 
   end subroutine mpcd_stream_zwall
 
+  !> Stream MPCD particles in a periodic system
   subroutine mpcd_stream_periodic(particles, cells, dt)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
@@ -432,10 +513,11 @@ contains
 
   end subroutine mpcd_stream_periodic
 
-  !! Advance mpcd particles
+  !> Stream MPCD particles with a force in the x-direction and specular or bounce-back
+  !! conditions in y
   !!
-  !! This routines allows a x-direction forcing and specular or bounce-back conditions in y
-  !! and z
+  !! MPCD particles near the walls must not be in the interaction range of a colloid, this
+  !! is not verified programmatically.
   subroutine mpcd_stream_xforce_yzwall(particles, cells, dt, g)
     type(particle_system_t), intent(inout) :: particles
     type(cell_system_t), intent(in) :: cells
@@ -474,7 +556,7 @@ contains
 
   end subroutine mpcd_stream_xforce_yzwall
 
-  !! Collide a particle in y and z with constant acceleration in x
+  !> Collide a particle in y and z with constant acceleration in x
   !!
   !! Periodic boundary conditions are applied in x
   subroutine yzwall_collision(x0, v0, x, v, im, L, t, bc, g)

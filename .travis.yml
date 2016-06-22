@@ -3,10 +3,14 @@ sudo: required
 dist: trusty
 
 install:
-  - sudo apt-get install -y gfortran libhdf5-serial-dev
+  - sudo apt-get install -y gfortran
 
 script:
+  - ./scripts/download_and_build_hdf5.sh 1>hdf5_build.out 2>&1
   - mkdir build && cd build
-  - cmake ..
+  - HDF5_ROOT=../_hdf5-1.8.17 cmake ..
   - make VERBOSE=1
   - ctest -V
+
+after_failure:
+  - cat hdf5_build.out

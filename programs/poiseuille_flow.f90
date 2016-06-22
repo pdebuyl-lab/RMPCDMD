@@ -1,14 +1,24 @@
-program setup_fluid
-  use common
-  use cell_system
-  use particle_system
-  use hilbert
-  use interaction
+!> Simulate a forced flow between two plates
+!!
+!! Consider a pure fluid under a constant acceleration in the x-direction. Bounce-back
+!! boundary conditions are used in the z-direction in addition to ghost cells for the
+!! collisions near the walls.
+!!
+!! \param L           length of simulation box in the 3 dimensions
+!! \param g           strength of the constant acceleration in x
+!! \param rho         fluid number density
+!! \param T           Temperature. Used for setting initial velocities, for wall
+!!                    thermostatting and (if enabled) bulk thermostatting.
+!! \param tau         MPCD collision time
+!! \param alpha       MPCD collision angle
+!! \param thermostat  whether to enable bulk thermostatting
+!! \param N_therm     number of unsampled thermalization MPCD timesteps
+!! \param N_loop      number of MPCD timesteps
+
+program poiseuille_flow
+  use rmpcdmd_module
   use hdf5
   use h5md_module
-  use particle_system_io
-  use mpcd
-  use md
   use threefry_module
   use ParseText
   use iso_c_binding
@@ -36,21 +46,23 @@ program setup_fluid
   integer(HID_T) :: fields_group
   type(particle_system_io_t) :: solvent_io
 
-  integer(c_int64_t) :: seed
   integer :: i, L(3), error, N, n_threads
   integer :: rho
   integer :: N_loop, N_therm
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
   double precision :: gravity_field(3)
-  double precision :: T, set_temperature, tau, alpha
+  double precision :: T, set_temperature, tau
+  double precision :: alpha
   logical :: thermostat
+  type(args_t) :: args
 
-  call PTparse(config,get_input_filename(),11)
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
+  call threefry_rng_init(state, args%seed)
 
   call h5open_f(error)
 
@@ -88,7 +100,7 @@ program setup_fluid
 
   call solvent_cells%count_particles(solvent% pos)
 
-  call datafile% create(PTread_s(config, 'h5md_file'), 'RMPCDMD:poiseuille_flow', &
+  call datafile% create(args%output_file, 'RMPCDMD:poiseuille_flow', &
        'N/A', 'Pierre de Buyl')
 
   call PTkill(config)
@@ -156,7 +168,7 @@ program setup_fluid
      call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
-          bulk_temperature=set_temperature, alpha = alpha)
+          bulk_temperature=set_temperature, alpha=alpha)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
 
@@ -212,4 +224,4 @@ program setup_fluid
        solvent%time_stream%total + solvent%time_step%total + solvent%time_count%total +&
        solvent%time_sort%total + solvent%time_ct%total
 
-end program setup_fluid
+end program poiseuille_flow

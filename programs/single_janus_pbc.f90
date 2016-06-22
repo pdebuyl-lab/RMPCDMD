@@ -1,16 +1,8 @@
 program single_janus_pbc
-  use common
-  use cell_system
-  use particle_system
-  use particle_system_io
-  use hilbert
-  use neighbor_list
+  use rmpcdmd_module
   use hdf5
   use h5md_module
-  use interaction
   use threefry_module
-  use mpcd
-  use md
   use ParseText
   use iso_c_binding
   use omp_lib
@@ -75,11 +67,14 @@ program single_janus_pbc
   integer :: i_link
   double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
 
-  call PTparse(config,get_input_filename(),11)
+  type(args_t) :: args
+
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
+  call threefry_rng_init(state, args%seed)
 
   call main%init('main')
   call varia%init('varia')
@@ -130,7 +125,7 @@ program single_janus_pbc
 
   call colloids% init(n_colloids, 2, mass) !there will be 2 species of colloids
 
-  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_janus_pbc', &
+  call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 

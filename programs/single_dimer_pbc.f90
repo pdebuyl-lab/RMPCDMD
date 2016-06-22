@@ -1,16 +1,8 @@
-program setup_single_dimer
-  use common
-  use cell_system
-  use particle_system
-  use particle_system_io
-  use hilbert
-  use neighbor_list
+program single_dimer_pbc
+  use rmpcdmd_module
   use hdf5
   use h5md_module
-  use interaction
   use threefry_module
-  use mpcd
-  use md
   use ParseText
   use iso_c_binding
   use omp_lib
@@ -45,13 +37,16 @@ program setup_single_dimer
 
   integer :: i, L(3)
   integer :: j, k
-  type(timer_t) :: varia, main
-  type(timer_t) :: time_flag, time_refuel, time_change
+  type(timer_t), target :: varia, main, time_flag, time_refuel, time_change
+  double precision :: total_time
+  type(timer_list_t) :: timer_list
+  integer(HID_T) :: timers_group
+
   type(threefry_rng_t), allocatable :: state(:)
   integer :: n_threads
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
-  integer(HID_T) :: fields_group
+  integer(HID_T) :: fields_group, params_group
   integer(HID_T) :: box_group
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
@@ -67,12 +62,14 @@ program setup_single_dimer
   type(histogram_t) :: z_hist
   type(h5md_element_t) :: z_hist_el
   double precision :: cyl_shell_rmin, cyl_shell_rmax
+  type(args_t) :: args
 
-  call PTparse(config,get_input_filename(),11)
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
+  call threefry_rng_init(state, args%seed)
 
   call main%init('main')
   call varia%init('varia')
@@ -80,30 +77,39 @@ program setup_single_dimer
   call time_refuel%init('refuel')
   call time_change%init('change')
 
+  call timer_list%init(16)
+  call timer_list%append(varia)
+  call timer_list%append(time_flag)
+  call timer_list%append(time_refuel)
+  call timer_list%append(time_change)
+
   call h5open_f(error)
+  call hfile%create(args%output_file, 'RMPCDMD::single_dimer_pbc', &
+       RMPCDMD_REVISION, 'Pierre de Buyl')
+  call h5gcreate_f(hfile%id, 'parameters', params_group, error)
+  call hdf5_util_write_dataset(params_group, 'seed', args%seed)
+  prob = PTread_d(config,'probability', loc=params_group)
+  bulk_rmpcd = PTread_l(config, 'bulk_rmpcd', loc=params_group)
+  bulk_rate = PTread_d(config, 'bulk_rate', loc=params_group)
 
-  prob = PTread_d(config,'probability')
-  bulk_rmpcd = PTread_l(config, 'bulk_rmpcd')
-  bulk_rate = PTread_d(config, 'bulk_rate')
-
-  L = PTread_ivec(config, 'L', 3)
-  rho = PTread_i(config, 'rho')
+  L = PTread_ivec(config, 'L', 3, loc=params_group)
+  rho = PTread_i(config, 'rho', loc=params_group)
   N = rho *L(1)*L(2)*L(3)
 
-  T = PTread_d(config, 'T')
-  d = PTread_d(config, 'd')
+  T = PTread_d(config, 'T', loc=params_group)
+  d = PTread_d(config, 'd', loc=params_group)
   
-  tau = PTread_d(config, 'tau')
-  N_MD_steps = PTread_i(config, 'N_MD')
+  tau = PTread_d(config, 'tau', loc=params_group)
+  N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
   dt = tau / N_MD_steps
-  N_loop = PTread_i(config, 'N_loop')
+  N_loop = PTread_i(config, 'N_loop', loc=params_group)
 
-  sigma_C = PTread_d(config, 'sigma_C')
-  sigma_N = PTread_d(config, 'sigma_N')
+  sigma_C = PTread_d(config, 'sigma_C', loc=params_group)
+  sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
 
   ! solvent index first, colloid index second, in solvent_colloid_lj
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2, loc=params_group)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2, loc=params_group)
 
   sigma(:,1) = sigma_C
   sigma(:,2) = sigma_N
@@ -112,10 +118,10 @@ program setup_single_dimer
 
   call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
 
-  epsilon(1,1) = PTread_d(config, 'epsilon_C_C')
-  epsilon(1,2) = PTread_d(config, 'epsilon_N_C')
-  epsilon(2,1) = PTread_d(config, 'epsilon_N_C')
-  epsilon(2,2) = PTread_d(config, 'epsilon_N_N')
+  epsilon(1,1) = PTread_d(config, 'epsilon_C_C', loc=params_group)
+  epsilon(1,2) = PTread_d(config, 'epsilon_N_C', loc=params_group)
+  epsilon(2,1) = epsilon(1,2)
+  epsilon(2,2) = PTread_d(config, 'epsilon_N_N', loc=params_group)
 
   sigma(1,1) = 2*sigma_C
   sigma(1,2) = sigma_C + sigma_N
@@ -128,14 +134,13 @@ program setup_single_dimer
   mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
 
-  call solvent% init(N,2) !there will be 2 species of solvent particles
+  call solvent% init(N,2, system_name='solvent') !there will be 2 species of solvent particles
 
-  call colloids% init(2,2, mass) !there will be 2 species of colloids
+  call colloids% init(2,2, mass, system_name='colloids') !there will be 2 species of colloids
 
-  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_pbc', &
-       'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
+  call h5gclose_f(params_group, error)
   call PTkill(config)
   
   colloids% species(1) = 1
@@ -181,11 +186,10 @@ program setup_single_dimer
   call solvent_io%init(hfile, 'solvent', solvent)
 
   do k = 1, solvent%Nmax
-     solvent% vel(1,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
-     solvent% vel(2,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
-     solvent% vel(3,k) = (threefry_double(state(1))-0.5d0)*sqrt(12*T)
+     solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(2,k) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(3,k) = threefry_normal(state(1))*sqrt(T)
   end do
-  solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
   solvent% species = 1
@@ -239,6 +243,7 @@ program setup_single_dimer
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
 
+  call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
   write(*,*) 'Running for', N_loop, 'loops'
   write(*,*) 'mass', mass 
   call main%tic()
@@ -366,38 +371,32 @@ program setup_single_dimer
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
 
+  ! Store timing data
+  call timer_list%append(solvent%time_stream)
+  call timer_list%append(solvent%time_step)
+  call timer_list%append(solvent%time_count)
+  call timer_list%append(solvent%time_sort)
+  call timer_list%append(solvent%time_ct)
+  call timer_list%append(solvent%time_md_pos)
+  call timer_list%append(solvent%time_md_vel)
+  call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(colloids%time_self_force)
+  call timer_list%append(neigh%time_update)
+  call timer_list%append(neigh%time_force)
+  call timer_list%append(colloids%time_max_disp)
+
+  call h5gcreate_f(hfile%id, 'timers', timers_group, error)
+  call timer_list%write(timers_group, total_time)
+  call h5md_write_dataset(timers_group, 'total', total_time)
+  call h5md_write_dataset(timers_group, main%name, main%total)
+  call h5gclose_f(timers_group, error)
+
   call dimer_io%close()
   call solvent_io%close()
   call z_hist_el%close()
   call n_solvent_el%close()
   call hfile%close()
   call h5close_f(error)
-
-  write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
-  write(*,'(a16,f8.3)') solvent%time_step%name, solvent%time_step%total
-  write(*,'(a16,f8.3)') solvent%time_count%name, solvent%time_count%total
-  write(*,'(a16,f8.3)') solvent%time_sort%name, solvent%time_sort%total
-  write(*,'(a16,f8.3)') solvent%time_ct%name, solvent%time_ct%total
-  write(*,'(a16,f8.3)') solvent%time_md_pos%name, solvent%time_md_pos%total
-  write(*,'(a16,f8.3)') solvent%time_md_vel%name, solvent%time_md_vel%total
-  write(*,'(a16,f8.3)') solvent%time_max_disp%name, solvent%time_max_disp%total
-  write(*,'(a16,f8.3)') colloids%time_self_force%name, solvent%time_self_force%total
-  write(*,'(a16,f8.3)') neigh%time_update%name, neigh%time_update%total
-  write(*,'(a16,f8.3)') neigh%time_force%name, neigh%time_force%total
-  write(*,'(a16,f8.3)') colloids%time_max_disp%name, colloids%time_max_disp%total
-  write(*,'(a16,f8.3)') time_flag%name, time_flag%total
-  write(*,'(a16,f8.3)') time_change%name, time_change%total
-  write(*,'(a16,f8.3)') time_refuel%name, time_refuel%total
-
-  write(*,'(a16,f8.3)') 'total', solvent%time_stream%total + solvent%time_step%total + &
-       solvent%time_count%total + solvent%time_sort%total + solvent%time_ct%total + &
-       solvent%time_md_pos%total + solvent%time_md_vel%total + &
-       solvent%time_max_disp%total + solvent%time_self_force%total + &
-       neigh%time_update%total + neigh%time_force%total + colloids%time_max_disp%total + &
-       time_flag%total + time_change%total + time_refuel%total
-
-  write(*,'(a16,f8.3)') varia%name, varia%total
-  write(*,'(a16,f8.3)') main%name, main%total
 
 contains
 
@@ -497,4 +496,4 @@ contains
     end do
   end subroutine refuel
 
-end program setup_single_dimer
+end program single_dimer_pbc

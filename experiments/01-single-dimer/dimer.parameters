@@ -2,16 +2,14 @@
 T = 1
 L = 32 32 32
 rho = 10 
-tau = 0.1
+tau = 1
 probability = 1.0
 bulk_rmpcd = F
 bulk_rate = 0.001
 
 # simulation parameters
-N_MD = 10
-N_loop = 5000
-seed = 446416487425
-h5md_file = dimer_benchm_NC_big2.h5
+N_MD = 100
+N_loop = 100
 
 # interaction parameters
 sigma_N = 3.0

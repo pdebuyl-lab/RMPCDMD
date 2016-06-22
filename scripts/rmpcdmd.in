@@ -1,0 +1,91 @@
+#!/bin/bash
+
+RMPCDMD_HOME=@RMPCDMD_SOURCE_DIR@
+RMPCDMD_PROGRAMS="@RMPCDMD_PROGRAMS@"
+RMPCDMD_PROGRAMS_LIST="${RMPCDMD_PROGRAMS//\;/
+}"
+RMPCDMD_PROGRAMS="${RMPCDMD_PROGRAMS//\;/, }"
+
+RMPCDMD_greeting() {
+    echo "Welcome to RMPCMD (see http://lab.pdebuyl.be/rmpcmd/ for more information)"
+    echo "usage: rmpcdmd action [arguments]"
+    echo "Available actions:"
+    echo "    - run     Perform a simulation"
+    echo "    - seeder  Return a signed 64-bit integer seed from /dev/urandom"
+    echo "    - plot    Display the results of a simulation"
+    echo "    - timers  Display the times of a simulation"
+}
+
+run_usage() {
+    echo "usage: rmpcdmd run program mysim.parameters mysim.h5 SEED"
+    echo "    - program         one of"
+    echo "                      ${RMPCDMD_PROGRAMS}" | fmt -s -c
+    echo "    - sim.parameters  Input file for the simulation"
+    echo "    - sim.h5          H5MD output file for the simulation"
+    echo "    - SEED            signed 64-bit integer seed"
+}
+
+generate_seed() {
+    dd count=1 bs=8 if=/dev/urandom 2>/dev/null | od -A n -t d8
+}
+
+if [ $# -lt 1 ]; then
+    RMPCDMD_greeting
+    exit 0
+fi
+
+if [ "$1" = "seeder" ]
+then
+    shift
+    generate_seed
+elif [ "$1" = "run" ]
+then
+    shift
+    if [ $# -ne 4 ] ; then
+	run_usage
+	exit 0
+    fi
+    program="$1"
+    # check that program is in list
+    if echo "$RMPCDMD_PROGRAMS_LIST" | grep -w -q -F "$program"
+    then
+	echo "RMPCDMD running" "$1"
+	if [ "${OMP_NUM_THREADS}" != "" ] ; then
+	    echo "OMP_NUM_THREADS = ${OMP_NUM_THREADS}"
+	else
+	    echo "OMP_NUM_THREADS not set"
+	fi
+	echo -n "Start time -- "
+	date
+	start_time=$(date +'%s')
+	# check that input, output and seed are given
+	shift
+	if [ "$3" = "auto" ]; then
+	    IN="$1"
+	    OUT="$2"
+	    SEED=$(generate_seed)
+	    set -- "$IN" "$OUT" "$SEED"
+	fi
+	echo $program $@
+	time "${RMPCDMD_HOME}/build/${program}" "$@"
+	echo -n "End time -- "
+	date
+	end_time=$(date +'%s')
+	echo "$((end_time-start_time))s elapsed"
+    else
+	run_usage
+	echo "ERROR: Program $program not in RMPCDMD"
+	exit 1
+    fi
+
+elif [ "$1" = "plot" ]
+then
+    shift
+    python "${RMPCDMD_HOME}/scripts/h5md_plot.py" "$@"
+elif [ "$1" = "timers" ]
+then
+    shift
+    python "${RMPCDMD_HOME}/scripts/timers_plot.py" "$@"
+else
+    echo "Unknown command"
+fi

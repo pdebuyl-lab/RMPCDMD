@@ -57,10 +57,10 @@ module particle_system
      integer, pointer :: wall_flag(:)
      integer, pointer :: wall_flag_old(:)
      integer, pointer :: wall_flag_pointer(:)
-     type(timer_t) :: time_stream, time_step, time_sort, time_count, time_ct
-     type(timer_t) :: time_md_pos, time_md_vel, time_self_force, time_max_disp
-     type(timer_t) :: time_apply_pbc
-     type(timer_t) :: time_rattle_pos, time_rattle_vel
+     type(timer_t), pointer :: time_stream, time_step, time_sort, time_count, time_ct
+     type(timer_t), pointer :: time_md_pos, time_md_vel, time_self_force, time_max_disp
+     type(timer_t), pointer :: time_apply_pbc
+     type(timer_t), pointer :: time_rattle_pos, time_rattle_vel
    contains
      procedure :: init
      procedure :: init_from_file
@@ -71,13 +71,15 @@ module particle_system
 
 contains
 
-  subroutine init(this, Nmax, n_species, mass)
+  subroutine init(this, Nmax, n_species, mass, system_name)
     class(particle_system_t), intent(out) :: this
     integer, intent(in) :: Nmax
     integer, intent(in), optional :: n_species
     double precision, intent(in), optional :: mass(:)
+    character(len=*), intent(in), optional :: system_name
 
     integer :: i
+    character(len=24) :: system_name_var
 
     this% Nmax = Nmax
     if (present(n_species)) then
@@ -145,18 +147,36 @@ contains
 
     this% wall_flag = 0
 
-    call this%time_stream%init('stream')
-    call this%time_step%init('step')
-    call this%time_sort%init('sort')
-    call this%time_count%init('count')
-    call this%time_ct%init('compute_temperature')
-    call this%time_md_pos%init('md_pos')
-    call this%time_md_vel%init('md_vel')
-    call this%time_self_force%init('self force')
-    call this%time_max_disp%init('maximum disp')
-    call this%time_rattle_pos%init('rattle_pos')
-    call this%time_rattle_vel%init('rattle_vel')
-    call this%time_apply_pbc%init('apply_pbc')
+    if (present(system_name)) then
+       system_name_var = system_name
+    else
+       system_name_var = ''
+    end if
+
+    allocate(this%time_stream)
+    call this%time_stream%init('stream', trim(system_name_var))
+    allocate(this%time_step)
+    call this%time_step%init('step', trim(system_name_var))
+    allocate(this%time_sort)
+    call this%time_sort%init('sort', trim(system_name_var))
+    allocate(this%time_count)
+    call this%time_count%init('count', trim(system_name_var))
+    allocate(this%time_ct)
+    call this%time_ct%init('compute_temperature', trim(system_name_var))
+    allocate(this%time_md_pos)
+    call this%time_md_pos%init('md_pos', trim(system_name_var))
+    allocate(this%time_md_vel)
+    call this%time_md_vel%init('md_vel', trim(system_name_var))
+    allocate(this%time_self_force)
+    call this%time_self_force%init('self force', trim(system_name_var))
+    allocate(this%time_max_disp)
+    call this%time_max_disp%init('maximum disp', trim(system_name_var))
+    allocate(this%time_rattle_pos)
+    call this%time_rattle_pos%init('rattle_pos', trim(system_name_var))
+    allocate(this%time_rattle_vel)
+    call this%time_rattle_vel%init('rattle_vel', trim(system_name_var))
+    allocate(this%time_apply_pbc)
+    call this%time_apply_pbc%init('apply_pbc', trim(system_name_var))
 
   end subroutine init
 

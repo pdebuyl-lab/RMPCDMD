@@ -1,4 +1,5 @@
 module common
+  use iso_c_binding
   implicit none
   private
 
@@ -7,10 +8,16 @@ module common
   public :: histogram_t
   public :: switch
   public :: get_input_filename
+  public :: get_input_args
   public :: timer_t
+  public :: timer_list_t
+  public :: args_t
 
   integer, parameter :: max_path_length = 255
 
+  !> Container for a profile, e.g. v(x)
+  !!
+  !! The result is \f$v(x) = \frac{\sum_i v_i \delta(x_i - x)}{\sum_i \delta(x_i - x)}\f$
   type profile_t
      double precision, allocatable :: data(:)
      integer, allocatable :: count(:)
@@ -28,6 +35,9 @@ module common
      procedure, private :: profile_norm
   end type profile_t
 
+  !> Container for a profile, e.g. p(x)
+  !!
+  !! The result is \f$p(x) = \frac{\sum_i \delta(x_i - x)}{N}\f$
   type histogram_t
      double precision, allocatable :: data(:,:)
      double precision :: xmin
@@ -52,14 +62,37 @@ module common
      procedure :: tac
   end type timer_t
 
+  type timer_pointer_t
+     type(timer_t), pointer :: p
+  end type timer_pointer_t
+
+  type timer_list_t
+     type(timer_pointer_t), allocatable :: timers(:)
+     integer :: current_idx
+   contains
+     generic, public :: init => timer_list_init
+     procedure, private :: timer_list_init
+     generic, public :: append => timer_list_append
+     procedure, private :: timer_list_append
+     generic, public :: write => timer_list_write
+     procedure, private :: timer_list_write
+  end type timer_list_t
+
   interface switch
      module procedure :: switch_d2
      module procedure :: switch_i1
      module procedure :: switch_i2
   end interface switch
 
+  type args_t
+     character(len=max_path_length) :: input_file
+     character(len=max_path_length) :: output_file
+     integer(c_int64_t) :: seed
+  end type args_t
+
 contains
 
+  !> Return x-y distance with minimum image convention
   pure function rel_pos(x, y, L) result(r)
     double precision, intent(in) :: x(3), y(3), L(3)
 
@@ -206,11 +239,47 @@ contains
 
   end function get_input_filename
 
-  subroutine timer_init(this, name)
+  type(args_t) function get_input_args() result(args)
+
+    integer :: iostat
+    character(max_path_length) :: r
+
+    if (command_argument_count() /= 3) then
+       write(*,*) 'Welcome to RMPCMD http://lab.pdebuyl.be/rmpcdmd/'
+       write(*,*) 'Usage:'
+       write(*,*) '    rmpcdmd run program_name input output seed'
+       write(*,*) &
+            '    where input is the filename of the parameters file, output is the name'
+       write(*,*) &
+            '    of the H5MD output file and seed is a signed 64-bit integer'
+       error stop
+    end if
+
+    call get_command_argument(1, args%input_file)
+    call get_command_argument(2, args%output_file)
+    call get_command_argument(3, r)
+    read(r, *, iostat=iostat) args%seed
+    if (iostat /= 0) then
+       write(*,*) 'Error when reading the seed value (third command-line argument)'
+       error stop
+    end if
+
+  end function get_input_args
+
+  subroutine timer_init(this, name, system_name)
     class(timer_t), intent(out) :: this
     character(len=*), intent(in) :: name
+    character(len=*), optional, intent(in) :: system_name
 
-    this%name = name
+    if (present(system_name)) then
+       if (len(system_name) > 0) then
+          this%name = system_name//' '//name
+       else
+          this%name = name
+       end if
+    else
+       this%name = name
+    end if
     this%total = 0
 
   end subroutine timer_init
@@ -226,5 +295,44 @@ contains
     class(timer_t), intent(inout) :: this
     this%total = this%total + omp_get_wtime() - this%tic_time
   end subroutine tac
+
+  subroutine timer_list_init(this, n)
+    class(timer_list_t), intent(out) :: this
+    integer, intent(in) :: n
+
+    allocate(this%timers(n))
+    this%current_idx = 0
+
+  end subroutine timer_list_init
+
+  subroutine timer_list_append(this, timer_target)
+    class(timer_list_t), intent(inout) :: this
+    type(timer_t), target, intent(in) :: timer_target
+
+    this%current_idx = this%current_idx + 1
+    if (this%current_idx > size(this%timers)) error stop 'exceeded timer_list_t size'
+    this%timers(this%current_idx)%p => timer_target
+
+  end subroutine timer_list_append
+
+  subroutine timer_list_write(this, group, total_out)
+    use hdf5, only: HID_T
+    use h5md_module, only: h5md_write_dataset
+    implicit none
+    class(timer_list_t), intent(inout) :: this
+    integer(HID_T), intent(inout) :: group
+    double precision, optional, intent(out) :: total_out
+
+    integer :: i
+
+    total_out = 0
+    do i = 1, size(this%timers)
+       if (associated(this%timers(i)%p)) then
+          call h5md_write_dataset(group, this%timers(i)%p%name, this%timers(i)%p%total)
+          total_out = total_out + this%timers(i)%p%total
+       end if
+    end do
+
+  end subroutine timer_list_write
 
 end module common

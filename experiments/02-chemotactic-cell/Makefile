@@ -1,15 +1,12 @@
 RMPCDMD:=$(PWD)/../..
 
 EXPDIR:=$(PWD)
-SIMDIR:=$(PWD)
 
 all: exp-intro help
 include ../Makefile
 
+simulation: chemo_cell.h5
 
-simulation: $(SIMDIR)
-	(cd $(SIMDIR) ; $(RMPCDMD)/build/single_dimer_chemotactic_cell $(EXPDIR)/chemo_cell.parameters)
-
-$(SIMDIR):
-	@mkdir $(SIMDIR)
+%.h5: %.parameters $(RMPCDMD)/build/chemotactic_cell
+	$(RMPCDMD)/build/rmpcdmd run chemotactic_cell $< $@ auto
 

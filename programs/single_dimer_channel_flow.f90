@@ -1,16 +1,7 @@
 program setup_single_dimer
-  use md
-  use neighbor_list
-  use common
-  use cell_system
-  use particle_system
-  use particle_system_io
-  use hilbert
-  use interaction
+  use rmpcdmd_module
   use hdf5
   use h5md_module
-  use particle_system_io
-  use mpcd
   use threefry_module
   use ParseText
   use iso_c_binding
@@ -75,8 +66,10 @@ program setup_single_dimer
 
   double precision :: g(3) !gravity
   logical :: order, thermostat
+  type(args_t) :: args
 
-  call PTparse(config,get_input_filename(),11)
+  args = get_input_args()
+  call PTparse(config, args%input_file, 11)
 
   call flag_timer%init('flag')
   call change_timer%init('change')
@@ -84,7 +77,7 @@ program setup_single_dimer
 
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
-  call threefry_rng_init(state, PTread_c_int64(config, 'seed'))
+  call threefry_rng_init(state, args%seed)
 
   call h5open_f(error)
 
@@ -152,7 +145,7 @@ program setup_single_dimer
   colloids% species(2) = 2
   colloids% vel = 0
 
-  call hfile%create(PTread_s(config, 'h5md_file'), 'RMPCDMD::single_dimer_channel_flow', &
+  call hfile%create(args%output_file, 'RMPCDMD::single_dimer_channel_flow', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
   order = PTread_l(config, 'order')

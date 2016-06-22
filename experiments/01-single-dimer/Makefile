@@ -7,14 +7,10 @@ all: exp-intro help 01-help
 
 include ../Makefile
 
-simulation: $(SIMDIR)
-	(cd $(SIMDIR) ; $(RMPCDMD)/build/single_dimer_pbc $(EXPDIR)/dimer.parameters)
+simulation: dimer.h5
 
-ruckner-kapral.h5: ruckner-kapral.parameters $(RMPCDMD)/build/single_dimer_pbc
-	$(RMPCDMD)/build/single_dimer_pbc $<
-
-$(SIMDIR):
-	@mkdir $(SIMDIR)
+%.h5: %.parameters $(RMPCDMD)/build/single_dimer_pbc
+	$(RMPCDMD)/build/rmpcdmd run single_dimer_pbc $< $@ auto
 
 01-help:
 	@echo "  ruckner-kapral.h5 : Perform a simulation with the parameters of the Ruckner-Kapral 2007 paper"

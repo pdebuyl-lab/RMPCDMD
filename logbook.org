@@ -21,3 +21,41 @@ The displacement routine has been accelerated by resetting particles in the PBC 
 upon resorting, so that the call to =rel_pos= can be removed.
 
 No idea yet for compact_p_to_h.
+
+* Documentation
+<2016-06-14 Tue>
+
+The organization for the documentation is:
+- A general documentation is generated with sphinx on the basis of the =doc/*.rst= files.
+- A doxygen-generated API, reading from the Fortran source files in =src/=, =programs/= and
+  =test/=.
+- An explicit relation the documentation and the API is provided in doxygen by linking to
+  the relevant documentation page and in the documentation by a sphinx directive that
+  locates doxygen names.
+- The website for RMPCDMD is based on the sphinx documentation.
+
+* Build for the mac
+<2016-06-15 Wed>
+
+Building on OS X is possible, although the lack of built-in package manager makes it a bit
+longer to set up.
+
+The procedure, whose first version was contributed by Sébastien Michelin, is the following:
+- Install XCode
+- Install MacPorts https://www.macports.org/
+- Then, follow the instructions below
+
+#+begin_example
+  sudo port install gcc-5 cmake git
+  git clone --recursive https://github.com/pdebuyl-lab/RMPCDMD
+  cd RMPCDMD
+  CC=gcc-mp-5 FC=gfortran-mp-5 ./scripts/download_and_build_hdf5.sh
+  mkdir build
+  cd build
+  HDF5_ROOT=../_hdf5-1.8.17 cmake .. -DCMAKE_C_COMPILER=gcc-mp-5 -DCMAKE_Fortran_COMPILER=gfortran-mp-5
+  make
+#+end_example
+
+On the way, the lack of =md5sum= and =wget= on the mac was circumvented by using =openssl
+md5 -r= and =curl= instead. =CC= and =FC= must be specified, else the system-provided
+compiler takes priority for both the HDF5 build and for the cmake build.

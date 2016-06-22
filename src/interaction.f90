@@ -18,6 +18,7 @@ module interaction
      double precision, allocatable :: sigma_sq(:,:)
      double precision, allocatable :: cut(:,:)
      double precision, allocatable :: cut_sq(:,:)
+     double precision, allocatable :: cut_energy(:,:)
      double precision, allocatable :: shift
    contains
      procedure :: init => lj_params_init
@@ -51,6 +52,7 @@ contains
     allocate(this% sigma_sq(n1, n2))
     allocate(this% cut(n1, n2))
     allocate(this% cut_sq(n1, n2))
+    allocate(this% cut_energy(n1, n2))
     allocate(this% shift)
 
     this% epsilon = epsilon
@@ -63,6 +65,9 @@ contains
     else
        this% shift = 0.d0
     end if
+
+    this% cut_energy = lj_energy(this%cut_sq, this%epsilon, this%sigma, this%sigma*0)
+
   end subroutine lj_params_init
 
 
@@ -109,15 +114,15 @@ contains
      e = force_o_z*z
   end function lj_force_9_3
 
-  pure function lj_energy(r_sq, epsilon, sigma) result(e)
-    double precision, intent(in) :: r_sq, epsilon, sigma
+  pure elemental function lj_energy(r_sq, epsilon, sigma, cut_energy) result(e)
+    double precision, intent(in) :: r_sq, epsilon, sigma, cut_energy
     double precision :: e
 
     double precision :: sig6_o_r6
 
     sig6_o_r6 = sigma**6/r_sq**3
 
-    e = 4.d0*epsilon * ((sig6_o_r6**2 - sig6_o_r6) + 0.25d0)
+    e = 4.d0*epsilon * (sig6_o_r6**2 - sig6_o_r6) - cut_energy
 
   end function lj_energy
 

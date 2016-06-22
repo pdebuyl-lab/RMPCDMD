@@ -34,7 +34,7 @@ RMPCDMD has the following requirements:
 - [GNU Make](https://www.gnu.org/software/make/)
 - [git](http://git-scm.com/)
 
-At the command line, execute the following
+Under Linux, execute the following in a terminal
 
     git clone https://github.com/pdebuyl-lab/RMPCDMD
     cd RMPCDMD
@@ -44,6 +44,11 @@ At the command line, execute the following
     cd build
     cmake ..
     make VERBOSE=1
+
+Then copy the file `rmpcdmd` in a location where executables are found
+(i.e. ``$HOME/.local/bin`` or ``$HOME/bin`` for instance).
+
+For OS X, refer to the [documentation](http://lab.pdebuyl.be/rmpcdmd/).
 
 ## Run the code
 
