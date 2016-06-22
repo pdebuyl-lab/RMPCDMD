@@ -131,6 +131,8 @@ installation notes).
 The script downloads HDF5 1.8.17 and installs it under ``_hdf5-1.8.17``. You can remove the
 directory ``hdf5-1.8.17`` (no leading underscore) after the execution of the script.
 
+.. _install_python:
+
 Python
 ------
 

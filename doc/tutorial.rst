@@ -3,12 +3,10 @@
 Tutorial
 ========
 
-This tutorial introduces the reader to particle-based simulations of
-nanomotors. The main simulation method consists of a coupled scheme
-consisting of Multiparticle Collision Dynamics (MPCD), for the fluid,
-and Molecular Dynamics (MD), for the motor. Chemical activity is
-introduced in the fluid via a surface-induced catalytic effect and bulk
-kinetics. This tutorial relies on the open-source software .
+This tutorial introduces the reader to particle-based simulations of nanomotors. The main
+simulation method consists of a coupled scheme of Multiparticle Collision Dynamics (MPCD),
+for the fluid, and Molecular Dynamics (MD), for the motor. Chemical activity is introduced
+in the fluid via a surface-induced catalytic effect and bulk kinetics.
 
 Introduction
 ------------
@@ -22,7 +20,8 @@ It is possible to compute, via phoretic theory, the stationary regime of
 operation of nanomotors in simple geometries. Still, testing geometrical
 effects or including fluctuating behaviour is best done using numerical
 simulations. A successful modeling strategy was started by Rückner and
-Kapral REFREF in 2007. It builds on a particle-based fluid, explicitly
+Kapral in 2007 :cite:`ruckner_kapral_prl_2007`.
+It builds on a particle-based fluid, explicitly
 the Multiparticle Collision Dynamics (MPCD) algorithm. The flexibility
 of particle-based simulations allowed for numerous extensions of their
 work to Janus particles, polymer nanomotors, various chemical kinetics,
@@ -34,12 +33,13 @@ interactions are not explicitly computed and are replaced by cell-wise
 collisions at fixed time intervals. This saves computational time and
 renders otherwise untractable problems feasible.
 
-The 2007 paper introduces a computational model for a dimer nanomotor
+In Ref.:cite:`ruckner_kapral_prl_2007`, the authors introduce a computational model for a
+dimer nanomotor
 that is convenient thanks to its simple geometry. There are two spheres
 making up the dimer, linked by a rigid bond, one of which being
 chemically active and the other not. Solvent particles in contact with
 the chemically active sphere are converted from product to fuel. The
-active sphere thus acts as a sink for reagent particles (the “fuel”) and
+active sphere thus acts as a sink for reagent particles (the "fuel") and
 a source for product particles.
 
 Preliminary remarks
@@ -49,32 +49,34 @@ This tutorial does not intend to cover all *possible* manners to conduct
 nanomotor simulations. Rather, it aims at presenting one strategy for
 modeling chemically powered nanomotors, that is the combination of a
 chemically active MPCD fluid coupled to possibly catalytic colloidal
-beads. We rely on the software because it is openly available and is
-developed by one of the authors. It is worth mentioning that another
-researcher has made his software for dimer nanomotor simulations
-available openly:
+beads.
 
-| Peter Colberg, *nano-dimer* https://colberg.org/nano-dimer/
-| This software is based on OpenCL and can benefit from GPU
-  acceleration.
+While this tutorial relies on the RMPCDMD software, it is worth mentioning that Peter
+Colberg has also made his software for dimer nanomotor simulations available openly
+:cite:`colberg_nanodimer_web`. ``nano-dimer`` is based on OpenCL and can benefit from GPU
+acceleration.
 
 Literature
 ----------
 
-General reviews on the MPCD simulation method are available in the
-literature.
+The MPCD algorithm was introduced in :cite:`malevanets_kapral_mpcd_1999` and
+:cite:`malevanets_kapral_mpcd_2000`. General reviews on the MPCD simulation method are
+available in the literature.
 
-Raymond Kapral, *Multiparticle collision dynamics: simulation of complex
-systems on mesoscales*, Adv. Chem. Phys. **140**, 89 (2008).
-:cite:`kapral_adv_chem_phys_2008`
+- Raymond Kapral, *Multiparticle collision dynamics: simulation of complex
+  systems on mesoscales*, Adv. Chem. Phys. **140**, 89 (2008).
+  :cite:`kapral_adv_chem_phys_2008`
 
-Gompper et al :cite:`gompper_et_al_adv_polym_sci_2008`
+- G. Gompper, T. Ihle, D. M. Kroll and R. G. Winkler, *Multi-Particle Collision Dynamics: A
+  Particle-Based Mesoscale Simulation Approach to the Hydrodynamics of Complex Fluids*,
+  Adv. Polymer Sci. **221**, 1 (2008).
+  :cite:`gompper_et_al_adv_polym_sci_2008`
 
-An overview of chemically powered synthetic nanomotors has been
-published by Kapral REFREF.
 
-There is no literature on the practical conduct of this type of
-simulation, however.
+An overview of chemically powered synthetic nanomotors has been published by Kapral
+:cite:`kapral_perspective_jcp_2013`.
+
+There is no literature on the practical conduct of nanomotor simulations, however.
 
 The MPCD fluid and Molecular Dynamics
 -------------------------------------
@@ -99,14 +101,18 @@ and
 
    v_i' = v_\xi + \omega_\xi ( v_i - v_\xi )
 
-where the prime denotes the quantities after the corresponding step,
-:math:`\xi` is a cell, :math:`\omega_\xi` is a rotation operator and
-:math:`v_\xi` is the center-of-mass velocity in the cell. The cell
-consists in a regular lattice of cubic cells in space. Equations NNN
-conserve mass, energy and linear momentum.
+where the prime denotes the quantities after the corresponding step, :math:`\xi` is a cell,
+:math:`\omega_\xi` is a rotation operator and :math:`v_\xi` is the center-of-mass velocity
+in the cell. The cell consists in a regular lattice of cubic cells in space. Equations
+:eq:`stream` and :eq:`collide` conserve mass, energy and linear momentum.
 
 The viscosity for a MPCD fluid can be computed from its microscopic
-properties: XXX
+properties:
+
+.. math::
+
+     \eta = \frac{k_BT\tau\rho}{2m} \left( \frac{ 5\gamma - (\gamma-1+e^{-\gamma})(2-\cos\alpha-\cos 2\alpha) }{(\gamma - 1 + e^{-\gamma})(2-\cos\alpha-\cos 2\alpha)} \right) + \frac{m}{18 a \tau} (\gamma -1 + e^{-\gamma})(1-\cos\alpha)
+
 
 One can embed a body in a MPCD fluid by using a explicit potential
 energy. Then, the streaming step is replaced by the velocity-Verlet
@@ -121,7 +127,7 @@ Physical setup
 
 In this section, we review the propulsion of the dimer nanomotor
 presented by Rückner and Kapral. The geometry of the motor and the
-chemical kinetics are presented in Fig. [fig:dimer\ :sub:`n`\ m].
+chemical kinetics are presented in the figure below.
 
 The solvent consists of particles of types A and B, initially all
 particles are set to A (the fuel). Fuel particles that enter the
@@ -130,46 +136,32 @@ the actual change of A to B only occurs when the solvent particle is
 outside of any interaction range. Else, the change would generate a
 discontinuous jump the in the potential energy and disrupt the
 trajectory. This chemical activity generates an excess of product
-particles “B” around the catalytic sphere and a gradient of solvent
+particles "B" around the catalytic sphere and a gradient of solvent
 concentration is established.
 
 .. figure:: simple_dimer.png
-   :alt: Alt
 
-   Geometry and chemistry for the dimer nanomotor. The graph
-   sketched below represents the local excess of “B” particles that is
-   asymmetric for the “N” sphere. Many more “A” and “B” particles not
-   shown.
+   Geometry and chemistry for the dimer nanomotor. The graph sketched below represents the
+   local excess of “B” particles that is asymmetric for the “N” sphere. Many more “A” and
+   “B” particles not shown.
 
-   Geometry and chemistry for the dimer nanomotor. The graph sketched
-   below represents the local excess of “B” particles that is asymmetric
-   for the “N” sphere. Many more “A” and “B” particles not shown.
+In this type of simulation, the total energy is conserved but the system is maintained in
+nonequilibrium by *refueling*, that is by changing B particles to species A when they are
+far enough from the colloid.
 
-[H] Initialization
+The solvent and colloids interact via a purely repulsive Lennard-Jones potential of the form
 
-In this type of simulation, the total energy is conserved but the system
-is maintained in nonequilibrium by *refueling*.
+.. math:: V(r) = 4 \epsilon \left( \left(\frac{\sigma}{r}\right)^{12} - \left(\frac{\sigma}{r}\right)^{6} - 1 \right)
 
-The total force on the motor can be expressed as the sum of the forces
-on “C” and “N”, approximating the fluid by a continuum distribution:
-
-.. math:: F = - \sum_\alpha \int d^3x c_\alpha(x) \left( \frac{dV_{\alpha C}(x_C-x)}{dx} + \frac{dV_{\alpha N}(x_N-x)}{dx} \right)
-
-where :math:`\alpha=A,B` is the species of a fluid particle and
-:math:`V_{\alpha C}` and :math:`V_{\alpha N}` are the interaction
-potential of the fluid and the “C” and “N” spheres, respectively. The
-motion of the motor on the fluid creates a balancing friction force and
-in the stationary regime, at a given velocity :math:`V_z` the forces
-cancel.
+where :math:`\epsilon` and :math:`\sigma` can be different depending on the combination of
+solvent and colloid species.
 
 Simulation setup
 ^^^^^^^^^^^^^^^^
 
-Within , the simulation program for the dimer is called
-``single_dimer_pbc``. This program requires a configuration file that
-contains the physical parameters, an example of which is given in
-listing [dimer-file]. Refer to appendix [sec:install] if you have not
-installed the software yet.
+Within RMPCDMD, the simulation program for the dimer is called ``single_dimer_pbc``. This
+program requires a configuration file that contains the physical parameters, an example of
+which is given in the listing below.
 
 ::
 
@@ -183,8 +175,6 @@ installed the software yet.
     # simulation parameters
     N_MD = 200
     N_loop = 50
-    seed = 7428301037362090395
-    h5md_file = dimer.h5
 
     # interaction parameters
     sigma_N = 4.0
@@ -198,44 +188,38 @@ installed the software yet.
     epsilon_N_C = 1.0
     epsilon_C_C = 1.0
 
-The configuration allows one to set the size of both spheres in the
-dimer as well as the interaction parameters. The setting ``epsilon_N``
-contain the prefactor to the Lennard-Jones potential for the “N” sphere
-and all solvent species on a single line. In this example, all the
-interaction parameters are set to 1 except for the interaction between
-the “N” sphere and “B” solvent particles. This is the situation
-presented in Ref. .
+The configuration allows one to set the size of both spheres in the dimer as well as the
+interaction parameters. The setting ``epsilon_N`` contain the prefactor to the Lennard-Jones
+potential for the "N" sphere and all solvent species on a single line. In this example, all
+the interaction parameters are set to 1 except for the interaction between the "N" sphere
+and "B" solvent particles, as was done in :cite:`ruckner_kapral_prl_2007`.
 
 Running the simulations
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-An example simulation setup is provided in the directory ``experiments``
-of . There, the sub-directory ``01-single-dimer`` contains a parameter
-file.
+.. note:: Make sure that you have built the code properly (see :ref:`install`) and that the
+          command-line tool ``rmpcdmd`` is available at your command-line prompt. You will
+          also need a working scientific Python environment (see :ref:`install_python`).
+
+An example simulation setup is provided in the directory ``experiments`` of RMPCDMD. There,
+the sub-directory ``01-single-dimer`` contains a parameter file.
 
 Review the parameters in the file ``dimer.parameters`` then execute the
 code
 
 .. code:: bash
 
-    ../../build/single_dimer_pbc dimer.parameters
+    make dimer.h5
 
-A makefile is provided for convenience, so that execution can also
-proceed as
-
-.. code:: bash
-
-    make simulation
-
-Simply typing ``make`` will present the user with options.
+The actual commands that are executed will be shown in the terminal.
 
 Analyzing the data
 ^^^^^^^^^^^^^^^^^^
 
-The output of the simulation is stored in the file ``dimer.h5``, that
-follows the H5MD convention for storing molecular data . H5MD files are
-regular HDF5 files and can be inspected using the programs distributed
-by the HDF Group. Issue the following command and observe the output:
+The output of the simulation is stored in the file ``dimer.h5``, that follows the H5MD
+convention for storing molecular data :cite:`h5md_cpc_2014`. H5MD files are regular HDF5
+files and can be inspected using the programs distributed by the HDF Group. Issue the
+following command and observe the output:
 
 .. code:: bash
 
@@ -249,13 +233,17 @@ you should find
     fields                   Group
     h5md                     Group
     observables              Group
+    parameters               Group
     particles                Group
+    timers                   Group
 
-The elements are called “groups” in HDF5 terminology. Here, there is
-data about the particles (positions, velocities, etc), observables (e.g.
-temperature) and fields (here, the histogram of “B” particles). The
-``h5md`` group contains metadata (simulation creator, H5MD version,
-etc.). The command
+The elements are called "groups" in HDF5 terminology. Here, there is data about the
+particles (positions, velocities, etc), observables (e.g.  temperature) and fields (here,
+the histogram of "B" particles). The ``h5md`` group contains metadata (simulation creator,
+H5MD version, etc.), the ``timers`` group contains timing data that is collected during the
+simulation and ``parameters`` contains all the parameters with which the simulation was run.
+
+The command
 
 .. code:: bash
 
