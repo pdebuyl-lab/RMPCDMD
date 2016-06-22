@@ -18,7 +18,7 @@ verify_sum() {
 
 verify_sum
 if [ "$?" != "0" ] ; then
-    curl -o "${HDF5_TARBALL}" "${HDF5_SRC_URL}"
+    wget "${HDF5_SRC_URL}"
 fi
 
 verify_sum && tar zxf "${HDF5_TARBALL}"
