@@ -29,7 +29,7 @@
   integer, parameter :: n_bins_conc = 90
   double precision :: conc_z_cyl(n_bins_conc)
 
-  double precision :: sigma_N, sigma_C, max_cut,alpha,sigma_single
+  double precision :: sigma_N, sigma_C, max_cut,alpha,sigma_sphere
   double precision :: shift, total_energy
   double precision :: sigma(3,2), sigma_cut(3,2), epsilon(3,2)
   double precision,allocatable :: mass(:)
@@ -160,23 +160,21 @@
   shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
   call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
 
+  if (N_type) then
+     sigma_sphere = sigma_N
+  else
+     sigma_sphere = sigma_C
+  end if
+
   allocate(mass(N_colloids))
   if (dimer) then
      mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
      mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   else
-     if (N_type) then
-        mass = rho * sigma_N**3 * 4 * 3.14159265/3
-     else
-        mass = rho * sigma_C**3 * 4 * 3.14159265/3
-     end if
+     mass = rho * sigma_sphere**3 * 4 * 3.14159265/3
   end if
 
-  if (N_type) then
-     sigma_single = sigma_N
-  else
-     sigma_single = sigma_C
-  end if
+  
 
   call solvent% init(N,N_species, system_name='solvent')
 
@@ -273,13 +271,8 @@
      end if
   else
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-     if (N_type) then
-        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 !+ 1.5d0*sigma_N
-        colloids% pos(1,:) = sigma_N*2**(1.d0/6.d0) + 1
-     else
-        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 !+ 1.5d0*sigma_C
-        colloids% pos(1,:) = sigma_C*2**(1.d0/6.d0) + 1
-     end if 
+     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 !+ 1.5d0*sigma_sphere
+     colloids% pos(1,:) = sigma_sphere*2**(1.d0/6.d0) + 1 
   end if
 
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
@@ -373,7 +366,7 @@
                  write(*,*) 'on_track', on_track
               end if
            else
-              if (colloids% pos(1,1) > (bufferlength+sigma_single)) then
+              if (colloids% pos(1,1) > (bufferlength+sigma_sphere)) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if
