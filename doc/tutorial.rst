@@ -277,7 +277,28 @@ trajectory of the dimer
 
     python h5md_plot.py dimer.h5 --traj dimer/position
 
-TODO MSD
+More specific information on the dimer nanomotor can be obtained via Python programs located
+in the ``experiments/01-single-dimer`` directory.
+
+The directed velocity, that is the velocity in the direction of the motor's propulsion axis,
+can be obtained via
+
+.. code:: bash
+
+    python plot_velocity.py dimer.h5 --directed
+
+A further option ``--histogram`` show an histogram instead of the time-dependent value.
+
+Finally, an important quantity to assess both for theory and experiments is the effective
+diffusion that results from both thermal fluctuations and the combination of self-propelled motion and random reorientation.
+
+.. code:: bash
+
+    python plot_msd.py dimer.h5
+
+This latter program can take several simulation files as input to obtain better
+statistics. It is also important to use a much simulation time (``N_loop``) than the default
+one to produce meaningful results.
 
 Nanodimer in a flow
 -------------------
