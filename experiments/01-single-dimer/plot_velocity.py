@@ -1,11 +1,13 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
+from __future__ import print_function, division
 
 import argparse
 
-parser = argparse.ArgumentParser()
+description = "Plot the velocity, in x,y,z cartesian coordinates or along the dimer axis."
+parser = argparse.ArgumentParser(description=description)
 parser.add_argument('file', type=str, help='H5MD datafile')
-parser.add_argument('--directed', action='store_true')
-parser.add_argument('--histogram', action='store_true')
+parser.add_argument('--directed', action='store_true', help="project the velocity along the dimer's axis")
+parser.add_argument('--histogram', action='store_true', help="display an histogram of the data")
 args = parser.parse_args()
 
 import numpy as np
