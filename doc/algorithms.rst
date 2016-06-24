@@ -4,7 +4,7 @@ Algorithms
 MPCD
 ----
 
-The MPCD algorithim introduced in :cite:`malevanets_kapral_mpcd_1999` is implemented in
+The MPCD algorithm introduced in :cite:`malevanets_kapral_mpcd_1999` is implemented in
 :doxytag:`simple_mpcd_step` for periodic boundary conditions.
 
 The presence of walls is taken into account in :doxytag:`wall_mpcd_step` following
@@ -23,6 +23,15 @@ The implementation in RMPCDMD is found in :doxytag:`md_pos` and :doxytag:`md_vel
 important to know that particles close to walls have their velocities updated in the
 *stream* routines and are skipped in :doxytag:`md_vel`. This is only correct if they are
 outside of the interaction range of all colloids, which is the case in all simulations here.
+
+Boundary conditions
+-------------------
+
+Bounce-back boundary conditions are used for the walls, in addition to the modified
+collision rule. The are presented in :cite:`allahyarov_gompper_mpcd_flows_2002` or
+:cite:`whitmer_luitjen_2010` and implemented in :doxytag:`mpcd_stream_xforce_yzwall`. There,
+the bounce-back collision is computer for the parabolic trajectories relevant for forced
+flows.
 
 Convenience routines
 --------------------
