@@ -1,3 +1,34 @@
+!> Model a chemotactic experiment in a microfluidic channel
+!!
+!! In this simulation, an inlet (x=0) is fed with A and S fluid species in the lower and
+!! upper halves in the y direction, respectively. A constant accerelation is applied in the
+!! x direction and walls in the z direction confine the flow, leading to a Poiseuille
+!! velocity profile.
+!!
+!! The colloid is a passive sphere, an active sphere or a dimer nanomotor.
+!!
+!! \param g                magnitude of acceleration
+!! \param buffer_length    length of the inlet buffer
+!! \param max_speed        maximum velocity of profile to initialize the velocities
+!! \param prob             probability of reaction
+!! \param alpha            angle of collision
+!! \param store_rho_xy     store the xy density of solvent particles on a grid
+!! \param dimer            simulate a dimer nanomotor (boolean, else it is a single sphere)
+!! \param L                length of simulation box in the 3 dimensions
+!! \param rho              fluid number density
+!! \param T                Temperature. Used for setting initial velocities and for wall thermostatting.
+!! \param d                length of rigid link
+!! \param N_in_front       place N sphere in front (higher x), for the dimer nanomotor
+!! \param tau              MPCD collision time
+!! \param N_MD_steps       number MD steps occuring in tau
+!! \param N_loop           number of MPCD timesteps
+!! \param steps_fixed      number of steps during which the colloid is fixed
+!! \param sigma_C          radius of C sphere
+!! \param sigma_N          radius of N sphere
+!! \param epsilon_C        interaction parameter of C sphere with both solvent species (2 elements)
+!! \param epsilon_N        interaction parameter of N sphere with both solvent species (2 elements)
+
+
  program chemotactic_cell
   use rmpcdmd_module
   use hdf5

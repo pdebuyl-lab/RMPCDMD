@@ -1,3 +1,27 @@
+!> Simulate a single dimer nanomotor
+!!
+!! Consider a dimer nanomotor in a periodic simulation cell filled with A particles. After a
+!! collision with the catalytic sphere of the dimer, a A particle is converted to B.
+!!
+!! \param L           length of simulation box in the 3 dimensions
+!! \param rho         fluid number density
+!! \param T           Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
+!! \param tau         MPCD collision time
+!! \param alpha       MPCD collision angle
+!! \param prob        probability to change A to B upon collision
+!! \param bulk_rmpcd  use bulkd rmpcd reaction for B->A instead of resetting
+!! \param bulk_rate   rate of B->A reaction
+!! \param N_MD        number MD steps occuring in tau
+!! \param N_loop      number of MPCD timesteps
+!! \param sigma_C     radius of C sphere
+!! \param sigma_N     radius of N sphere
+!! \param d           length of rigid link
+!! \param epsilon_C   interaction parameter of C sphere with both solvent species (2 elements)
+!! \param epsilon_N   interaction parameter of N sphere with both solvent species (2 elements)
+!! \param epsilon_C_C interaction parameter among C spheres
+!! \param epsilon_N_C interaction parameter among N and C spheres
+!! \param epsilon_N_N interaction parameter among N spheres
+
 program single_dimer_pbc
   use rmpcdmd_module
   use hdf5
