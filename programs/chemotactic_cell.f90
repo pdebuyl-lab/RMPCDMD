@@ -206,6 +206,14 @@
 
   call PTkill(config)
 
+  if (dimer) then
+     colloids% species(1) = 1
+     colloids% species(2) = 2
+  else
+     colloids% species = 2
+  end if
+  colloids% vel = 0
+
   dimer_io%force_info%store = .false.
   dimer_io%id_info%store = .false.
   dimer_io%position_info%store = .true.
@@ -243,14 +251,6 @@
   solvent_io%species_info%step = N_loop*N_MD_steps
   solvent_io%species_info%time = N_loop*N_MD_steps*dt
   call solvent_io%init(hfile, 'solvent', solvent)
-
-  if (dimer) then
-     colloids% species(1) = 1
-     colloids% species(2) = 2
-  else
-     colloids% species = 2
-  end if
-  colloids% vel = 0
 
   solvent% force = 0
   solvent% species = 1
