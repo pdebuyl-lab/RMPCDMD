@@ -1,4 +1,31 @@
-program setup_sphere_thermo_trap
+!> Simulate a thermal gradient with an embedded colloidal sphere
+!!
+!! Consider a pure fluid under a thermal gradient in the z-direction. The confining plates
+!! are modeled as bounce-back boundary conditions in the z-direction in addition to
+!! ghost cells for the collisions near the walls.
+!!
+!! The x-z components of the fluid velocity field is stored at fixed intervals in the
+!! center-y layer of cells.
+!!
+!! The sphere can be either fixed or held by an harmonic trap.
+!!
+!! \param L             length of simulation box in the 3 dimensions
+!! \param rho           fluid number density
+!! \param T             Temperature. Used for setting initial velocities.
+!! \param wall_t        Temperature at the walls (two values).
+!! \param k             trap stiffness
+!! \param tau           MPCD collision time
+!! \param alpha         MPCD collision angle
+!! \param thermostat    whether to enable bulk thermostatting
+!! \param N_therm       number of unsampled thermalization MPCD timesteps
+!! \param N_loop        number of MPCD timesteps
+!! \param N_MD_steps    number of MD timesteps per tau
+!! \param vxz_interval  interval for storing the xz velocity field
+!! \param sigma         size of spherical colloid
+!! \param epsilon       interaction parameter of sphere with fluid
+!! \param move          enable motion of the sphere (boolean)
+
+program single_sphere_thermo_trap
   use rmpcdmd_module
   use hdf5
   use h5md_module
@@ -64,8 +91,6 @@ program setup_sphere_thermo_trap
   type(timer_t) :: flag_timer, change_timer, varia
   integer(HID_T) :: timers_group
 
-  !gravity
-  double precision :: g
   ! trap parameters
   double precision :: k, trap_center(3)
   logical :: move
@@ -100,7 +125,6 @@ program setup_sphere_thermo_trap
   wall_t = PTread_dvec(config, 'wall_T', 2)
   T = PTread_d(config, 'T')
 
-  g = PTread_d(config, 'g')
   k = PTread_d(config, 'k')
   
   sigma = PTread_d(config, 'sigma')
@@ -480,4 +504,4 @@ contains
 
   end subroutine div_vxyz
 
-end program setup_sphere_thermo_trap
+end program single_sphere_thermo_trap
