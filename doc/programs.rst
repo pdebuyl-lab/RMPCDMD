@@ -26,3 +26,4 @@ in ``experiments/`` contain configuration files for some simulations.
 
 .. doxyheader:: ../programs/chemotactic_cell.f90
 
+.. doxyheader:: ../programs/single_sphere_thermo_trap.f90
