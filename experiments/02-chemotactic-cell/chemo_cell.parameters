@@ -26,8 +26,11 @@ T = 1
 tau = 1
 
 # dimer parameters 
-# T: 2 colloids as dimer, F: 1 N-type colloid, 
-dimer = T
+# T: 2 colloids as dimer, F: 1 ?-type colloid, 
+dimer = F
+#type of single colloid
+N_type = F
+
 sigma_C = 2
 sigma_N = 2
 d = 4.5

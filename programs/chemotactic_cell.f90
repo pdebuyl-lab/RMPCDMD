@@ -28,8 +28,7 @@
 !! \param epsilon_C        interaction parameter of C sphere with both solvent species (2 elements)
 !! \param epsilon_N        interaction parameter of N sphere with both solvent species (2 elements)
 
-
- program chemotactic_cell
+program chemotactic_cell
   use rmpcdmd_module
   use hdf5
   use h5md_module
@@ -60,8 +59,9 @@
   integer, parameter :: n_bins_conc = 90
   double precision :: conc_z_cyl(n_bins_conc)
 
-  double precision :: sigma_N, sigma_C, max_cut,alpha
+  double precision :: sigma_N, sigma_C, max_cut, alpha, sigma_sphere
   double precision :: shift, total_energy
+  double precision :: track_y_shift
   double precision :: sigma(3,2), sigma_cut(3,2), epsilon(3,2)
   double precision,allocatable :: mass(:)
 
@@ -100,7 +100,7 @@
   integer, allocatable :: rho_xy(:,:,:)
 
   double precision :: g(3) !gravity
-  logical :: fixed, on_track, stopped, N_in_front, dimer
+  logical :: fixed, on_track, stopped, N_in_front, dimer, N_type
   logical :: store_rho_xy
   integer :: bufferlength
   double precision :: max_speed, z, Lz
@@ -139,6 +139,7 @@
   alpha = PTread_d(config,'alpha', loc=params_group)
   store_rho_xy = PTread_l(config, 'store_rho_xy', loc=params_group)
   dimer = PTread_l(config, 'dimer', loc=params_group)
+  N_type = PTread_l(config, 'N_type', loc=params_group)
   if (dimer) then
      N_colloids = 2
   else
@@ -153,6 +154,7 @@
   T = PTread_d(config, 'T', loc=params_group)
   d = PTread_d(config, 'd', loc=params_group)
   N_in_front = PTread_l(config, 'N_in_front', loc=params_group)
+  track_y_shift = PTread_d(config, 'track_y_shift', loc=params_group)
 
   wall_v = 0
   wall_t = [T, T]
@@ -190,12 +192,18 @@
   shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
   call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
 
+  if (N_type) then
+     sigma_sphere = sigma_N
+  else
+     sigma_sphere = sigma_C
+  end if
+
   allocate(mass(N_colloids))
   if (dimer) then
      mass(1) = rho * sigma_C**3 * 4 * 3.14159265/3
      mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
   else
-     mass = rho * sigma_N**3 * 4 * 3.14159265/3
+     mass = rho * sigma_sphere**3 * 4 * 3.14159265/3
   end if
 
   call solvent% init(N,N_species, system_name='solvent')
@@ -210,7 +218,11 @@
      colloids% species(1) = 1
      colloids% species(2) = 2
   else
-     colloids% species = 2
+     if (N_type) then
+        colloids% species = 2
+     else
+        colloids% species = 1
+     end if
   end if
   colloids% vel = 0
 
@@ -281,16 +293,16 @@
      if (N_in_front) then
         colloids% pos(1,1) = sigma_C*2**(1.d0/6.d0) + 1
         colloids% pos(1,2) = colloids% pos(1,1) + d
-        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + track_y_shift
      else
         colloids% pos(1,2) = sigma_N*2**(1.d0/6.d0) + 1
         colloids% pos(1,1) = colloids% pos(1,2) + d
-        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*maxval([sigma_C,sigma_N])
+        colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + track_y_shift
      end if
   else
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
-     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + 1.5d0*sigma_N
-     colloids% pos(1,:) = sigma_N*2**(1.d0/6.d0) + 1
+     colloids% pos(2,:) = solvent_cells% edges(2)/2.d0 + track_y_shift
+     colloids% pos(1,:) = sigma_sphere*2**(1.d0/6.d0) + 1
   end if
 
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
@@ -384,7 +396,7 @@
                  write(*,*) 'on_track', on_track
               end if
            else
-              if (colloids% pos(1,1) > (bufferlength+sigma_N)) then
+              if (colloids% pos(1,1) > (bufferlength+sigma_sphere)) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if
@@ -462,13 +474,16 @@
            end if
         end if
         if (.not.fixed) then
-           if (dimer) then
-              call flag_timer%tic()
-              call flag_particles
-              call flag_timer%tac()
-              call change_timer%tic()
-              call change_species
-              call change_timer%tac()
+           ! this should be solved for a single passive colloid
+           if ((.not. N_type) .or. (dimer)) then
+              if (.not. on_track) then
+                 call flag_timer%tic()
+                 call flag_particles
+                 call flag_timer%tac()
+                 call change_timer%tic()
+                 call change_species
+                 call change_timer%tac()
+              end if
            end if
         end if
 
@@ -614,20 +629,31 @@ contains
     !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq) reduction(+:catalytic_change)
     do m = 1, solvent% Nmax
        if (solvent% flag(m) == 1) then
-          x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
-          dist_to_C_sq = dot_product(x, x)
-          x = rel_pos(colloids% pos(:,2), solvent% pos(:,m), solvent_cells% edges)
-          dist_to_N_sq = dot_product(x, x)
-          if ( &
-               (dist_to_C_sq > solvent_colloid_lj%cut_sq(1,1)) &
-               .and. &
-               (dist_to_N_sq > solvent_colloid_lj%cut_sq(1,2)) &
-               ) &
-               then
-             solvent% species(m) = 2
-             solvent% flag(m) = 0
-             catalytic_change(1) = catalytic_change(1) - 1
-             catalytic_change(2) = catalytic_change(2) + 1
+          if (dimer) then
+             x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
+             dist_to_C_sq = dot_product(x, x)
+             x = rel_pos(colloids% pos(:,2), solvent% pos(:,m), solvent_cells% edges)
+             dist_to_N_sq = dot_product(x, x)
+             if ( &
+                (dist_to_C_sq > solvent_colloid_lj%cut_sq(1,1)) &
+                .and. &
+                (dist_to_N_sq > solvent_colloid_lj%cut_sq(1,2)) &
+                ) &
+                then
+                solvent% species(m) = 2
+                solvent% flag(m) = 0
+                catalytic_change(1) = catalytic_change(1) - 1
+                catalytic_change(2) = catalytic_change(2) + 1
+             end if
+          else
+             x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
+             dist_to_C_sq = dot_product(x, x)
+             if (dist_to_C_sq > solvent_colloid_lj%cut_sq(1,1)) then
+                solvent% species(m) = 2
+                solvent% flag(m) = 0
+                catalytic_change(1) = catalytic_change(1) - 1
+                catalytic_change(2) = catalytic_change(2) + 1
+             end if
           end if
        end if
     end do
