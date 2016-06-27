@@ -1,5 +1,5 @@
 #!/bin/bash
-
+set -e
 RMPCDMD_HOME=@RMPCDMD_SOURCE_DIR@
 RMPCDMD_PROGRAMS="@RMPCDMD_PROGRAMS@"
 RMPCDMD_PROGRAMS_LIST="${RMPCDMD_PROGRAMS//\;/
@@ -86,6 +86,29 @@ elif [ "$1" = "timers" ]
 then
     shift
     python "${RMPCDMD_HOME}/scripts/timers_plot.py" "$@"
+elif [ "$1" = "check" ]
+then
+    msg=""
+    for program in ${RMPCDMD_PROGRAMS_LIST} ;
+    do
+	if [ ! -x "${RMPCDMD_HOME}/build/${program}" ] ; then
+	   ERROR=1
+	   msg="${msg} ; program ${program} not found"
+	fi
+    done
+    if [ ${msd} ] ; then
+	echo "Errors where found in the installation of RMPCDMD"
+	echo ${msg}
+    else
+	echo "All simulation programs of RMPCDMD were found"
+    fi
+    echo "Testing the availability of Python libraries (no error message indicates that no error was found)"
+    python -c 'import numpy'
+    python -c 'import scipy'
+    python -c 'import matplotlib'
+    python -c 'import h5py'
+    python "${RMPCDMD_HOME}/scripts/timers_plot.py" -h >/dev/null
+    python "${RMPCDMD_HOME}/scripts/h5md_plot.py" -h >/dev/null
 else
     echo "Unknown command"
 fi
