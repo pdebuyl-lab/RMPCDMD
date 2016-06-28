@@ -26,7 +26,8 @@ particle.
 
 The derived type `cell_system_t` defines a cell list with a one-dimensional index that is
 mapped to a three-dimensional compact Hilbert index
-:cite:`hamilton_compact_hilbert_tr`. Particles are sorted according to this cell system.
+:cite:`hamilton_compact_hilbert_tr`. Particles are sorted according to this cell system, as
+in the nano-dimer software :cite:`colberg_nanodimer_web`.
 
 Operations on particles can proceed in two different ways:
 
@@ -47,3 +48,15 @@ external libraries (`fortran_h5md <https://github.com/pdebuyl/fortran_h5md>`_,
 <https://github.com/pdebuyl/ParseText>`_ and `fortran_tester
 <https://github.com/pdebuyl/fortran_tester>`_). The `HDF5 <https://www.hdfgroup.org/HDF5/>`_
 library is also necessary to build RMPCDMD.
+
+Random numbers
+--------------
+
+A C library implements the Threefry Random Number Generator (RNG) :cite:`random123`. This
+RNG can be used in separate independent threads, provided that the thread's numerical ID is
+part of the *key* of the RNG. The other part of the key, that is made of two 64-bit
+integers, is the seed that is provided by the user.
+
+The RNG is implemented in `random_module <https://github.com/pdebuyl/random_module>`_, that
+is fetched as a git submodule in RMPCDMD. A Fortran wrapper, using the ``bind(c)``
+attribute, manages the Fortran/C interface.
