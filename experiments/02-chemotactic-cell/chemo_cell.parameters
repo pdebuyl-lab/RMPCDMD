@@ -34,6 +34,7 @@ N_type = F
 sigma_C = 2
 sigma_N = 2
 d = 4.5
+track_y_shift = 2.3
 
 epsilon_C = 1 1 1
 epsilon_N = 1 1 1

@@ -25,6 +25,7 @@
 !! \param steps_fixed      number of steps during which the colloid is fixed
 !! \param sigma_C          radius of C sphere
 !! \param sigma_N          radius of N sphere
+!! \param track_y_shift    shift of the track in the y direction with respect to Ly/2
 !! \param epsilon_C        interaction parameter of C sphere with both solvent species (2 elements)
 !! \param epsilon_N        interaction parameter of N sphere with both solvent species (2 elements)
 
