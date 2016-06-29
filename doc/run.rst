@@ -75,9 +75,11 @@ using makefiles for simplicity. An example simulation session is given below
     user@pc$~$ cd /tmp/RMPCDMD/
     user@pc$/tmp/RMPCDMD$ cd experiments/01-single-dimer/
     user@pc$/tmp/RMPCDMD/experiments/01-single-dimer$ ls
-    dimer.parameters  Makefile  plot_histogram.py  plot_velocity.py  ruckner-kapral.parameters
+    dimer.parameters  Makefile  plot_histogram.py  plot_velocity.py
+    ruckner-kapral.parameters
     user@pc$/tmp/RMPCDMD/experiments/01-single-dimer$ make simulation
-    /tmp/RMPCDMD/experiments/01-single-dimer/../../build/rmpcdmd run single_dimer_pbc dimer.parameters dimer.h5 auto
+    /tmp/RMPCDMD/experiments/01-single-dimer/../../build/rmpcdmd run single_dimer_pbc
+    dimer.parameters dimer.h5 auto
     RMPCDMD running single_dimer_pbc
     OMP_NUM_THREADS not set
     Start time -- Thu Jun 16 13:40:08 CEST 2016
@@ -85,7 +87,8 @@ using makefiles for simplicity. An example simulation session is given below
 
      Running for         100 loops
      mass   1130.9733867645264        1130.9733867645264     
-	5   10   15   20   25   30   35   40   45   50   55   60   65   70   75   80   85   90   95  100 
+	5   10   15   20   25   30   35   40   45   50   55   60   65   70   75   80   85
+       90   95  100 
      n extra sorting         747
 
     real    3m25.006s
