@@ -53,3 +53,8 @@ The source code features inline comments, published with Doxygen: `api <api/inde
 The use of the Hilbert curve sorting and of the Threefry Random Number Generator
 (:cite:`random123`) is inspired by Peter Colberg's code `nano-dimer`
 :cite:`colberg_nanodimer_web`.
+
+.. only:: html
+
+    Download the documentation as a `pdf file <_static/RMPCDMD.pdf>`_ (does not have api
+    links).

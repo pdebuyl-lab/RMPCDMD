@@ -51,8 +51,9 @@ api: _build/html/api
 _build/html/api: doxygen_conf index.md ../src/*.f90 ../test/*.f90 ../programs/*.f90 | _build/html
 	doxygen doxygen_conf
 .PHONY: html
-html: api
+html: api latexpdf
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html
+	cp $(BUILDDIR)/latex/RMPCDMD.pdf $(BUILDDIR)/html/_static
 	@echo
 	@echo "Build finished. The HTML pages are in $(BUILDDIR)/html."
 
