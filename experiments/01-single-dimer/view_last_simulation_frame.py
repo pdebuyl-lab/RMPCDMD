@@ -5,8 +5,8 @@ from __future__ import print_function, division
 
 import argparse
 
-parser = argparse.ArgumentParser(
-"""Display the last frame of a dimer simulation, optionally with solvent species B""")
+description="Display the last frame of a dimer simulation, optionally with solvent species B"
+parser = argparse.ArgumentParser(description=description)
 parser.add_argument('file', type=str, help='H5MD datafile')
 parser.add_argument('--show-B', action='store_true', help='show solvent species B')
 parser.add_argument('--unwrap', action='store_true', help='unwrap coordinates')
