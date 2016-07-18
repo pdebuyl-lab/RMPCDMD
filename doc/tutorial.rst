@@ -129,7 +129,7 @@ Physical setup
 
 In this section, we review the propulsion of the dimer nanomotor
 presented by Rückner and Kapral. The geometry of the motor and the
-chemical kinetics are presented in the figure below.
+chemical kinetics are presented in :numref:`simpledimer`.
 
 The solvent consists of particles of types A and B, initially all
 particles are set to A (the fuel). Fuel particles that enter the
@@ -140,6 +140,8 @@ discontinuous jump the in the potential energy and disrupt the
 trajectory. This chemical activity generates an excess of product
 particles "B" around the catalytic sphere and a gradient of solvent
 concentration is established.
+
+.. _simpledimer:
 
 .. figure:: simple_dimer.png
 
@@ -300,191 +302,22 @@ This latter program can take several simulation files as input to obtain better
 statistics. It is also important to use a much simulation time (``N_loop``) than the default
 one to produce meaningful results.
 
-Nanodimer in a flow
--------------------
-
-Let’s consider a nanodimer moves in a square channel, where periodic
-boundary in the :math:`x` directions and real walls in the :math:`y` and
-:math:`z` directions are used. The dimer motor interacts with the walls
-through long-ranged soft potentials, which restrict the dimer motion to
-occur largely along the :math:`x`-direction. The flow is generated in
-the :math:`-x`-direction, which is in the opposite direction to the
-motor moving direction, by imposing a constant external force with
-strength :math:`g` on each solvent molecule. Since the motor is moving
-against the flow, as expected, if :math:`g` increases the motor speed
-:math:`V_z` decreases and starts to move backward when :math:`g` is
-larger than the critical value :math:`g_c`.
-
-An example simulation setup is provided in the directory
-``02-chemotactic-cell`` in ``experiments``. The parameters is listed in
-listing [dimer-in-a-flow]. To run the simulation, use
-``make simulation``, and check the propulsion speed :math:`V_z` with
-
-.. code:: bash
-
-    python plot_velocity.py chemotactic_cell.h5 --directed
-
-Try different values of :math:`g` to see how :math:`V_z` changes with
-flow strength :math:`g`.
-
-::
-
-    h5md_file = chemotactic_cell.h5
-
-    # simulation parameters
-    N_MD = 50
-    N_loop = 1000
-    probability = 1
-
-    # number of initialisation steps
-    steps_fixed = 100
-
-    # cell parameters
-    g = 0.001
-    buffer_length = 10
-    randomisation_length = 5
-    L = 50 50 15
-    seed = 4519199302125082433
-
-    max_speed =  0.090
-
-    # fluid parameters
-    rho = 10
-    T = 1
-    tau = 0.5
-
-    # dimer parameters
-    sigma_C = 2
-    sigma_N = 2
-    d = 4.5
-
-    epsilon_C = 1 1 1
-    epsilon_N = 1 0.5 1
-
-    # order (T: CN ; F: NC)
-    order = F
-
-    # local concentration
-    number_of_angles = 6
 
 The Janus nanomotor
 -------------------
 
-Physical setup
-^^^^^^^^^^^^^^
+A Janus motor comprises two hemispheres with one chemically active surface and one inactive
+surface as shown in :numref:`janusfigure` (a). Because chemical reactions happen asymmetrically on the Janus
+motor surface, a concentration gradient of product particles is generated giving rise to
+self-propulsion. In 2013, de Buyl and Kapral introduced a composite model for Janus motor
+:cite:`de_buyl_kapral_nanoscale_2013`, see :numref:`janusfigure` (b). The active (blue, C) and inactive
+(red, N) parts are composed of spheres linked by rigid bonds. These spheres have the same
+radius, and interact with the surrounding solvent particles through repulsive Lennard-Jones
+potentials :math:`V_{\alpha C}` and :math:`V_{\alpha N}`, where :math:`\alpha = A, B` is the
+type of solvent species.
 
-A Janus motor is a single sphere with an active hemisphere on one side
-and an inactive part on the other side (see Fig. [fig:JP]). The
-propulsion velocity along its axis :math:`\hat{z}` for
-diffusion-controlled reaction is known to be
-
-.. math::
-
-   V_z = c_1 \frac{k_B T}{\eta} \frac{\rho}{3 R} \Lambda,
-   \label{eq:Vz}
-
-where :math:`k_B T` is the thermal energy of the system with temperature
-:math:`T`, :math:`\eta` is the solvent viscosity, and :math:`\rho` is
-the solvent density. The Janus motor has radius :math:`R`, and the
-effects due to interactions with the fuel and waste molecules are taken
-into account in the factor :math:`\Lambda`. The coefficient :math:`c_1`
-depends on the steady-state concentration of product :math:`B`
-particles, which is affected by the way of refueling.
-
-Bulk reaction
-^^^^^^^^^^^^^
-
-To keep motor active, one needs to maintain the system in a
-nonequilibrium state by removing product molecules from and adding fuel
-molecules into the system. While in experiments this is achieved by
-adding fuel molecules at distant boundaries, in cells waste molecules
-may be converted back to fuel molecules through chemical reactions
-carried out by proteins or enzymes (:math:`E`). Here we aim to model the
-later. Let :math:`n_A` and :math:`n_B` be the concentration of :math:`A`
-and :math:`B` molecules, respectively, and :math:`n_E` be the
-concentration of the proteins that carry out the irreversible reaction
-:math:`B + E \to A + E` with reaction rate :math:`k`. The rate equation
-of :math:`A` molecules is
-
-.. math::
-
-   \frac{d n_A}{dt} = k n_E n_B = k_2 n_B.
-   \label{eq:rate_eq_A}
-
-The enzyme concentration :math:`n_E` is a constant since enzymes only
-facilitate the reaction, therefore one can rewrite
-Eq. ([eq:rate\ :sub:`e`\ q\ :sub:`A`]) as
-:math:`B \stackrel{k_2}\rightarrow A` with an effective reaction rate
-:math:`k_2 = k n_E`.
-
-In reactive multiparticle collision dynamics (RMPCD), reactive and
-non-reactive collisions occurs at discrete time interval :math:`\tau`.
-In each collision step, the reaction
-:math:`B \stackrel{k_2}\rightarrow A` is carried out locally within each
-collision cell. Specifically, in cell :math:`\xi` a :math:`B` molecule
-is randomly picked from the :math:`n_B^{\xi}` product molecules in the
-cell, and is converted to :math:`A` particle with probability
-:math:`p = 1-e^{-k_2 n_B^{\xi} \tau}`. The code for the bulk reaction is
-shown in listing [bulk\ :sub:`r`\ eaction], which can be found in the
-subroutine ``bulk_reaction`` in ``src/mpcd.f90``.
-
-::
-
-    do cell_idx = 1, c%N
-       if ( (c%cell_count(cell_idx) <= 1) .or. .not. c%is_reac(cell_idx) ) cycle
-
-       start = c%cell_start(cell_idx)
-       n = c%cell_count(cell_idx)
-
-       local_rate = 0
-       do i = start, start + n - 1
-          s = p%species(i)
-          if (s==from) then
-             local_rate = local_rate + 1
-             pick = i
-          end if
-       end do
-
-       local_rate = local_rate*rate
-       if (threefry_double(state(thread_id)) < (1 - exp(-local_rate*tau))) then
-          p%species(pick) = to
-       end if
-    end do
-
-To run the simulation to test bulk reaction, use
-
-.. code:: bash
-
-    ./setup_bulk_decay
-
-in the directory ``/build``, and an exponential fit to the data can be
-done with
-
-.. code:: bash
-
-    python plot_species_evolution.py bulk_decay.h5 --tau 1.0 --species 1 --rate 0.01
-
-Composite Janus motor
----------------------
-
-The Janus motor can propel itself powered by chemical reactions on the
-active hemisphere surface. However, in the presence of thermal noises
-the Janus motor changes its moving direction by rotational Brownian
-motion. It is not possible to simulate Janus particle as a single sphere
-interacting with the surrounding solvent molecules only through central
-potentials, :math:`V(r)`. It is because the collisions described by
-:math:`V(r)` only exchange momentum in the radial direction giving rise
-to a body force, but no momentum exchange in the tangential direction so
-that the Janus particle can not rotate. In 2013, Pierre and Kapral
-ntroduced a composite model for Janus motor, see Fig. [fig:JP](b) . The
-active (blue, :math:`C`) and inactive (red, :math:`N`) parts are
-composed of spheres linked by rigid bonds. These spheres have the same
-radius :math:`1`, and interact with the surrounding solvent particles
-through :math:`V_{\alpha C}` and :math:`V_{\alpha N}`.
-
-An example simulation setup is provided in the directory
-``03-single-janus`` in ``experiments``. The parameters is listed in
-listing [janus-parameters]
+An example simulation setup for self-proplusive Janus motor is provided in the directory
+``experiments/03-single-janus``. The parameter file is show below:
 
 ::
 
@@ -498,8 +331,6 @@ listing [janus-parameters]
     # simulation parameters
     N_MD = 50
     N_loop = 50
-    seed = -9223372036854775808
-    h5md_file = janus.h5
 
     # interaction parameters
     sigma_colloid = 1
@@ -514,28 +345,38 @@ listing [janus-parameters]
     epsilon_C_C = 1.0
     bulk_rate = 0.001
 
-To run the simulation, use ``make simulation``, and check the proplusion
-speed :math:`V_z` with
+
+To run the simulation, use ``make simulation``, and check the propulsion speed :math:`V_z`
+with
 
 .. code:: bash
 
     python plot_velocity.py janus.h5 --directed
 
+.. _janusfigure:
+
+.. figure:: JP.png
+
+    (a) The sketch of a Janus particle with active (C) and inactive (N) hemispherical
+    surface moving along particle axis with velocity :math:`V_z`. (b) The composite model
+    for Janus particle. Chemical reactions, :math:`A \to B`, take place at the active
+    surface.
+
+
 Controls of motor speed
 ^^^^^^^^^^^^^^^^^^^^^^^
 
-In Eq. ([eq:Vz]), one can see the propulsion speed is determined by
-factors, such as system temperature, fluid properties (viscosity and
-density). The effects from concentration gradient of product particle is
-given in the coefficient :math:`c_1` which can be altered by the bulk
-reaction rate :math:`k_2`. While the factors above affect propulsion
-speed, the moving direction is only determined by the factor
-:math:`\Lambda` that accounts for the effect from the interactions with
-the solvent species. In this section, we will try to explore the effects
-from bulk reaction rate :math:`k_2` and interaction with the solvent
-:math:`\Lambda`.
+For Janus particles, one can obtain from phoretic theory that the propulsion speed is
+determined by factors such as the system temperature, fluid properties (viscosity and
+density) but also the chemical kinetics and the specific solvent-colloid interactions
+:cite:`kapral_perspective_jcp_2013`.
 
-Example :math:`1`, forward moving Janus motor.
+In this section, we explore the effects of the interaction parameters and of the reaction
+rate :math:`k_2` on the direction and strength of the propulsion.  By modifying only the
+lines below in the parameter file for the janus simulation, it is possible to observe a
+reversal of propulsion and the effect of the reaction rate :math:`k_2`.
+
+Example 1, forward moving Janus motor.
 
 ::
 
@@ -543,7 +384,7 @@ Example :math:`1`, forward moving Janus motor.
     epsilon_C = 1.0 0.5
     bulk_rate = 0.001
 
-Example :math:`2`, backward moving Janus motor.
+Example 2, backward moving Janus motor.
 
 ::
 
@@ -551,7 +392,7 @@ Example :math:`2`, backward moving Janus motor.
     epsilon_C = 0.5 1.0
     bulk_rate = 0.001
 
-Example :math:`3`, Bulk reaction rate.
+Example 3, changing the bulk reaction rate.
 
 ::
 
