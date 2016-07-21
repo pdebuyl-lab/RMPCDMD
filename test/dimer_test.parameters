@@ -1,0 +1,25 @@
+# physical parameters
+T = 1
+L = 24 24 24
+rho = 10
+tau = 1
+probability = 1.0
+bulk_rmpcd = F
+bulk_rate = 0.001
+
+# simulation parameters
+N_MD = 100
+N_loop = 200
+
+# interaction parameters
+sigma_N = 3.0
+sigma_C = 3.0
+
+d = 6.5
+epsilon_N = 1.0 0.2
+epsilon_C = 1.0 1.0
+
+epsilon_N_N = 1.0
+epsilon_N_C = 1.0
+epsilon_C_C = 1.0
+
