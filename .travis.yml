@@ -2,15 +2,29 @@ language: c
 sudo: required
 dist: trusty
 
+env:
+  - OMP_NUM_THREADS=4
+
 install:
-  - sudo apt-get install -y gfortran
+  - sudo apt-get install -y gfortran libhdf5-dev
 
 script:
+  - virtualenv --python=python venv
+  - source venv/bin/activate
+  - python -m pip install -U pip
+  - pip install -U wheel
+  - pip install numpy
+  - python -c 'import numpy'
+  - pip install h5py
+  - python -c 'import h5py'
   - ./scripts/download_and_build_hdf5.sh 1>hdf5_build.out 2>&1
   - mkdir build && cd build
   - HDF5_ROOT=../_hdf5-1.8.17 cmake ..
   - make VERBOSE=1
   - ctest -V
+  - sudo make install
+  - rmpcdmd run single_dimer_pbc ../test/dimer_test.parameters dimer_test.h5 auto
+  - python ../test/dimer_test.py dimer_test.h5
 
 after_failure:
-  - cat hdf5_build.out
+  - cat ../hdf5_build.out
