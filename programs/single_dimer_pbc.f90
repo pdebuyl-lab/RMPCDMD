@@ -435,9 +435,7 @@ contains
           x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
           dist_to_C_sq = dot_product(x, x)
           if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-             if (threefry_double(state(1)) <= prob) then
-                solvent% flag(r) = 1
-             end if
+             solvent% flag(r) = 1
           end if
        end if
     end do
@@ -449,8 +447,11 @@ contains
     double precision :: dist_to_N_sq
     integer :: m
     double precision :: x(3)
+    integer :: thread_id
 
-    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(x, dist_to_C_sq, dist_to_N_sq)
     do m = 1, solvent% Nmax
        if (solvent% flag(m) == 1) then
           x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
@@ -463,12 +464,15 @@ contains
                (dist_to_N_sq > solvent_colloid_lj%cut_sq(1,2)) &
                ) &
                then
-             solvent% species(m) = 2
+             if (threefry_double(state(thread_id)) <= prob) then
+                solvent% species(m) = 2
+             end if
              solvent% flag(m) = 0
           end if
        end if
     end do
-
+    !$omp end do
+    !$omp end parallel
   end subroutine change_species
   
   subroutine refuel
