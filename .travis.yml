@@ -9,6 +9,10 @@ install:
   - sudo apt-get install -y gfortran libhdf5-dev
 
 script:
+  - virtualenv --python=python venv
+  - source venv/bin/activate
+  - python -m pip install -U pip
+  - pip install -U wheel
   - pip install numpy
   - python -c 'import numpy'
   - pip install h5py
