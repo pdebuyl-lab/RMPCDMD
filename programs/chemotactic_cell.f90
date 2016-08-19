@@ -432,9 +432,7 @@ program chemotactic_cell
            n_extra_sorting = n_extra_sorting + 1
         end if
 
-        call buffer_timer%tic()
         call buffer_particles(solvent,solvent_cells%edges)
-        call buffer_timer%tac()
 
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
@@ -729,6 +727,7 @@ contains
 
      integer :: k, s
 
+     call buffer_timer%tic()
      bulk_change = 0
      !$omp parallel do private(s) reduction(+:bulk_change)
      do k = 1, particles% Nmax
@@ -748,6 +747,8 @@ contains
            end if
         end if
      end do
+     call buffer_timer%tac()
+
   end subroutine buffer_particles
 
   subroutine compute_rho_xy
