@@ -67,6 +67,7 @@ program chemotactic_cell
   double precision,allocatable :: mass(:)
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
+  double precision :: local_mass, total_mass
 
   double precision :: e1, e2, e_wall
   double precision :: tau, dt , T
@@ -520,18 +521,18 @@ program chemotactic_cell
      call varia%tac()
 
      temperature = compute_temperature(solvent, solvent_cells)
-     if (dimer) then
-         kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
-             colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
-             sum(solvent% vel**2)/2
-         v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1) + mass(2)*colloids%vel(:,2)) / &
-             (solvent%Nmax + mass(1) + mass(2))
-     else
-        kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
-             sum(solvent% vel**2)/2)
-         v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1)) / &
-             (solvent%Nmax + mass(1))
-     end if
+     total_mass = 0
+     kin_e = sum(solvent% vel**2)/2
+     v_com = sum(solvent% vel, dim=2)
+     do k = 1, colloids% Nmax
+        m = colloids%species(k)
+        if (m==0) cycle
+        local_mass = colloids%mass(m)
+        kin_e = kin_e + local_mass*sum(colloids% vel(:,k)**2)/2
+        v_com = v_com + local_mass*colloids%vel(:,k)
+        total_mass = total_mass + local_mass
+     end do
+     v_com = v_com / (solvent%Nmax + total_mass)
 
      call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com)
 
