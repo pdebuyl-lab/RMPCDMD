@@ -539,7 +539,7 @@ program chemotactic_cell
      n_solvent = 0
      do k = 1, solvent%Nmax
         m = solvent%species(k)
-        if (m <= 0) continue
+        if (m <= 0) cycle
         n_solvent(m) = n_solvent(m) + 1
      end do
      call n_solvent_el%append(n_solvent)
