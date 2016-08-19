@@ -478,12 +478,8 @@ program chemotactic_cell
            ! this should be solved for a single passive colloid
            if ((.not. N_type) .or. (dimer)) then
               if (.not. on_track) then
-                 call flag_timer%tic()
                  call flag_particles
-                 call flag_timer%tac()
-                 call change_timer%tic()
                  call change_species
-                 call change_timer%tac()
               end if
            end if
         end if
@@ -605,6 +601,7 @@ contains
     integer :: r, s
     double precision :: x(3)
 
+    call flag_timer%tic()
     do s = 1,neigh% n(1)
        r = neigh%list(s,1)
        if (solvent% species(r) == 1) then
@@ -617,6 +614,7 @@ contains
           end if
        end if
     end do
+    call flag_timer%tac()
 
   end subroutine flag_particles
 
@@ -626,6 +624,7 @@ contains
     integer :: m
     double precision :: x(3)
 
+    call change_timer%tic()
     catalytic_change = 0
     !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq) reduction(+:catalytic_change)
     do m = 1, solvent% Nmax
@@ -658,6 +657,7 @@ contains
           end if
        end if
     end do
+    call change_timer%tac()
 
   end subroutine change_species
 
