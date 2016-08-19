@@ -372,22 +372,13 @@ program chemotactic_cell
 
         colloids% pos_rattle = colloids% pos
 
-        if (.not. fixed) then
-           if (on_track) then
-              !only update the flow direction
-              do k=1, colloids% Nmax
-                 colloids% pos(1,k) = colloids% pos(1,k) + dt * colloids% vel(1,k) + &
-                      dt**2 * colloids% force(1,k) / (2 * colloids% mass(k))
-              end do
-           else
-              do k=1, colloids% Nmax
-                 colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
-                      dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
-              end do
-           end if
-           if (dimer) then
-              call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
-           end if
+        do k=1, colloids% Nmax
+           colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
+                dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
+        end do
+
+        if (dimer) then
+           call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
         end if
 
         if (on_track) then
@@ -456,23 +447,14 @@ program chemotactic_cell
 
         call md_vel(solvent, dt)
 
-        if (.not. fixed) then
-           if (on_track) then
-              !only update in the direction of the flow
-              do k=1, colloids% Nmax
-                 colloids% vel(1,k) = colloids% vel(1,k) + &
-                   dt * ( colloids% force(1,k) + colloids% force_old(1,k) ) / (2 * colloids% mass(k))
-              end do
-           else
-              do k=1, colloids% Nmax
-                 colloids% vel(:,k) = colloids% vel(:,k) + &
-                   dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids% mass(k))
-              end do
-           end if
-           if (dimer) then
-              call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
-           end if
+        do k=1, colloids% Nmax
+           colloids% vel(:,k) = colloids% vel(:,k) + &
+                dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids% mass(k))
+        end do
+        if (dimer) then
+           call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
         end if
+
         if (.not.fixed) then
            ! this should be solved for a single passive colloid
            if ((.not. N_type) .or. (dimer)) then
