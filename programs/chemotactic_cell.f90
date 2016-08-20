@@ -61,7 +61,7 @@ program chemotactic_cell
   double precision :: conc_z_cyl(n_bins_conc)
 
   double precision :: sigma_N, sigma_C, max_cut, alpha, sigma_sphere
-  double precision :: shift, total_energy
+  double precision :: shift
   double precision :: track_y_shift
   double precision :: sigma(3,2), sigma_cut(3,2), epsilon(3,2)
   double precision,allocatable :: mass(:)
@@ -466,13 +466,6 @@ program chemotactic_cell
         end if
 
      end do md_loop
-
-     if (dimer) then
-        total_energy = e1+e2+e_wall+colloids% mass(1)*sum(colloids% vel(:,1)**2) &
-                 +colloids% mass(2)*sum(colloids% vel(:,2)**2)/2+sum(solvent% vel**2)/2
-     else
-        total_energy = e1+e2+e_wall+colloids% mass(1)*sum(colloids% vel(:,1)**2) + sum(solvent% vel**2)/2
-     end if
 
      call random_number(solvent_cells% origin)
      solvent_cells% origin = solvent_cells% origin - 1
