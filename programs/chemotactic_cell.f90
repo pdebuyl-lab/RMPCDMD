@@ -363,8 +363,13 @@ program chemotactic_cell
   catalytic_change = 0
 
   i = 0
-  fixed = .true.
-  on_track = .true.
+  if (buffer_length>0) then
+     fixed = .true.
+     on_track = .true.
+  else
+     fixed = .false.
+     on_track = .false.
+  end if
   stopped = .false.
 
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
@@ -402,7 +407,7 @@ program chemotactic_cell
            end if
         end if
 
-        if (.not. on_track) then
+        if ((.not. on_track) .and. (buffer_length/=0))then
            do k=1, colloids% Nmax
               if (colloids% pos(1,k) > solvent_cells% edges(1)) then
                  stopped = .true.
