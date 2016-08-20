@@ -22,6 +22,7 @@
 !! \param tau              MPCD collision time
 !! \param N_MD_steps       number MD steps occuring in tau
 !! \param N_loop           number of MPCD timesteps
+!! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
 !! \param steps_fixed      number of steps during which the colloid is fixed
 !! \param sigma_C          radius of C sphere
 !! \param sigma_N          radius of N sphere
@@ -74,6 +75,7 @@ program chemotactic_cell
   double precision :: d,prob
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
+  integer :: colloid_sampling
   integer :: n_extra_sorting
   double precision :: kin_e, temperature
   integer, dimension(N_species) :: n_solvent, catalytic_change, bulk_change
@@ -163,6 +165,10 @@ program chemotactic_cell
 
   tau = PTread_d(config, 'tau', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
+  colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
+  if (modulo(N_MD_steps, colloid_sampling) /= 0) then
+     error stop 'colloid_sampling must divide N_MD with no remainder'
+  end if
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop', loc=params_group)
   steps_fixed = PTread_i(config, 'steps_fixed', loc=params_group)
@@ -232,16 +238,16 @@ program chemotactic_cell
   dimer_io%id_info%store = .false.
   dimer_io%position_info%store = .true.
   dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%position_info%step = N_MD_steps
-  dimer_io%position_info%time = N_MD_steps*dt
+  dimer_io%position_info%step = colloid_sampling
+  dimer_io%position_info%time = colloid_sampling*dt
   dimer_io%image_info%store = .true.
   dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%image_info%step = N_MD_steps
-  dimer_io%image_info%time = N_MD_steps*dt
+  dimer_io%image_info%step = colloid_sampling
+  dimer_io%image_info%time = colloid_sampling*dt
   dimer_io%velocity_info%store = .true.
   dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%velocity_info%step = N_MD_steps
-  dimer_io%velocity_info%time = N_MD_steps*dt
+  dimer_io%velocity_info%step = colloid_sampling
+  dimer_io%velocity_info%time = colloid_sampling*dt
   dimer_io%species_info%store = .true.
   dimer_io%species_info%mode = H5MD_FIXED
   call dimer_io%init(hfile, 'dimer', colloids)
@@ -465,6 +471,12 @@ program chemotactic_cell
            end if
         end if
 
+        if (modulo(j, colloid_sampling) == 0) then
+           call dimer_io%position%append(colloids%pos)
+           call dimer_io%velocity%append(colloids%vel)
+           call dimer_io%image%append(colloids%image)
+        end if
+
      end do md_loop
 
      call random_number(solvent_cells% origin)
@@ -521,9 +533,6 @@ program chemotactic_cell
      call catalytic_change_el%append(catalytic_change)
      call bulk_change_el%append(bulk_change)
 
-     call dimer_io%position%append(colloids%pos)
-     call dimer_io%velocity%append(colloids%vel)
-     call dimer_io%image%append(colloids%image)
      call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
 
      if (fixed) then
