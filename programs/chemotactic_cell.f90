@@ -106,7 +106,7 @@ program chemotactic_cell
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped, N_in_front, dimer, N_type
   logical :: store_rho_xy
-  integer :: bufferlength
+  integer :: buffer_length
   double precision :: max_speed, z, Lz
   integer :: steps_fixed
   type(args_t) :: args
@@ -137,7 +137,7 @@ program chemotactic_cell
 
   g = 0
   g(1) = PTread_d(config, 'g', loc=params_group)
-  bufferlength = PTread_i(config, 'buffer_length', loc=params_group)
+  buffer_length = PTread_i(config, 'buffer_length', loc=params_group)
   max_speed = PTread_d(config,'max_speed', loc=params_group)
   prob = PTread_d(config,'probability', loc=params_group)
   alpha = PTread_d(config,'alpha', loc=params_group)
@@ -150,7 +150,7 @@ program chemotactic_cell
      N_colloids = 1
   end if
   L = PTread_ivec(config, 'L', 3, loc=params_group)
-  L(1) = L(1) + bufferlength
+  L(1) = L(1) + buffer_length
 
   rho = PTread_i(config, 'rho', loc=params_group)
   N = rho *L(1)*L(2)*L(3)
@@ -389,13 +389,13 @@ program chemotactic_cell
 
         if (on_track) then
            if (dimer) then
-              if ((colloids% pos(1,1) > (bufferlength+sigma_C)) &
-              .and. (colloids% pos(1,2) > (bufferlength+sigma_N))) then
+              if ((colloids% pos(1,1) > (buffer_length+sigma_C)) &
+              .and. (colloids% pos(1,2) > (buffer_length+sigma_N))) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if
            else
-              if (colloids% pos(1,1) > (bufferlength+sigma_sphere)) then
+              if (colloids% pos(1,1) > (buffer_length+sigma_sphere)) then
                  on_track = .false.
                  write(*,*) 'on_track', on_track
               end if
@@ -718,7 +718,7 @@ contains
      do k = 1, particles% Nmax
         s = particles% species(k)
         if (s <= 0) continue
-        if ((particles% pos(1,k) > 0) .and. (particles% pos(1,k) < bufferlength)) then
+        if ((particles% pos(1,k) > 0) .and. (particles% pos(1,k) < buffer_length)) then
            if (particles% pos(2,k) < edges(2)/2.d0) then
               bulk_change(s) = bulk_change(s) - 1
               particles% species(k) = 1
