@@ -1,8 +1,7 @@
-h5md_file = cell.h5
-
 # simulation parameters
 N_MD = 50
-N_loop = 1000
+colloid_sampling = 50
+N_loop = 500
 probability = 1
 alpha = 1.5708
 
@@ -15,7 +14,6 @@ buffer_length = 20
 store_rho_xy = T
 
 L = 50 32 15
-seed = 2908921000268185248
 
 # max speed from poiseuille profile (see poiseuille simulation)
 max_speed = 0.0597
@@ -27,7 +25,7 @@ tau = 1
 
 # dimer parameters 
 # T: 2 colloids as dimer, F: 1 ?-type colloid, 
-dimer = F
+dimer = T
 #type of single colloid
 N_type = F
 
