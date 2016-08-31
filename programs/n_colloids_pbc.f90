@@ -1,3 +1,22 @@
+!> Simulate an ensemble of spherical colloids
+!!
+!! The periodic simulation box is filled with a number of spherical colloids, that interact
+!! with an attractive Lennard-Jones potential, and with solvent particles.
+!! The temperature is controlled with the MPCD Anderson thermostat.
+!!
+!! \param L                length of simulation box in the 3 dimensions
+!! \param rho              fluid number density
+!! \param T                Temperature. Used for setting initial velocities and for thermostatting.
+!! \param T_final          Target temperature. Used for thermostatting with temperature program from T to T_final.
+!! \param tau              MPCD collision time
+!! \param N_MD             number MD steps occuring in tau
+!! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
+!! \param N_loop           number of MPCD timesteps
+!! \param N_colloids       number of colloids
+!! \param epsilon          solvent-colloid epsilon
+!! \param sigma            radius of the colloids
+!! \param epsilon_colloids colloid-colloid epsilon
+
 program n_colloids_pbc
   use rmpcdmd_module
   use hdf5
