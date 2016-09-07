@@ -35,7 +35,7 @@ interactions are not explicitly computed and are replaced by cell-wise
 collisions at fixed time intervals. This saves computational time and
 renders otherwise untractable problems feasible.
 
-In Ref.:cite:`ruckner_kapral_prl_2007`, the authors introduce a computational model for a
+In Ref. :cite:`ruckner_kapral_prl_2007`, the authors introduce a computational model for a
 dimer nanomotor
 that is convenient thanks to its simple geometry. There are two spheres
 making up the dimer, linked by a rigid bond, one of which being
