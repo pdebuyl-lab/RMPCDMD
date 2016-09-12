@@ -29,6 +29,7 @@ execute_process(COMMAND ${CMAKE_COMMAND} -D RMPCDMD_SOURCE_DIR=${CMAKE_CURRENT_S
 
 add_library(RMPCDMD
 src/common.f90
+src/correlator.f90
 src/cell_system.f90
 src/hilbert.f90
 src/interaction.f90
@@ -94,10 +95,15 @@ add_executable(test_particle_system_0
 test/test_particle_system_0.f90)
 target_link_libraries(test_particle_system_0 RMPCDMD fortran_tester)
 
+add_executable(test_correlator_0
+test/test_correlator_0.f90)
+target_link_libraries(test_correlator_0 RMPCDMD fortran_tester)
+
 add_test(test_cell_system_0 test_cell_system_0)
 add_test(test_common_0 test_common_0)
 add_test(test_neighbor_list_0 test_neighbor_list_0)
 add_test(test_neighbor_list_1 test_neighbor_list_1)
 add_test(test_particle_system_0 test_particle_system_0)
+add_test(test_correlator_0 test_correlator_0)
 
 set_tests_properties(test_neighbor_list_1 PROPERTIES WILL_FAIL TRUE)
