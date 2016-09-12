@@ -13,7 +13,7 @@ parser.add_argument('--field', type=str)
 parser.add_argument('--com', action='store_true')
 parser.add_argument('--hist', action='store_true')
 parser.add_argument('--mean', action='store_true')
-parser.add_argument('--index', type=int)
+parser.add_argument('--index', default=0, type=int)
 args = parser.parse_args()
 
 import numpy as np
@@ -53,7 +53,7 @@ with h5py.File(args.file, 'r') as f:
                 data = f['particles'][group][traj]['value'][:,:,:]
             data = data.mean(axis=1)
         else:
-            data = f['particles'][group][traj]['value'][:,0,:]
+            data = f['particles'][group][traj]['value'][:,args.index,:]
         for i in range(3):
             plt.subplot(3, 1, i+1)
             if args.hist:
