@@ -20,6 +20,15 @@ import numpy as np
 import h5py
 import matplotlib.pyplot as plt
 
+def get_edges(particles_group):
+    box_group = particles_group['box']
+    if isinstance(box_group['edges'],h5py.Group):
+        edges = box_group['edges/value'][:]
+        assert np.allclose(edges - edges[0].reshape((1,-1)), np.zeros_like(edges))
+        return edges[0]
+    else:
+        return box_group['edges'][:]
+
 with h5py.File(args.file, 'r') as f:
     if args.obs:
         for obs in args.obs:
@@ -34,7 +43,7 @@ with h5py.File(args.file, 'r') as f:
                 plt.plot(np.arange(g['value'].shape[0])*time, g['value'])
     elif args.traj:
         group, traj = args.traj.split('/')
-        edges = f['particles'][group]['box/edges'][:]
+        edges = get_edges(f['particles'][group])
         if args.com:
             if traj == 'position':
                 pos = f['particles'][group][traj]['value']
