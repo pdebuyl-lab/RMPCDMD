@@ -8,6 +8,7 @@ module rmpcdmd_module
   use interaction
   use mpcd
   use md
+  use correlator
   implicit none
 
   character(len=*), parameter :: RMPCDMD_REVISION = '@RMPCDMD_REVISION@'
