@@ -518,7 +518,8 @@ program chemotactic_cell
         call vx% reset()
      end if
 
-     com_pos = (colloids%pos(:,1) + colloids%pos(:,2))/2
+     com_pos = ( colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
+          colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
 
      if ((.not. fixed) .and. (.not. on_track)) then
         call msd%add(i-i_release-1, correlate_block_distsq, xvec=com_pos)
