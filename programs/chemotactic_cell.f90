@@ -386,7 +386,7 @@ program chemotactic_cell
 
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
 
-  i_release = N_loop
+  i_release = 1
   i = 0
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
@@ -426,7 +426,6 @@ program chemotactic_cell
            do k=1, colloids% Nmax
               if (colloids% pos(1,k) > solvent_cells% edges(1)) then
                  stopped = .true.
-                 write(*,*) 'stopped', stopped
               end if
            end do
         end if
