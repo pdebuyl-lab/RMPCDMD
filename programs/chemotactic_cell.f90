@@ -82,6 +82,7 @@ program chemotactic_cell
   type(h5md_element_t) :: n_solvent_el, catalytic_change_el, bulk_change_el
 
   double precision :: colloid_pos(3,2)
+  double precision :: com_pos(3)
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
   integer(HID_T) :: fields_group, params_group
@@ -95,6 +96,7 @@ program chemotactic_cell
   type(PTo) :: config
   integer :: i, L(3),  n_threads
   integer :: j, k, m
+  integer :: i_release
 
   type(timer_t), target :: flag_timer, change_timer, buffer_timer, varia
   double precision :: total_time
@@ -102,6 +104,11 @@ program chemotactic_cell
   integer(HID_T) :: timers_group
 
   integer, allocatable :: rho_xy(:,:,:)
+
+  integer, parameter :: block_length = 8
+  integer :: n_blocks
+  type(correlator_t) :: msd
+  integer(HID_T) :: correlator_group, group
 
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped, N_in_front, dimer, N_type
@@ -221,6 +228,11 @@ program chemotactic_cell
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
   call PTkill(config)
+
+  do n_blocks = 1, 6
+     if (block_length**n_blocks >= N_loop/block_length) exit
+  end do
+  call msd%init(block_length, n_blocks, dim=3)
 
   if (dimer) then
      colloids% species(1) = 1
@@ -374,9 +386,11 @@ program chemotactic_cell
 
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
 
+  i_release = N_loop
+  i = 0
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
-  setup: do i = 1, N_loop
+  setup: do while (.not. stopped)
      if (modulo(i,20) == 0) write(*,'(i09)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call mpcd_stream_xforce_yzwall(solvent, solvent_cells, dt, g(1))
@@ -405,6 +419,7 @@ program chemotactic_cell
                  write(*,*) 'on_track', on_track
               end if
            end if
+           if (.not. on_track) i_release = i
         end if
 
         if ((.not. on_track) .and. (buffer_length/=0))then
@@ -415,8 +430,6 @@ program chemotactic_cell
               end if
            end do
         end if
-
-        if (stopped) exit setup
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -505,6 +518,12 @@ program chemotactic_cell
         call vx% reset()
      end if
 
+     com_pos = (colloids%pos(:,1) + colloids%pos(:,2))/2
+
+     if ((.not. fixed) .and. (.not. on_track)) then
+        call msd%add(i-i_release-1, correlate_block_distsq, xvec=com_pos)
+     end if
+
      call varia%tic()
      if (store_rho_xy) then
         call compute_rho_xy
@@ -547,11 +566,26 @@ program chemotactic_cell
         end if
      end if
 
+     i = i+1
+     if (i-i_release >= N_loop) exit setup
   end do setup
 
   call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com, add=.false., force=.true.)
 
   write(*,*) 'n extra sorting', n_extra_sorting
+
+  ! create a group for block correlators and write the data
+
+  call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
+
+  call h5gcreate_f(correlator_group, 'mean_square_displacement', group, error)
+  call h5md_write_dataset(group, 'value', msd%correlation)
+  call h5md_write_dataset(group, 'count', msd%count)
+  call h5md_write_dataset(group, 'step', N_MD_steps)
+  call h5md_write_dataset(group, 'time', tau)
+  call h5gclose_f(group, error)
+
+  call h5gclose_f(correlator_group, error)
 
   call solvent_io%position%append(solvent%pos)
   call solvent_io%velocity%append(solvent%vel)
