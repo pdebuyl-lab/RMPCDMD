@@ -41,7 +41,7 @@ program poiseuille_flow
   type(h5md_element_t) :: elem_vx
   type(h5md_element_t) :: elem_T
   type(h5md_element_t) :: elem_v_com
-  integer(HID_T) :: box_group, solvent_group
+  integer(HID_T) :: box_group
   integer(HID_T) :: fields_group
   type(particle_system_io_t) :: solvent_io
 

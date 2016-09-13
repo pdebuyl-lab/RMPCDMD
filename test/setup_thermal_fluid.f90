@@ -32,7 +32,7 @@ program setup_fluid
 
   integer :: i, L(3), clock, error
 
-  double precision :: v_com(3), wall_v(3,2), wall_t(2)
+  double precision :: v_com(3), wall_v(3,2)
   double precision :: T
 
   double precision, parameter :: tau = 0.1d0

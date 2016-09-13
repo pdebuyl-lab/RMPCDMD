@@ -38,7 +38,6 @@ program setup_simple_colloids
 
   type(threefry_rng_t), allocatable :: state(:)
 
-  double precision :: tmp_x(3)
   double precision :: skin
 
   integer :: i, L(3), N
