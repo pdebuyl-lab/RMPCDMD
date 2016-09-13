@@ -75,6 +75,8 @@ program single_dimer_pbc
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   double precision :: v_com(3)
+  double precision :: com_pos(3)
+  double precision :: unit_r(3)
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
   double precision :: bulk_rate
@@ -82,6 +84,11 @@ program single_dimer_pbc
 
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
+
+  integer, parameter :: block_length = 8
+  integer :: n_blocks
+  type(correlator_t) :: msd, oacf
+  integer(HID_T) :: correlator_group, group
 
   type(histogram_t) :: z_hist
   type(h5md_element_t) :: z_hist_el
@@ -166,6 +173,12 @@ program single_dimer_pbc
 
   call h5gclose_f(params_group, error)
   call PTkill(config)
+
+  do n_blocks = 1, 6
+     if (block_length**n_blocks >= N_loop/block_length) exit
+  end do
+  call msd%init(block_length, n_blocks, dim=3)
+  call oacf%init(block_length, n_blocks, dim=3)
   
   colloids% species(1) = 1
   colloids% species(2) = 2
@@ -352,6 +365,14 @@ program single_dimer_pbc
      call dimer_io%velocity%append(colloids%vel)
      call dimer_io%image%append(colloids%image)
 
+     com_pos = ( colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
+          colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
+     call msd%add(i-1, correlate_block_distsq, xvec=com_pos)
+
+     unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
+     unit_r = unit_r / norm2(unit_r)
+     call oacf%add(i-1, correlate_block_dot, xvec=unit_r)
+
      solvent_cells% origin(1) = threefry_double(state(1)) - 1
      solvent_cells% origin(2) = threefry_double(state(1)) - 1
      solvent_cells% origin(3) = threefry_double(state(1)) - 1
@@ -389,6 +410,28 @@ program single_dimer_pbc
   write(*,*) ''
 
   write(*,*) 'n extra sorting', n_extra_sorting
+
+  ! create a group for block correlators and write the data
+
+  call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
+
+  call h5gcreate_f(correlator_group, 'mean_square_displacement', group, error)
+  call h5md_write_dataset(group, 'value', msd%correlation)
+  call h5md_write_dataset(group, 'count', msd%count)
+  call h5md_write_dataset(group, 'step', N_MD_steps)
+  call h5md_write_dataset(group, 'time', tau)
+  call h5gclose_f(group, error)
+
+  call h5gcreate_f(correlator_group, 'orientation_autocorrelation', group, error)
+  call h5md_write_dataset(group, 'value', oacf%correlation)
+  call h5md_write_dataset(group, 'count', oacf%count)
+  call h5md_write_dataset(group, 'step', N_MD_steps)
+  call h5md_write_dataset(group, 'time', tau)
+  call h5gclose_f(group, error)
+
+  call h5gclose_f(correlator_group, error)
+
+  ! write solvent coordinates for last step
 
   call solvent_io%position%append(solvent%pos)
   call solvent_io%velocity%append(solvent%vel)
