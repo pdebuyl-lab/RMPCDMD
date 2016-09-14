@@ -80,6 +80,7 @@ program chemotactic_cell
   double precision :: kin_e, temperature
   integer, dimension(N_species) :: n_solvent, catalytic_change, bulk_change
   type(h5md_element_t) :: n_solvent_el, catalytic_change_el, bulk_change_el
+  type(h5md_element_t) :: omega_el
 
   double precision :: colloid_pos(3,2)
   double precision :: com_pos(3)
@@ -96,7 +97,7 @@ program chemotactic_cell
   type(PTo) :: config
   integer :: i, L(3),  n_threads
   integer :: j, k, m
-  integer :: i_release
+  integer :: i_release, i_block
 
   type(timer_t), target :: flag_timer, change_timer, buffer_timer, varia
   double precision :: total_time
@@ -107,8 +108,10 @@ program chemotactic_cell
 
   integer, parameter :: block_length = 8
   integer :: n_blocks
-  type(correlator_t) :: msd
+  type(correlator_t) :: msd, omega_acf, oacf
   integer(HID_T) :: correlator_group, group
+
+  double precision :: unit_r(3), omega(3), rel_v(3), norm_xy
 
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped, N_in_front, dimer, N_type
@@ -230,9 +233,11 @@ program chemotactic_cell
   call PTkill(config)
 
   do n_blocks = 1, 6
-     if (block_length**n_blocks >= N_loop/block_length) exit
+     if (block_length**n_blocks >= N_loop*N_MD_steps/colloid_sampling/block_length) exit
   end do
   call msd%init(block_length, n_blocks, dim=3)
+  call oacf%init(block_length, n_blocks, dim=3)
+  call omega_acf%init(block_length, n_blocks)
 
   if (dimer) then
      colloids% species(1) = 1
@@ -307,6 +312,9 @@ program chemotactic_cell
   call bulk_change_el%create_time(hfile%observables, 'bulk_change', &
        bulk_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
+  call omega_el%create_time(hfile%observables, 'omega', &
+       omega(3), ior(H5MD_LINEAR,H5MD_STORE_TIME), step=1, &
+       time=dt)
 
   if (dimer) then
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
@@ -388,6 +396,7 @@ program chemotactic_cell
 
   i_release = 1
   i = 0
+  i_block = 0
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
   setup: do while (.not. stopped)
@@ -494,6 +503,23 @@ program chemotactic_cell
            call dimer_io%image%append(colloids%image)
         end if
 
+        com_pos = ( colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
+             colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
+
+        unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
+        norm_xy = norm2(unit_r(1:2))
+        rel_v = colloids%vel(:,1)-colloids%vel(:,2)
+        omega = cross(unit_r, rel_v) / norm_xy**2
+        call omega_el%append(omega(3))
+        if ( (modulo(j, colloid_sampling)==0) .and. &
+             (.not. fixed) .and. (.not. on_track)) then
+           call msd%add(i_block, correlate_block_distsq, xvec=com_pos)
+           call omega_acf%add(i_block, correlate_block_dot, x=omega(3))
+           unit_r = unit_r / norm2(unit_r)
+           call oacf%add(i_block, correlate_block_dot, xvec=unit_r)
+           i_block = i_block + 1
+        end if
+
      end do md_loop
 
      call random_number(solvent_cells% origin)
@@ -515,13 +541,6 @@ program chemotactic_cell
         call elem_vx% append(vx% data, i, i*tau)
         call elem_vx_count% append(vx% count, i, i*tau)
         call vx% reset()
-     end if
-
-     com_pos = ( colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
-          colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
-
-     if ((.not. fixed) .and. (.not. on_track)) then
-        call msd%add(i-i_release-1, correlate_block_distsq, xvec=com_pos)
      end if
 
      call varia%tic()
@@ -567,7 +586,7 @@ program chemotactic_cell
      end if
 
      i = i+1
-     if (i-i_release >= N_loop) exit setup
+     if (i-i_release > N_loop) exit setup
   end do setup
 
   call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com, add=.false., force=.true.)
@@ -581,8 +600,22 @@ program chemotactic_cell
   call h5gcreate_f(correlator_group, 'mean_square_displacement', group, error)
   call h5md_write_dataset(group, 'value', msd%correlation)
   call h5md_write_dataset(group, 'count', msd%count)
-  call h5md_write_dataset(group, 'step', N_MD_steps)
-  call h5md_write_dataset(group, 'time', tau)
+  call h5md_write_dataset(group, 'step', colloid_sampling)
+  call h5md_write_dataset(group, 'time', colloid_sampling*dt)
+  call h5gclose_f(group, error)
+
+  call h5gcreate_f(correlator_group, 'orientation_autocorrelation', group, error)
+  call h5md_write_dataset(group, 'value', oacf%correlation)
+  call h5md_write_dataset(group, 'count', oacf%count)
+  call h5md_write_dataset(group, 'step', colloid_sampling)
+  call h5md_write_dataset(group, 'time', colloid_sampling*dt)
+  call h5gclose_f(group, error)
+
+  call h5gcreate_f(correlator_group, 'planar_angular_velocity', group, error)
+  call h5md_write_dataset(group, 'value', omega_acf%correlation)
+  call h5md_write_dataset(group, 'count', omega_acf%count)
+  call h5md_write_dataset(group, 'step', colloid_sampling)
+  call h5md_write_dataset(group, 'time', colloid_sampling*dt)
   call h5gclose_f(group, error)
 
   call h5gclose_f(correlator_group, error)
