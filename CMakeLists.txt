@@ -83,6 +83,10 @@ add_executable(test_common_0
 test/test_common_0.f90)
 target_link_libraries(test_common_0 RMPCDMD fortran_tester)
 
+add_executable(test_common_1
+test/test_common_1.f90)
+target_link_libraries(test_common_1 RMPCDMD fortran_tester)
+
 add_executable(test_neighbor_list_0
 test/test_neighbor_list_0.f90)
 target_link_libraries(test_neighbor_list_0 RMPCDMD fortran_tester)
@@ -101,6 +105,7 @@ target_link_libraries(test_correlator_0 RMPCDMD fortran_tester)
 
 add_test(test_cell_system_0 test_cell_system_0)
 add_test(test_common_0 test_common_0)
+add_test(test_common_1 test_common_1)
 add_test(test_neighbor_list_0 test_neighbor_list_0)
 add_test(test_neighbor_list_1 test_neighbor_list_1)
 add_test(test_particle_system_0 test_particle_system_0)

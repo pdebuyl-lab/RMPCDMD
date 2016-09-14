@@ -12,6 +12,7 @@ module common
   public :: timer_t
   public :: timer_list_t
   public :: args_t
+  public :: cross
 
   integer, parameter :: max_path_length = 255
 
@@ -334,5 +335,15 @@ contains
     end do
 
   end subroutine timer_list_write
+
+  pure function cross(x1, x2) result(r)
+    double precision, intent(in) :: x1(3), x2(3)
+    double precision :: r(3)
+
+    r(1) = x1(2)*x2(3) - x1(3)*x2(2)
+    r(2) = x1(3)*x2(1) - x1(1)*x2(3)
+    r(3) = x1(1)*x2(2) - x1(2)*x2(1)
+
+  end function cross
 
 end module common
