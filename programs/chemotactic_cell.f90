@@ -108,7 +108,7 @@ program chemotactic_cell
 
   integer, parameter :: block_length = 8
   integer :: n_blocks
-  type(correlator_t) :: msd, omega_acf, oacf
+  type(correlator_t) :: msd, omega_acf, oacf, vacf
   integer(HID_T) :: correlator_group, group
 
   double precision :: unit_r(3), omega(3), rel_v(3), norm_xy
@@ -238,6 +238,10 @@ program chemotactic_cell
   call msd%init(block_length, n_blocks, dim=3)
   call oacf%init(block_length, n_blocks, dim=3)
   call omega_acf%init(block_length, n_blocks)
+  do n_blocks = 1, 6
+     if (block_length**n_blocks >= N_loop*N_MD_steps/block_length) exit
+  end do
+  call vacf%init(block_length, n_blocks, dim=3)
 
   if (dimer) then
      colloids% species(1) = 1
@@ -503,7 +507,9 @@ program chemotactic_cell
            call dimer_io%image%append(colloids%image)
         end if
 
-        com_pos = ( colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
+        call vacf%add(i*N_MD_steps+j, correlate_block_dot, xvec=sum(colloids%vel, dim=2)/2)
+
+        com_pos = (colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
              colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
 
         unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
@@ -616,6 +622,13 @@ program chemotactic_cell
   call h5md_write_dataset(group, 'count', omega_acf%count)
   call h5md_write_dataset(group, 'step', colloid_sampling)
   call h5md_write_dataset(group, 'time', colloid_sampling*dt)
+  call h5gclose_f(group, error)
+
+  call h5gcreate_f(correlator_group, 'velocity_autocorrelation', group, error)
+  call h5md_write_dataset(group, 'value', vacf%correlation)
+  call h5md_write_dataset(group, 'count', vacf%count)
+  call h5md_write_dataset(group, 'step', 1)
+  call h5md_write_dataset(group, 'time', dt)
   call h5gclose_f(group, error)
 
   call h5gclose_f(correlator_group, error)
