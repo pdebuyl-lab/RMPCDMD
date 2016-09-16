@@ -59,7 +59,6 @@ contains
     type(h5md_file_t), intent(inout) :: h5md_file
     character(len=*), intent(in) :: name
     type(particle_system_t), intent(in) :: ps
-
     type(particle_system_io_info_t) :: info
 
     this% Nmax = ps% Nmax
@@ -71,7 +70,7 @@ contains
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%position%create_time(this% group, 'position', ps% pos, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%position%create_time(this% group, 'position', ps% pos, info%mode, info%step, info%time)
+          call this%position%create_time(this% group, 'position', ps% pos, info%mode, info%step, info%time, offset_by_one=.true.)
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%position%create_fixed(this% group, 'position', ps% pos)
        else
@@ -84,7 +83,7 @@ contains
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode, info%step, info%time)
+          call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode, info%step, info%time, offset_by_one=.true.)
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%velocity%create_fixed(this% group, 'velocity', ps% vel)
        else
@@ -97,7 +96,7 @@ contains
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%force%create_time(this% group, 'force', ps% vel, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%force%create_time(this% group, 'force', ps% vel, info%mode, info%step, info%time)
+          call this%force%create_time(this% group, 'force', ps% vel, info%mode, info%step, info%time, offset_by_one=.true.)
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%force%create_fixed(this% group, 'force', ps% vel)
        else
@@ -110,7 +109,7 @@ contains
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%image%create_time(this% group, 'image', ps% image, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%image%create_time(this% group, 'image', ps% image, info%mode, info%step, info%time)
+          call this%image%create_time(this% group, 'image', ps% image, info%mode, info%step, info%time, offset_by_one=.true.)
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%image%create_fixed(this% group, 'image', ps% image)
        else
@@ -123,7 +122,7 @@ contains
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%id%create_time(this% group, 'id', ps% id, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%id%create_time(this% group, 'id', ps% id, info%mode, info%step, info%time)
+          call this%id%create_time(this% group, 'id', ps% id, info%mode, info%step, info%time, offset_by_one=.true.)
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%id%create_fixed(this% group, 'id', ps% id)
        else
@@ -136,7 +135,7 @@ contains
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%species%create_time(this% group, 'species', ps% species, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%species%create_time(this% group, 'species', ps% species, info%mode, info%step, info%time)
+          call this%species%create_time(this% group, 'species', ps% species, info%mode, info%step, info%time, offset_by_one=.true.)
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%species%create_fixed(this% group, 'species', ps% species)
        else
@@ -178,15 +177,15 @@ contains
     allocate(this% internal_energy(n_buffer))
     allocate(this% center_of_mass_velocity(3,n_buffer))
 
-    call e%create_time(datafile%observables, 'temperature', dummy, mode, step, time)
+    call e%create_time(datafile%observables, 'temperature', dummy, mode, step, time, offset_by_one=.true.)
     call e%close()
-    call e%create_time(datafile%observables, 'potential_energy', dummy, mode, step, time)
+    call e%create_time(datafile%observables, 'potential_energy', dummy, mode, step, time, offset_by_one=.true.)
     call e%close()
-    call e%create_time(datafile%observables, 'kinetic_energy', dummy, mode, step, time)
+    call e%create_time(datafile%observables, 'kinetic_energy', dummy, mode, step, time, offset_by_one=.true.)
     call e%close()
-    call e%create_time(datafile%observables, 'internal_energy', dummy, mode, step, time)
+    call e%create_time(datafile%observables, 'internal_energy', dummy, mode, step, time, offset_by_one=.true.)
     call e%close()
-    call e%create_time(datafile%observables, 'center_of_mass_velocity', dummy_vec, mode, step, time)
+    call e%create_time(datafile%observables, 'center_of_mass_velocity', dummy_vec, mode, step, time, offset_by_one=.true.)
     call e%close()
 
   end subroutine thermo_init

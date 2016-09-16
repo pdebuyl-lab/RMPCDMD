@@ -23,7 +23,8 @@
 !! \param N_MD_steps       number MD steps occuring in tau
 !! \param N_loop           number of MPCD timesteps
 !! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
-!! \param steps_fixed      number of steps during which the colloid is fixed
+!! \param steps_fixed      number of steps during which the colloid is fixed (only when buffer_length>0)
+!! \param equilibration_loops number of MPCD steps for equilibration (only when buffer_length=0)
 !! \param sigma_C          radius of C sphere
 !! \param sigma_N          radius of N sphere
 !! \param track_y_shift    shift of the track in the y direction with respect to Ly/2
@@ -117,6 +118,8 @@ program chemotactic_cell
   logical :: fixed, on_track, stopped, N_in_front, dimer, N_type
   logical :: store_rho_xy
   integer :: buffer_length
+  logical :: sampling
+  integer :: equilibration_loops
   double precision :: max_speed, z, Lz
   integer :: steps_fixed
   type(args_t) :: args
@@ -182,6 +185,7 @@ program chemotactic_cell
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop', loc=params_group)
   steps_fixed = PTread_i(config, 'steps_fixed', loc=params_group)
+  equilibration_loops = PTread_i(config, 'equilibration_loops', loc=params_group)
 
   sigma_C = PTread_d(config, 'sigma_C', loc=params_group)
   sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
@@ -301,24 +305,24 @@ program chemotactic_cell
   if (store_rho_xy) allocate(rho_xy(N_species, L(2), L(1)))
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
   if (store_rho_xy)  call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
-       step=N_MD_steps, time=N_MD_steps*dt)
-  call elem_vx% create_time(fields_group, 'vx', vx% data, ior(H5MD_TIME, H5MD_STORE_TIME))
-  call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME))
+       step=N_MD_steps, time=N_MD_steps*dt, offset_by_one=.true.)
+  call elem_vx% create_time(fields_group, 'vx', vx% data, ior(H5MD_TIME, H5MD_STORE_TIME), offset_by_one=.true.)
+  call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME), offset_by_one=.true.)
 
   call h5gclose_f(fields_group, error)
 
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt)
+       time=N_MD_steps*dt, offset_by_one=.true.)
   call catalytic_change_el%create_time(hfile%observables, 'catalytic_change', &
        catalytic_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt)
+       time=N_MD_steps*dt, offset_by_one=.true.)
   call bulk_change_el%create_time(hfile%observables, 'bulk_change', &
        bulk_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt)
+       time=N_MD_steps*dt, offset_by_one=.true.)
   call omega_el%create_time(hfile%observables, 'omega', &
        omega(3), ior(H5MD_LINEAR,H5MD_STORE_TIME), step=1, &
-       time=dt)
+       time=dt, offset_by_one=.true.)
 
   if (dimer) then
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
@@ -398,7 +402,8 @@ program chemotactic_cell
 
   solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
 
-  i_release = 1
+  sampling = .false.
+  i_release = 0
   i = 0
   i_block = 0
   write(*,*) 'Running for', N_loop, 'loops'
@@ -417,22 +422,6 @@ program chemotactic_cell
 
         if (dimer) then
            call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
-        end if
-
-        if (on_track) then
-           if (dimer) then
-              if ((colloids% pos(1,1) > (buffer_length+sigma_C)) &
-              .and. (colloids% pos(1,2) > (buffer_length+sigma_N))) then
-                 on_track = .false.
-                 write(*,*) 'on_track', on_track
-              end if
-           else
-              if (colloids% pos(1,1) > (buffer_length+sigma_sphere)) then
-                 on_track = .false.
-                 write(*,*) 'on_track', on_track
-              end if
-           end if
-           if (.not. on_track) i_release = i
         end if
 
         if ((.not. on_track) .and. (buffer_length/=0))then
@@ -501,29 +490,30 @@ program chemotactic_cell
            end if
         end if
 
-        if (modulo(j, colloid_sampling) == 0) then
-           call dimer_io%position%append(colloids%pos)
-           call dimer_io%velocity%append(colloids%vel)
-           call dimer_io%image%append(colloids%image)
-        end if
-
-        call vacf%add(i*N_MD_steps+j, correlate_block_dot, xvec=sum(colloids%vel, dim=2)/2)
-
         com_pos = (colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
              colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
-
         unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
         norm_xy = norm2(unit_r(1:2))
         rel_v = colloids%vel(:,1)-colloids%vel(:,2)
         omega = cross(unit_r, rel_v) / norm_xy**2
-        call omega_el%append(omega(3))
-        if ( (modulo(j, colloid_sampling)==0) .and. &
-             (.not. fixed) .and. (.not. on_track)) then
+
+        if (sampling) then
+           call vacf%add((i-i_release)*N_MD_steps+j-1, correlate_block_dot, &
+                xvec=sum(colloids%vel, dim=2)/2)
+           call omega_el%append(omega(3))
+        end if
+
+        if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
+           ! correlators
            call msd%add(i_block, correlate_block_distsq, xvec=com_pos)
            call omega_acf%add(i_block, correlate_block_dot, x=omega(3))
            unit_r = unit_r / norm2(unit_r)
            call oacf%add(i_block, correlate_block_dot, xvec=unit_r)
            i_block = i_block + 1
+           ! colloid trajectory
+           call dimer_io%position%append(colloids%pos)
+           call dimer_io%velocity%append(colloids%vel)
+           call dimer_io%image%append(colloids%image)
         end if
 
      end do md_loop
@@ -542,15 +532,15 @@ program chemotactic_cell
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], alpha=alpha)
 
      call compute_vx(solvent, vx)
-     if (modulo(i, 50) == 0) then
+     if ((sampling) .and. (modulo(i-i_release+1, 50) == 0)) then
         call vx% norm()
-        call elem_vx% append(vx% data, i, i*tau)
-        call elem_vx_count% append(vx% count, i, i*tau)
+        call elem_vx% append(vx% data, i-i_release+1, (i-i_release+1)*tau)
+        call elem_vx_count% append(vx% count, i-i_release+1, (i-i_release+1)*tau)
         call vx% reset()
      end if
 
      call varia%tic()
-     if (store_rho_xy) then
+     if ((sampling) .and. (store_rho_xy)) then
         call compute_rho_xy
         call rho_xy_el%append(rho_xy)
      end if
@@ -570,17 +560,19 @@ program chemotactic_cell
      end do
      v_com = v_com / (solvent%Nmax + total_mass)
 
-     call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com)
-
      n_solvent = 0
      do k = 1, solvent%Nmax
         m = solvent%species(k)
         if (m <= 0) cycle
         n_solvent(m) = n_solvent(m) + 1
      end do
-     call n_solvent_el%append(n_solvent)
-     call catalytic_change_el%append(catalytic_change)
-     call bulk_change_el%append(bulk_change)
+
+     if (sampling) then
+        call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com)
+        call n_solvent_el%append(n_solvent)
+        call catalytic_change_el%append(catalytic_change)
+        call bulk_change_el%append(bulk_change)
+     end if
 
      call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
 
@@ -591,7 +583,27 @@ program chemotactic_cell
         end if
      end if
 
+     if (on_track) then
+        if (dimer) then
+           if ((colloids% pos(1,1) > (buffer_length+sigma_C)) &
+                .and. (colloids% pos(1,2) > (buffer_length+sigma_N))) then
+              on_track = .false.
+           end if
+        else
+           if (colloids% pos(1,1) > (buffer_length+sigma_sphere)) then
+              on_track = .false.
+           end if
+        end if
+     end if
+
      i = i+1
+     if ( &
+          ((.not. sampling) .and. (buffer_length == 0) .and. (i >= equilibration_loops)) .or. &
+          ((i_release==0) .and. (buffer_length > 0) .and. (.not. on_track)) ) then
+        i_release = i
+        sampling = .true.
+        write(*,*) 'i_release =', i_release
+     end if
      if (i-i_release > N_loop) exit setup
   end do setup
 
