@@ -237,13 +237,13 @@ program chemotactic_cell
 
   call PTkill(config)
 
-  do n_blocks = 1, 6
+  do n_blocks = 1, 7
      if (block_length**n_blocks >= N_loop*N_MD_steps/colloid_sampling/block_length) exit
   end do
   call msd%init(block_length, n_blocks, dim=3)
   call oacf%init(block_length, n_blocks, dim=3)
   call omega_acf%init(block_length, n_blocks)
-  do n_blocks = 1, 6
+  do n_blocks = 1, 8
      if (block_length**n_blocks >= N_loop*N_MD_steps/block_length) exit
   end do
   call vacf%init(block_length, n_blocks, dim=3)
