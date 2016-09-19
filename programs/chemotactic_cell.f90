@@ -324,8 +324,8 @@ program chemotactic_cell
        bulk_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt, offset_by_one=.true.)
   call omega_el%create_time(hfile%observables, 'omega', &
-       omega(3), ior(H5MD_LINEAR,H5MD_STORE_TIME), step=1, &
-       time=dt, offset_by_one=.true.)
+       omega(3), ior(H5MD_LINEAR,H5MD_STORE_TIME), step=colloid_sampling, &
+       time=colloid_sampling*dt, offset_by_one=.true.)
 
   if (dimer) then
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
@@ -514,7 +514,6 @@ program chemotactic_cell
                 xvec=parallel_v)
            call transverse_vacf%add((i-i_release)*N_MD_steps+j-1, correlate_block_dot, &
                 xvec=transverse_v)
-           call omega_el%append(omega(3))
         end if
 
         if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
@@ -527,6 +526,7 @@ program chemotactic_cell
            call dimer_io%position%append(colloids%pos)
            call dimer_io%velocity%append(colloids%vel)
            call dimer_io%image%append(colloids%image)
+           call omega_el%append(omega(3))
         end if
 
      end do md_loop
