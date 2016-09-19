@@ -457,8 +457,11 @@ program chemotactic_cell
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
 
-        solvent% force(2:3,:) = 0
-        solvent% force(1,:) = g(1)
+        !$omp parallel do
+        do k = 1, solvent%Nmax
+           solvent% force(1,k) = g(1)
+           solvent% force(2:3,k) = 0
+        end do
         colloids% force = 0
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
