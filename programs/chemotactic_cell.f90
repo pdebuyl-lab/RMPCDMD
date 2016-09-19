@@ -497,9 +497,9 @@ program chemotactic_cell
              colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
         unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
         norm_xy = norm2(unit_r(1:2))
-        unit_r = unit_r / norm2(unit_r)
         rel_v = colloids%vel(:,1)-colloids%vel(:,2)
         omega = cross(unit_r, rel_v) / norm_xy**2
+        unit_r = unit_r / norm2(unit_r)
 
         if (sampling) then
            v_com = sum(colloids%vel, dim=2)/2
