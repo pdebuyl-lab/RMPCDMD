@@ -13,6 +13,8 @@
 !! \param bulk_rate   rate of B->A reaction
 !! \param N_MD        number MD steps occuring in tau
 !! \param N_loop      number of MPCD timesteps
+!! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
+!! \param equilibration_loops number of MPCD steps for equilibration
 !! \param sigma_C     radius of C sphere
 !! \param sigma_N     radius of N sphere
 !! \param d           length of rigid link
@@ -86,10 +88,12 @@ program single_dimer_pbc
   type(h5md_element_t) :: n_solvent_el
 
   integer, parameter :: block_length = 8
-  integer :: n_blocks
-  type(correlator_t) :: msd, oacf
-  integer(HID_T) :: correlator_group, group
+  type(axial_correlator_t) :: axial_cf
+  integer(HID_T) :: correlator_group
 
+  integer :: equilibration_loops
+  integer :: colloid_sampling
+  logical :: sampling
   type(histogram_t) :: z_hist
   type(h5md_element_t) :: z_hist_el
   double precision :: cyl_shell_rmin, cyl_shell_rmax
@@ -132,8 +136,13 @@ program single_dimer_pbc
   
   tau = PTread_d(config, 'tau', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
+  colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
+  if (modulo(N_MD_steps, colloid_sampling) /= 0) then
+     error stop 'colloid_sampling must divide N_MD with no remainder'
+  end if
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop', loc=params_group)
+  equilibration_loops = PTread_i(config, 'equilibration_loops', loc=params_group)
 
   sigma_C = PTread_d(config, 'sigma_C', loc=params_group)
   sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
@@ -174,11 +183,7 @@ program single_dimer_pbc
   call h5gclose_f(params_group, error)
   call PTkill(config)
 
-  do n_blocks = 1, 6
-     if (block_length**n_blocks >= N_loop/block_length) exit
-  end do
-  call msd%init(block_length, n_blocks, dim=3)
-  call oacf%init(block_length, n_blocks, dim=3)
+  call axial_cf%init(block_length, N_loop*N_MD_steps/colloid_sampling, N_loop*N_MD_steps)
   
   colloids% species(1) = 1
   colloids% species(2) = 2
@@ -188,16 +193,16 @@ program single_dimer_pbc
   dimer_io%id_info%store = .false.
   dimer_io%position_info%store = .true.
   dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%position_info%step = N_MD_steps
-  dimer_io%position_info%time = N_MD_steps*dt
+  dimer_io%position_info%step = colloid_sampling
+  dimer_io%position_info%time = colloid_sampling*dt
   dimer_io%image_info%store = .true.
   dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%image_info%step = N_MD_steps
-  dimer_io%image_info%time = N_MD_steps*dt
+  dimer_io%image_info%step = colloid_sampling
+  dimer_io%image_info%time = colloid_sampling*dt
   dimer_io%velocity_info%store = .true.
   dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%velocity_info%step = N_MD_steps
-  dimer_io%velocity_info%time = N_MD_steps*dt
+  dimer_io%velocity_info%step = colloid_sampling
+  dimer_io%velocity_info%time = colloid_sampling*dt
   dimer_io%species_info%store = .true.
   dimer_io%species_info%mode = H5MD_FIXED
   call dimer_io%init(hfile, 'dimer', colloids)
@@ -281,11 +286,13 @@ program single_dimer_pbc
   colloids% force_old = colloids% force
 
   call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
-  write(*,*) 'Running for', N_loop, 'loops'
+  write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
   write(*,*) 'mass', mass 
   call main%tic()
-  do i = 1, N_loop
-     if (modulo(i,5) == 0) write(*,'(i05)',advance='no') i
+  sampling = .false.
+  do i = 0, N_loop+equilibration_loops
+     if (i==equilibration_loops) sampling = .true.
+     if (modulo(i,20) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
@@ -341,6 +348,19 @@ program single_dimer_pbc
         call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
         call varia%tac()
 
+        if (sampling) then
+           v_com = sum(colloids%vel, dim=2)/2
+           unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
+           unit_r = unit_r / norm2(unit_r)
+           call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
+        end if
+
+        if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
+           call dimer_io%position%append(colloids%pos)
+           call dimer_io%velocity%append(colloids%vel)
+           call dimer_io%image%append(colloids%image)
+        end if
+
         call time_flag%tic()
         call flag_particles_nl
         call time_flag%tac()
@@ -352,26 +372,22 @@ program single_dimer_pbc
 
      call varia%tic()
 
-     temperature = compute_temperature(solvent, solvent_cells)
-     kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
-          colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
-          sum(solvent% vel**2)/2
-     v_com = (sum(solvent% vel, dim=2) + mass(1)*colloids%vel(:,1) + mass(2)*colloids%vel(:,2)) / &
-          (solvent%Nmax + mass(1) + mass(2))
+     if (sampling) then
+        temperature = compute_temperature(solvent, solvent_cells)
+        kin_e = (colloids% mass(1)*sum(colloids% vel(:,1)**2) + &
+             colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 + &
+             sum(solvent% vel**2)/2
+        v_com = (sum(solvent% vel, dim=2) + &
+             mass(1)*colloids%vel(:,1) + mass(2)*colloids%vel(:,2)) / &
+             (solvent%Nmax + mass(1) + mass(2))
 
-     call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
+        call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
 
-     call dimer_io%position%append(colloids%pos)
-     call dimer_io%velocity%append(colloids%vel)
-     call dimer_io%image%append(colloids%image)
+        com_pos = ( colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
+             colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)/2
+        call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
 
-     com_pos = ( colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
-          colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
-     call msd%add(i-1, correlate_block_distsq, xvec=com_pos)
-
-     unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
-     unit_r = unit_r / norm2(unit_r)
-     call oacf%add(i-1, correlate_block_dot, xvec=unit_r)
+     end if
 
      solvent_cells% origin(1) = threefry_double(state(1)) - 1
      solvent_cells% origin(2) = threefry_double(state(1)) - 1
@@ -414,21 +430,7 @@ program single_dimer_pbc
   ! create a group for block correlators and write the data
 
   call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
-
-  call h5gcreate_f(correlator_group, 'mean_square_displacement', group, error)
-  call h5md_write_dataset(group, 'value', msd%correlation)
-  call h5md_write_dataset(group, 'count', msd%count)
-  call h5md_write_dataset(group, 'step', N_MD_steps)
-  call h5md_write_dataset(group, 'time', tau)
-  call h5gclose_f(group, error)
-
-  call h5gcreate_f(correlator_group, 'orientation_autocorrelation', group, error)
-  call h5md_write_dataset(group, 'value', oacf%correlation)
-  call h5md_write_dataset(group, 'count', oacf%count)
-  call h5md_write_dataset(group, 'step', N_MD_steps)
-  call h5md_write_dataset(group, 'time', tau)
-  call h5gclose_f(group, error)
-
+  call axial_cf%write(correlator_group, N_MD_steps, N_MD_steps*dt, 1, dt)
   call h5gclose_f(correlator_group, error)
 
   ! write solvent coordinates for last step
