@@ -1,7 +1,7 @@
 # physical parameters
 T = 1
 L = 32 32 32
-rho = 10 
+rho = 10
 tau = 1
 probability = 1.0
 bulk_rmpcd = F
@@ -9,7 +9,9 @@ bulk_rate = 0.001
 
 # simulation parameters
 N_MD = 100
-N_loop = 100
+N_loop = 256
+colloid_sampling = 10
+equilibration_loops = 50
 
 # interaction parameters
 sigma_N = 3.0
