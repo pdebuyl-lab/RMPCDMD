@@ -4,8 +4,11 @@ module correlator
   private
 
   public :: correlator_t
+  public :: axial_correlator_t
   public :: correlate_block_distsq
   public :: correlate_block_dot
+  public :: get_n_blocks
+  public :: write_correlator_block
 
   type correlator_t
      integer :: block_length
@@ -19,6 +22,19 @@ module correlator
      procedure, public :: init
      procedure, public :: add
   end type correlator_t
+
+  type axial_correlator_t
+     type(correlator_t) :: msd
+     type(correlator_t) :: oacf
+     type(correlator_t) :: vacf
+     type(correlator_t) :: parallel_vacf
+     type(correlator_t) :: transverse_vacf
+   contains
+     procedure :: init => axial_init
+     procedure :: add => axial_add
+     procedure :: add_fast => axial_add_fast
+     procedure :: write => axial_write
+  end type axial_correlator_t
 
 contains
 
@@ -147,5 +163,101 @@ contains
     end do
 
   end subroutine correlate_block_distsq
+
+  function get_n_blocks(l, n_blocks_max, n_samples) result(n_blocks)
+    integer, intent(in) :: l, n_blocks_max, n_samples
+    integer :: n_blocks
+
+    do n_blocks = 1, 7
+       if (l**n_blocks >= n_samples/l) exit
+    end do
+
+  end function get_n_blocks
+
+  subroutine axial_init(this, block_length, n_samples, n_samples_fast)
+    class(axial_correlator_t), intent(inout) :: this
+    integer, intent(in) :: block_length, n_samples, n_samples_fast
+
+    integer :: n_blocks
+
+    n_blocks = get_n_blocks(block_length, 7, n_samples)
+    call this%msd%init(block_length, n_blocks, dim=3)
+    call this%oacf%init(block_length, n_blocks, dim=3)
+
+    n_blocks = get_n_blocks(block_length, 8, n_samples_fast)
+    call this%vacf%init(block_length, n_blocks, dim=3)
+    call this%parallel_vacf%init(block_length, n_blocks, dim=3)
+    call this%transverse_vacf%init(block_length, n_blocks, dim=3)
+
+  end subroutine axial_init
+
+  subroutine axial_add(this, i, com_pos, unit_r)
+    class(axial_correlator_t), intent(inout) :: this
+    integer, intent(in) :: i
+    double precision, intent(in) :: com_pos(3), unit_r(3)
+
+    call this%msd%add(i, correlate_block_distsq, xvec=com_pos)
+    call this%oacf%add(i, correlate_block_dot, xvec=unit_r)
+
+  end subroutine axial_add
+
+  subroutine axial_add_fast(this, i, v_com, unit_r)
+    class(axial_correlator_t), intent(inout) :: this
+    integer, intent(in) :: i
+    double precision, intent(in) :: v_com(3), unit_r(3)
+
+    double precision :: parallel_v(3), transverse_v(3)
+
+    parallel_v = dot_product(v_com, unit_r) * unit_r
+    transverse_v = v_com - parallel_v
+    call this%vacf%add(i, correlate_block_dot, xvec=v_com)
+    call this%parallel_vacf%add(i, correlate_block_dot, xvec=parallel_v)
+    call this%transverse_vacf%add(i, correlate_block_dot, xvec=transverse_v)
+
+  end subroutine axial_add_fast
+
+  subroutine axial_write(this, correlator_group, sampling, dt, fast_sampling, fast_dt)
+    use hdf5
+    implicit none
+    class(axial_correlator_t), intent(inout) :: this
+    integer(HID_T) :: correlator_group
+    integer, intent(in) :: sampling, fast_sampling
+    double precision, intent(in) :: dt, fast_dt
+
+    call write_correlator_block(correlator_group, 'mean_square_displacement', &
+         this%msd, sampling, dt)
+    call write_correlator_block(correlator_group, 'orientation_autocorrelation', &
+         this%oacf, sampling, dt)
+
+    call write_correlator_block(correlator_group, 'velocity_autocorrelation', &
+         this%vacf, fast_sampling, fast_dt)
+    call write_correlator_block(correlator_group, 'parallel_velocity_autocorrelation', &
+         this%parallel_vacf, fast_sampling, fast_dt)
+    call write_correlator_block(correlator_group, 'transverse_velocity_autocorrelation', &
+         this%transverse_vacf, fast_sampling, fast_dt)
+
+  end subroutine axial_write
+
+  subroutine write_correlator_block(loc, name, c, step, time)
+    use hdf5
+    use h5md_module
+    implicit none
+    integer(HID_T), intent(inout) :: loc
+    character(len=*), intent(in) :: name
+    type(correlator_t), intent(in) :: c
+    integer, intent(in) :: step
+    double precision, intent(in) :: time
+
+    integer(HID_T) :: group
+    integer :: error
+
+    call h5gcreate_f(loc, name, group, error)
+    call h5md_write_dataset(group, 'value', c%correlation)
+    call h5md_write_dataset(group, 'count', c%count)
+    call h5md_write_dataset(group, 'step', step)
+    call h5md_write_dataset(group, 'time', time)
+    call h5gclose_f(group, error)
+
+  end subroutine write_correlator_block
 
 end module correlator

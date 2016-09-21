@@ -69,7 +69,6 @@ program chemotactic_cell
   double precision,allocatable :: mass(:)
 
   double precision :: v_com(3), wall_v(3,2), wall_t(2)
-  double precision :: parallel_v(3), transverse_v(3)
   double precision :: local_mass, total_mass
 
   double precision :: e1, e2, e_wall
@@ -109,8 +108,8 @@ program chemotactic_cell
   integer, allocatable :: rho_xy(:,:,:)
 
   integer, parameter :: block_length = 8
-  integer :: n_blocks
-  type(correlator_t) :: msd, omega_acf, oacf, vacf, parallel_vacf, transverse_vacf
+  type(axial_correlator_t) :: axial_cf
+  type(correlator_t) :: omega_acf
   integer(HID_T) :: correlator_group
 
   double precision :: unit_r(3), omega(3), rel_v(3), norm_xy
@@ -237,18 +236,9 @@ program chemotactic_cell
 
   call PTkill(config)
 
-  do n_blocks = 1, 7
-     if (block_length**n_blocks >= N_loop*N_MD_steps/colloid_sampling/block_length) exit
-  end do
-  call msd%init(block_length, n_blocks, dim=3)
-  call oacf%init(block_length, n_blocks, dim=3)
-  call omega_acf%init(block_length, n_blocks)
-  do n_blocks = 1, 8
-     if (block_length**n_blocks >= N_loop*N_MD_steps/block_length) exit
-  end do
-  call vacf%init(block_length, n_blocks, dim=3)
-  call parallel_vacf%init(block_length, n_blocks, dim=3)
-  call transverse_vacf%init(block_length, n_blocks, dim=3)
+  call axial_cf%init(8, N_loop*N_MD_steps/colloid_sampling/block_length, N_loop*N_MD_steps/block_length)
+  call omega_acf%init(block_length, get_n_blocks(8, n_blocks_max=7, &
+       n_samples=N_loop*N_MD_steps/colloid_sampling/block_length))
 
   if (dimer) then
      colloids% species(1) = 1
@@ -506,21 +496,13 @@ program chemotactic_cell
 
         if (sampling) then
            v_com = sum(colloids%vel, dim=2)/2
-           parallel_v = dot_product(v_com, unit_r) * unit_r
-           transverse_v = v_com - parallel_v
-           call vacf%add((i-i_release)*N_MD_steps+j-1, correlate_block_dot, &
-                xvec=v_com)
-           call parallel_vacf%add((i-i_release)*N_MD_steps+j-1, correlate_block_dot, &
-                xvec=parallel_v)
-           call transverse_vacf%add((i-i_release)*N_MD_steps+j-1, correlate_block_dot, &
-                xvec=transverse_v)
+           call axial_cf%add_fast((i-i_release)*N_MD_steps+j-1, v_com, unit_r)
         end if
 
         if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
            ! correlators
-           call msd%add(i_block, correlate_block_distsq, xvec=com_pos)
+           call axial_cf%add(i_block, com_pos, unit_r)
            call omega_acf%add(i_block, correlate_block_dot, x=omega(3))
-           call oacf%add(i_block, correlate_block_dot, xvec=unit_r)
            i_block = i_block + 1
            ! colloid trajectory
            call dimer_io%position%append(colloids%pos)
@@ -628,19 +610,10 @@ program chemotactic_cell
 
   call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
 
-  call write_correlator_block(correlator_group, 'mean_square_displacement', &
-       msd, colloid_sampling, colloid_sampling*dt)
-  call write_correlator_block(correlator_group, 'orientation_autocorrelation', &
-       oacf, colloid_sampling, colloid_sampling*dt)
-  call write_correlator_block(correlator_group, 'planar_angular_velocity', &
-       omega_acf, colloid_sampling, colloid_sampling*dt)
+  call axial_cf%write(correlator_group, colloid_sampling, colloid_sampling*dt, 1, dt)
 
-  call write_correlator_block(correlator_group, 'velocity_autocorrelation', &
-       vacf, 1, dt)
-  call write_correlator_block(correlator_group, 'parallel_velocity_autocorrelation', &
-       parallel_vacf, 1, dt)
-  call write_correlator_block(correlator_group, 'transverse_velocity_autocorrelation', &
-       transverse_vacf, 1, dt)
+  call write_correlator_block(correlator_group, 'planar_angular_velocity_autocorrelation', &
+       omega_acf, colloid_sampling, colloid_sampling*dt)
 
   call h5gclose_f(correlator_group, error)
 
@@ -845,24 +818,5 @@ contains
     end do
 
   end subroutine compute_rho_xy
-
-  subroutine write_correlator_block(loc, name, c, step, time)
-    integer(HID_T), intent(inout) :: loc
-    character(len=*), intent(in) :: name
-    type(correlator_t), intent(in) :: c
-    integer, intent(in) :: step
-    double precision, intent(in) :: time
-
-    integer(HID_T) :: group
-    integer :: error
-
-    call h5gcreate_f(loc, name, group, error)
-    call h5md_write_dataset(group, 'value', c%correlation)
-    call h5md_write_dataset(group, 'count', c%count)
-    call h5md_write_dataset(group, 'step', step)
-    call h5md_write_dataset(group, 'time', time)
-    call h5gclose_f(group, error)
-
-  end subroutine write_correlator_block
 
 end program chemotactic_cell
