@@ -236,9 +236,9 @@ program chemotactic_cell
 
   call PTkill(config)
 
-  call axial_cf%init(8, N_loop*N_MD_steps/colloid_sampling/block_length, N_loop*N_MD_steps/block_length)
-  call omega_acf%init(block_length, get_n_blocks(8, n_blocks_max=7, &
-       n_samples=N_loop*N_MD_steps/colloid_sampling/block_length))
+  call axial_cf%init(block_length, N_loop*N_MD_steps/colloid_sampling, N_loop*N_MD_steps)
+  call omega_acf%init(block_length, get_n_blocks(block_length, n_blocks_max=7, &
+       n_samples=N_loop*N_MD_steps/colloid_sampling))
 
   if (dimer) then
      colloids% species(1) = 1
