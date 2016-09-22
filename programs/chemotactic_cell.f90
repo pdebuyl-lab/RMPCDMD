@@ -487,7 +487,7 @@ program chemotactic_cell
         end if
 
         com_pos = (colloids%pos(:,1)+colloids%image(:,1)*solvent_cells%edges + &
-             colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges)
+             colloids%pos(:,2)+colloids%image(:,2)*solvent_cells%edges) / 2
         unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
         norm_xy = norm2(unit_r(1:2))
         rel_v = colloids%vel(:,1)-colloids%vel(:,2)
