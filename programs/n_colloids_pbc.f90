@@ -170,7 +170,7 @@ program n_colloids_pbc
      if (.not. tooclose) i=i+1
   end do place_colloids
 
-  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj, state(1))
 
   call solvent% sort(solvent_cells)
 

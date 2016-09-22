@@ -102,7 +102,7 @@ program setup_simple_colloids
 
   call solvent_cells%init(L, 1.d0)
 
-  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj, state(1))
 
   call solvent% sort(solvent_cells)
 

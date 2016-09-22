@@ -1,6 +1,7 @@
 program test_particle_system_0
   use particle_system
   use mt19937ar_module
+  use threefry_module
   use iso_c_binding
   use tester
   implicit none
@@ -10,6 +11,7 @@ program test_particle_system_0
   type(mt19937ar_t), target :: mt
   type(tester_t) :: test
 
+  type(threefry_rng_t) :: state(1)
   integer :: clock, i
   double precision :: L(3), x(3)
 
@@ -18,9 +20,11 @@ program test_particle_system_0
   write(*,*) clock
   call test% init(d_tol=12*epsilon(1.d0))
 
+  call threefry_rng_init(state, int(clock, c_int64_t))
+
   call p% init(N)
   L = [ 1.d0, 20.d0, 5.d0 ]
-  call p% random_placement(L)
+  call p% random_placement(L, state=state(1))
   p% pos_old = p% pos
 
   ! Pick particle i and a random vector of norm <= sqrt(3)

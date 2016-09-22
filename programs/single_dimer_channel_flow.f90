@@ -231,7 +231,7 @@ program setup_single_dimer
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
 
-  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj, state(1))
 
   do i=1, solvent% Nmax
      solvent% vel(1,i) = threefry_normal(state(1))*sqrt(T)

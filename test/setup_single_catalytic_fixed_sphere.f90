@@ -163,7 +163,7 @@ program setup_single_catalytic_fixed_sphere
   call h5md_write_attribute(polar_hist_el%id, 'dx', polar_hist%dx)
   call h5gclose_f(fields_group, error)
 
-  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj, state(1))
 
   call solvent% sort(solvent_cells)
 

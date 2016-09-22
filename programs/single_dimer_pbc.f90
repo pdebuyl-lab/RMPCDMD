@@ -255,7 +255,7 @@ program single_dimer_pbc
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
 
-  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj, state(1))
 
   call solvent% sort(solvent_cells)
 

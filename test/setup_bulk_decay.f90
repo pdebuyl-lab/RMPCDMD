@@ -60,7 +60,7 @@ program setup_bulk_decay
 
   solvent% force = 0
   solvent% species = 2
-  call solvent% random_placement(L*1.d0)
+  call solvent% random_placement(L*1.d0, state=state(1))
 
   call solvent_cells%init(L, 1.d0)
   solvent_cells%is_reac = .true.

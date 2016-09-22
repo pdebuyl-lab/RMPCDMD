@@ -4,6 +4,8 @@ program test_neighbor_list
   use particle_system
   use hilbert
   use neighbor_list
+  use threefry_module
+  use iso_c_binding
   use tester
   implicit none
 
@@ -23,6 +25,7 @@ program test_neighbor_list
 
   double precision :: xij(3), dist_sq, cutoff
 
+  type(threefry_rng_t) :: state(1)
   integer :: seed_size, clock
   integer, allocatable :: seed(:)
 
@@ -35,6 +38,8 @@ program test_neighbor_list
   call random_seed(put = seed)
   deallocate(seed)
 
+  call threefry_rng_init(state, int(clock, c_int64_t))
+
   L = [20, 10, 35]
   N_solvent = L(1)*L(2)*L(3)*rho
   N_colloids = 20
@@ -46,8 +51,8 @@ program test_neighbor_list
 
   solvent% species = 1
   colloids% species = 1
-  call solvent% random_placement(L*1.d0)
-  call colloids% random_placement(L*1.d0)
+  call solvent% random_placement(L*1.d0, state=state(1))
+  call colloids% random_placement(L*1.d0, state=state(1))
 
   call solvent% sort(solvent_cells)
 

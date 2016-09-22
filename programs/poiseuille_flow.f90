@@ -92,7 +92,7 @@ program poiseuille_flow
 
   solvent% force = 0
   solvent% species = 1
-  call solvent% random_placement(L*1.d0)
+  call solvent% random_placement(L*1.d0, state=state(1))
 
   call solvent_cells%init(L, 1.d0, has_walls=.true.)
   solvent_cells% origin(3) = -0.5d0

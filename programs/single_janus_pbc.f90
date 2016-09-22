@@ -258,7 +258,7 @@ program single_janus_pbc
   call h5dclose_f(tmp_id, error)
   call h5gclose_f(connectivity_group, error)
 
-  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj)
+  call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj, state(1))
 
   call solvent% sort(solvent_cells)
 

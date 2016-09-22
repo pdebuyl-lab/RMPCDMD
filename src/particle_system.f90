@@ -237,6 +237,8 @@ contains
   end subroutine init_from_file
 
   subroutine random_placement(this, L, other, lj_params, state)
+    use threefry_module
+    implicit none
     class(particle_system_t), intent(inout) :: this
     double precision, intent(in) :: L(3)
     type(particle_system_t), intent(inout), optional :: other
