@@ -389,9 +389,7 @@ program single_dimer_pbc
 
      end if
 
-     solvent_cells% origin(1) = threefry_double(state(1)) - 1
-     solvent_cells% origin(2) = threefry_double(state(1)) - 1
-     solvent_cells% origin(3) = threefry_double(state(1)) - 1
+     call solvent_cells%random_shift(state(1))
      call varia%tac()
 
      call solvent% sort(solvent_cells)

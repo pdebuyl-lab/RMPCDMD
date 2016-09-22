@@ -300,8 +300,7 @@ program single_sphere_thermo_trap
 
      end do md_loop
 
-     call random_number(solvent_cells% origin)
-     solvent_cells% origin = solvent_cells% origin - 1
+     call solvent_cells%random_shift(state(1))
 
      call apply_pbc(colloids, solvent_cells% edges)
      call apply_pbc(solvent, solvent_cells% edges)

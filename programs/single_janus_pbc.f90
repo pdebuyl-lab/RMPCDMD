@@ -218,8 +218,11 @@ program single_janus_pbc
   solvent_io%species_info%time = N_loop*N_MD_steps*dt
   call solvent_io%init(hfile, 'solvent', solvent)
 
-  call random_number(solvent% vel(:, :))
-  solvent% vel = (solvent% vel - 0.5d0)*sqrt(12*T)
+  do k = 1, solvent%Nmax
+     solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(2,k) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(3,k) = threefry_normal(state(1))*sqrt(T)
+  end do
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
   solvent% species = 1
@@ -363,9 +366,8 @@ program single_janus_pbc
      call janus_io%velocity%append(colloids%vel)
      call janus_io%image%append(colloids%image)
 
-     solvent_cells% origin(1) = threefry_double(state(1)) - 1
-     solvent_cells% origin(2) = threefry_double(state(1)) - 1
-     solvent_cells% origin(3) = threefry_double(state(1)) - 1
+     call solvent_cells%random_shift(state(1))
+
      call varia%tac()
 
      call apply_pbc(solvent, solvent_cells% edges)

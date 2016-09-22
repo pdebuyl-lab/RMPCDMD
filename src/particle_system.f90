@@ -236,11 +236,12 @@ contains
 
   end subroutine init_from_file
 
-  subroutine random_placement(this, L, other, lj_params)
+  subroutine random_placement(this, L, other, lj_params, state)
     class(particle_system_t), intent(inout) :: this
     double precision, intent(in) :: L(3)
     type(particle_system_t), intent(inout), optional :: other
     type(lj_params_t), intent(in), optional :: lj_params
+    type(threefry_rng_t), intent(inout) :: state
 
     integer :: i, j, N_obstacles
     integer :: s1, s2
@@ -261,8 +262,9 @@ contains
           s1 = this% species(i)
           tooclose = .true.
           do while ( tooclose )
-             call random_number(x)
-             x = x * L
+             x(1) = threefry_double(state) * L(1)
+             x(2) = threefry_double(state) * L(2)
+             x(3) = threefry_double(state) * L(3)
              tooclose = .false.
              do j = 1, N_obstacles
                 s2 = other% species(j)
@@ -277,9 +279,10 @@ contains
           this% pos(:, i) = x
        end do
     else
-       call random_number(this% pos(:, :))
-       do j=1, 3
-          this% pos(j, :) = this% pos(j, :) * L(j)
+       do i = 1, this%Nmax
+          do j = 1, 3
+             this% pos(j, i) = threefry_double(state)*L(j)
+          end do
        end do
     end if
 

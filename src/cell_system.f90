@@ -25,6 +25,7 @@ module cell_system
      procedure :: init
      procedure :: count_particles
      procedure :: sort_particles
+     procedure :: random_shift
   end type cell_system_t
 
   integer, parameter :: PERIODIC_BC = 1
@@ -140,5 +141,17 @@ contains
     end do
 
   end subroutine sort_particles
+
+  subroutine random_shift(this, state)
+    use threefry_module
+    implicit none
+    class(cell_system_t), intent(inout) :: this
+    type(threefry_rng_t), intent(inout) :: state
+
+    this%origin(1) = threefry_double(state) - 1
+    this%origin(2) = threefry_double(state) - 1
+    this%origin(3) = threefry_double(state) - 1
+
+  end subroutine random_shift
 
 end module cell_system

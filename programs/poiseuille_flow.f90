@@ -147,8 +147,7 @@ program poiseuille_flow
      call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
      call md_vel(solvent, tau)
      call apply_pbc(solvent, solvent_cells%edges)
-     call random_number(solvent_cells% origin)
-     solvent_cells% origin = solvent_cells% origin - 1
+     call solvent_cells%random_shift(state(1))
      call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
@@ -162,8 +161,7 @@ program poiseuille_flow
      call mpcd_stream_xforce_yzwall(solvent, solvent_cells, tau, gravity_field(1))
      call md_vel(solvent, tau)
      call apply_pbc(solvent, solvent_cells%edges)
-     call random_number(solvent_cells% origin)
-     solvent_cells% origin = solvent_cells% origin - 1
+     call solvent_cells%random_shift(state(1))
      call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &

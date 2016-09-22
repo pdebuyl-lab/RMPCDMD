@@ -325,8 +325,7 @@ program setup_single_dimer
                  colloids% vel, e1+e2+e_wall+(colloids% mass(1)*sum(colloids% vel(:,1)**2) &
                  +colloids% mass(2)*sum(colloids% vel(:,2)**2))/2 &
                  +sum(solvent% vel**2)/2
-     call random_number(solvent_cells% origin)
-     solvent_cells% origin = solvent_cells% origin - 1
+     call solvent_cells%random_shift(state(1))
 
      call apply_pbc(colloids, solvent_cells% edges)
      call apply_pbc(solvent, solvent_cells% edges)
