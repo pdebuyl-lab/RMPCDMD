@@ -29,18 +29,26 @@ def get_edges(particles_group):
     else:
         return box_group['edges'][:]
 
+def get_time(element):
+    if 'time' in element:
+        time = element['time']
+    else:
+        time = element['step']
+    if 'offset' in time.attrs:
+        offset = time.attrs['offset'][()]
+    else:
+        offset = 0
+    if time.shape==():
+        return offset + np.arange(element['value'].shape[0])*time[()]
+    else:
+        return time[:]
+
 with h5py.File(args.file, 'r') as f:
     if args.obs:
         for obs in args.obs:
             g = f['observables'][obs]
-            if 'time' in g:
-                time = g['time']
-            else:
-                time = g['step']
-            if len(time.shape) == 1:
-                plt.plot(time, g['value'])
-            else:
-                plt.plot(np.arange(g['value'].shape[0])*time, g['value'])
+            plt.plot(get_time(g), g['value'])
+
     elif args.traj:
         group, traj = args.traj.split('/')
         edges = get_edges(f['particles'][group])
@@ -61,7 +69,7 @@ with h5py.File(args.file, 'r') as f:
                 print('xyz'[i], 'mean', data[:,i].mean(),
                       'std', data[:,i].std())
             else:
-                plt.plot(data[:,i])
+                plt.plot(get_time(f['particles'][group][traj]), data[:,i])
                 plt.ylabel('xyz'[i])
 
     elif args.field:
