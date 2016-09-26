@@ -63,7 +63,7 @@ program chemotactic_cell
   double precision :: conc_z_cyl(n_bins_conc)
 
   double precision :: sigma_N, sigma_C, max_cut, alpha, sigma_sphere
-  double precision :: shift
+  double precision :: shift(3)
   double precision :: track_y_shift
   double precision :: sigma(3,2), sigma_cut(3,2), epsilon(3,2)
   double precision,allocatable :: mass(:)
@@ -208,11 +208,14 @@ program chemotactic_cell
   call colloid_lj% init(epsilon(1:2,:), sigma(1:2,:), sigma_cut(1:2,:))
 
 
+  sigma(1,:) = -1
   epsilon = 1.d0
-  sigma(1,:) = [sigma_C, sigma_N]
+  sigma(2,:) = [sigma_C, sigma_N]
+  shift(2) = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
+  sigma(3,:) = [sigma_C, sigma_N]
+  shift(3) = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
   sigma_cut = sigma*3**(1.d0/6.d0)
-  shift = max(sigma_C, sigma_N)*2**(1./6.) + 0.25
-  call walls_colloid_lj% init(epsilon(1:1,:), sigma(1:1,:), sigma_cut(1:1,:), shift)
+  call walls_colloid_lj% init(epsilon(1:3,:), sigma(1:3,:), sigma_cut(1:3,:), shift)
 
   if (N_type) then
      sigma_sphere = sigma_N
@@ -378,7 +381,7 @@ program chemotactic_cell
   solvent% force(1,:) = g(1)
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
-  e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj, 3)
+  e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
   catalytic_change = 0
@@ -397,6 +400,7 @@ program chemotactic_cell
      solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
   else
      solvent_cells%bc = [PERIODIC_BC, PERIODIC_BC, BOUNCE_BACK_BC]
+     walls_colloid_lj%sigma(2,:) = -1
   end if
 
   sampling = .false.
@@ -460,7 +464,7 @@ program chemotactic_cell
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (.not. on_track) then
-           e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj, 3)
+           e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
         end if
         if (on_track) then
            colloids% force(2,:) = 0

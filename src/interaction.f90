@@ -19,7 +19,7 @@ module interaction
      double precision, allocatable :: cut(:,:)
      double precision, allocatable :: cut_sq(:,:)
      double precision, allocatable :: cut_energy(:,:)
-     double precision, allocatable :: shift
+     double precision, allocatable :: shift(:)
    contains
      procedure :: init => lj_params_init
   end type lj_params_t
@@ -31,7 +31,7 @@ contains
     double precision, intent(in) :: epsilon(:,:)
     double precision, intent(in) :: sigma(:,:)
     double precision, intent(in) :: cut(:,:)
-    double precision, intent(in), optional :: shift
+    double precision, intent(in), optional :: shift(:)
 
     integer :: n1, n2
 
@@ -53,7 +53,7 @@ contains
     allocate(this% cut(n1, n2))
     allocate(this% cut_sq(n1, n2))
     allocate(this% cut_energy(n1, n2))
-    allocate(this% shift)
+    allocate(this% shift(n1))
 
     this% epsilon = epsilon
     this% sigma = sigma

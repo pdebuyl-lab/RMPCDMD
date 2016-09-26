@@ -244,35 +244,36 @@ contains
 
   end subroutine rattle_body_vel
 
-  function lj93_zwall(particles, edges, lj_params, wall_direction) result(e)
+  function lj93_zwall(particles, edges, lj_params) result(e)
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: edges(3)
     type(lj_params_t), intent(in) :: lj_params
-    integer, intent(in) :: wall_direction
     double precision :: e
 
-    integer :: i, s
-    double precision :: z, z_sq, f, dir, shift
-
+    integer :: i, s, dim
+    double precision :: z, z_sq, f, dir
     
     e = 0
     do i = 1, particles%Nmax
        s = particles%species(i)
-       if (s<=0) continue
-       z = particles%pos(wall_direction,i)
-       if (z > edges(wall_direction)/2) then
-          z = edges(wall_direction) - z - lj_params% shift
-          dir = -1
-       else
-          dir = 1 
-          z = z - lj_params% shift
-       end if
-       z_sq = z**2
-       if (z_sq <= lj_params% cut_sq(1,s)) then
-         f = lj_force_9_3(z, z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
-         particles%force(wall_direction,i) = particles%force(wall_direction,i) + dir*f
-         e = e + lj_energy_9_3(z_sq, lj_params%epsilon(1,s), lj_params%sigma(1,s))
-       end if
+       if (s<=0) cycle
+       do dim = 1, 3
+          if (lj_params%sigma(dim, s)<0) cycle
+          z = particles%pos(dim,i)
+          if (z > edges(dim)/2) then
+             z = edges(dim) - z - lj_params%shift(dim)
+             dir = -1
+          else
+             dir = 1
+             z = z - lj_params%shift(dim)
+          end if
+          z_sq = z**2
+          if (z_sq <= lj_params% cut_sq(dim,s)) then
+             f = lj_force_9_3(z, z_sq, lj_params%epsilon(dim,s), lj_params%sigma(dim,s))
+             particles%force(dim,i) = particles%force(dim,i) + dir*f
+             e = e + lj_energy_9_3(z_sq, lj_params%epsilon(dim,s), lj_params%sigma(dim,s))
+          end if
+       end do
     end do
 
   end function lj93_zwall
