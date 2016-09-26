@@ -393,7 +393,11 @@ program chemotactic_cell
   end if
   stopped = .false.
 
-  solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
+  if (buffer_length > 0) then
+     solvent_cells%bc = [PERIODIC_BC, SPECULAR_BC, BOUNCE_BACK_BC]
+  else
+     solvent_cells%bc = [PERIODIC_BC, PERIODIC_BC, BOUNCE_BACK_BC]
+  end if
 
   sampling = .false.
   i_release = 0

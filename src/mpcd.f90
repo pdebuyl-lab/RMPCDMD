@@ -529,6 +529,7 @@ contains
     double precision, dimension(3) :: old_pos, old_vel
     double precision, dimension(3) :: new_pos, new_vel
     double precision :: t_c, t_b, t_ab
+    logical :: y_out, z_out
 
     L = cells%edges
     bc = cells%bc
@@ -543,8 +544,13 @@ contains
        new_pos = old_pos + old_vel*dt + particles%force(:,i)*dt**2/2
        new_vel = old_vel
        im = 0
+       y_out = ((new_pos(2)<0) .or. (new_pos(2)>L(2)))
+       z_out = ((new_pos(3)<0) .or. (new_pos(3)>L(3)))
 
-       if ((new_pos(2)<0) .or. (new_pos(2)>L(2)) .or. (new_pos(3)<0) .or. (new_pos(3)>L(3))) then
+       if ( &
+            ((bc(2)==PERIODIC_BC) .and. z_out ) .or. &
+            ((bc(2)/=PERIODIC_BC) .and. (y_out .or. z_out)) &
+            ) then
           call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
           particles%wall_flag(i) = 1
        end if
