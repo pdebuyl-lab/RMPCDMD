@@ -541,7 +541,7 @@ contains
     do i = 1, particles% Nmax
        old_pos = particles% pos(:,i)
        old_vel = particles% vel(:,i)
-       new_pos = old_pos + old_vel*dt + particles%force(:,i)*dt**2/2
+       new_pos = old_pos + old_vel*dt + gvec*dt**2/2
        new_vel = old_vel
        im = 0
        y_out = ((new_pos(2)<0) .or. (new_pos(2)>L(2)))
