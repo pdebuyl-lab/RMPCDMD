@@ -457,8 +457,9 @@ program chemotactic_cell
 
         !$omp parallel do
         do k = 1, solvent%Nmax
-           solvent% force(1,k) = g(1)
-           solvent% force(2:3,k) = 0
+           solvent%force(1,k) = g(1)
+           solvent%force(2,k) = 0
+           solvent%force(3,k) = 0
         end do
         colloids% force = 0
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
