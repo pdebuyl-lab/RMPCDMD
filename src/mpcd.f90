@@ -553,10 +553,10 @@ contains
             ) then
           call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
           particles%wall_flag(i) = 1
+          particles%vel(:,i) = new_vel
        end if
 
        particles%pos(:,i) = new_pos
-       particles%vel(:,i) = new_vel
     end do
     call particles%time_stream%tac()
 
