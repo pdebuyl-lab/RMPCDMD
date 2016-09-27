@@ -537,7 +537,7 @@ contains
     gvec(1) = g
 
     call particles%time_stream%tic()
-    !$omp parallel do private(old_pos, old_vel, new_pos, new_vel, im)
+    !$omp parallel do private(old_pos, old_vel, new_pos, new_vel, im, y_out, z_out)
     do i = 1, particles% Nmax
        old_pos = particles% pos(:,i)
        old_vel = particles% vel(:,i)
