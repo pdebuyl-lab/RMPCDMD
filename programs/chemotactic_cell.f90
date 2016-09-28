@@ -457,9 +457,7 @@ program chemotactic_cell
 
         !$omp parallel do
         do k = 1, solvent%Nmax
-           solvent%force(1,k) = g(1)
-           solvent%force(2,k) = 0
-           solvent%force(3,k) = 0
+           solvent%force(:,k) = g
         end do
         colloids% force = 0
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
@@ -662,15 +660,14 @@ contains
     double precision :: x(3)
 
     call flag_timer%tic()
+    !$omp parallel do private(s, r, x, dist_to_C_sq)
     do s = 1,neigh% n(1)
        r = neigh%list(s,1)
-       if (solvent% species(r) == 1) then
+       if ((solvent% species(r)==1) .and. (solvent%flag(r)==0)) then
           x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
           dist_to_C_sq = dot_product(x, x)
           if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-             if (threefry_double(state(1)) <= prob) then
-                solvent% flag(r) = 1
-             end if
+             solvent% flag(r) = 1
           end if
        end if
     end do
@@ -683,10 +680,13 @@ contains
     double precision :: dist_to_N_sq
     integer :: m
     double precision :: x(3)
+    integer :: thread_id
 
     call change_timer%tic()
     catalytic_change = 0
-    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq) reduction(+:catalytic_change)
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(x, dist_to_C_sq, dist_to_N_sq) reduction(+:catalytic_change)
     do m = 1, solvent% Nmax
        if (solvent% flag(m) == 1) then
           if (dimer) then
@@ -700,23 +700,29 @@ contains
                 (dist_to_N_sq > solvent_colloid_lj%cut_sq(1,2)) &
                 ) &
                 then
-                solvent% species(m) = 2
+                if (threefry_double(state(thread_id)) <= prob) then
+                   solvent% species(m) = 2
+                   catalytic_change(1) = catalytic_change(1) - 1
+                   catalytic_change(2) = catalytic_change(2) + 1
+                end if
                 solvent% flag(m) = 0
-                catalytic_change(1) = catalytic_change(1) - 1
-                catalytic_change(2) = catalytic_change(2) + 1
              end if
           else
              x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
              dist_to_C_sq = dot_product(x, x)
              if (dist_to_C_sq > solvent_colloid_lj%cut_sq(1,1)) then
-                solvent% species(m) = 2
+                if (threefry_double(state(thread_id)) <= prob) then
+                   solvent% species(m) = 2
+                   catalytic_change(1) = catalytic_change(1) - 1
+                   catalytic_change(2) = catalytic_change(2) + 1
+                end if
                 solvent% flag(m) = 0
-                catalytic_change(1) = catalytic_change(1) - 1
-                catalytic_change(2) = catalytic_change(2) + 1
              end if
           end if
        end if
     end do
+    !$omp end do
+    !$omp end parallel
     call change_timer%tac()
 
   end subroutine change_species
