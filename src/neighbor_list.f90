@@ -92,7 +92,9 @@ contains
     end if
 
     call this%time_update%tic()
-    !$omp parallel do private(x, cell, list_idx, j, actual_cell, neigh_idx, cell_n, cell_start, cell_i, y, rsq, actual_cell_md)
+    !$omp parallel do &
+    !$omp private(x, cell, list_idx, j, actual_cell, neigh_idx, cell_n, cell_start, &
+    !$omp cell_i, y, rsq, actual_cell_md, actual_cell_noreac)
     do i = 1, system1% Nmax
        x = system1% pos(:, i)
        si = system1%species(i)
