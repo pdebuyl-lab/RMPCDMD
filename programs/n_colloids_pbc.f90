@@ -63,6 +63,10 @@ program n_colloids_pbc
   double precision :: rsq
   logical :: tooclose
 
+  double precision :: total_time
+  type(timer_list_t) :: timer_list
+  integer(HID_T) :: timers_group
+
   integer :: i, L(3), N, N_colloids
   integer :: j, k
   type(args_t) :: args
@@ -73,6 +77,8 @@ program n_colloids_pbc
   n_threads = omp_get_max_threads()
   allocate(state(n_threads))
   call threefry_rng_init(state, args%seed)
+
+  call timer_list%init(11)
 
   call h5open_f(error)
   call hfile%create(args%output_file, 'RMPCDMD::n_colloids_pbc', &
@@ -259,6 +265,25 @@ program n_colloids_pbc
        v_com, add=.false., force=.true.)
 
   write(*,*) 'n extra sorting', n_extra_sorting
+
+  call h5gcreate_f(hfile%id, 'timers', timers_group, error)
+  call timer_list%append(solvent%time_stream)
+  call timer_list%append(solvent%time_md_vel)
+  call timer_list%append(solvent%time_step)
+  call timer_list%append(solvent%time_count)
+  call timer_list%append(solvent%time_sort)
+  call timer_list%append(solvent%time_ct)
+  call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(solvent%time_apply_pbc)
+  call timer_list%append(neigh%time_update)
+  call timer_list%append(neigh%time_force)
+  call timer_list%append(colloids%time_self_force)
+
+  call timer_list%write(timers_group, total_time)
+
+  call h5md_write_dataset(timers_group, 'total', total_time)
+
+  call h5gclose_f(timers_group, error)
 
   call colloids_io%close()
   call hfile%close()
