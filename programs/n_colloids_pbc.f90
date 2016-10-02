@@ -123,11 +123,6 @@ program n_colloids_pbc
   colloids_io%species_info%mode = H5MD_FIXED
   call colloids_io%init(hfile, 'colloids', colloids)
 
-  call h5gcreate_f(colloids_io%group, 'box', box_group, error)
-  call h5md_write_attribute(box_group, 'dimension', 3)
-  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
-  call h5gclose_f(box_group, error)
-
   N = rho*L(1)*L(2)*L(3) - int(rho*4*3.142/3 * sigma**3*colloids%Nmax)
 
   write(*,*) N, 'solvent particles'
@@ -157,6 +152,10 @@ program n_colloids_pbc
   solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
+  call h5gcreate_f(colloids_io%group, 'box', box_group, error)
+  call h5md_write_attribute(box_group, 'dimension', 3)
+  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
+  call h5gclose_f(box_group, error)
 
   i = 1
   place_colloids: do while (i<=N_colloids)
