@@ -16,7 +16,6 @@ program single_janus_pbc
   type(lj_params_t) :: colloid_lj
 
   integer, parameter :: N_species = 2
-  integer, parameter :: n_colloids = 36
 
   integer :: rho
   integer :: N
@@ -64,10 +63,12 @@ program single_janus_pbc
 
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
+  double precision :: link_treshold
   integer :: i_link
   double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
 
   type(args_t) :: args
+  character(len=144) :: data_filename
 
   args = get_input_args()
   call PTparse(config, args%input_file, 11)
@@ -121,41 +122,29 @@ program single_janus_pbc
 
   call solvent_colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
-  call solvent% init(N,2) !there will be 2 species of solvent particles
-
-  call colloids% init(n_colloids, 2, mass) !there will be 2 species of colloids
+  call solvent% init(N, N_species) !there will be 2 species of solvent particles
 
   call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
        'N/A', 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
+  data_filename = PTread_s(config, 'data_filename')
+  link_treshold = PTread_d(config, 'link_treshold')
+
   call PTkill(config)
-  
-  ! init Janus particle
-  colloids%species = 1
-  colloids%species(1:n_colloids/2) = 1
-  colloids%species(n_colloids/2+1:n_colloids) = 2
+
+  call colloids%init_from_file(data_filename, 'janus', H5MD_FIXED)
+  colloids%image = 0
   colloids%vel = 0
   colloids%force = 0
-  colloids%pos = reshape([13.3745, 8.98251, 4.69069, 8.5896, 7.72357, 4.80796, 9.47026, &
-8.68444, 3.05306, 11.5306, 8.71526, 3.21078, 12.0145, 9.40707, 6.13052, 8.17221, 9.88827, &
-4.48735, 10.0301, 10.5029, 3.98571, 12.1461, 10.4592, 4.24321, 10.9462, 12.322, 4.66248, &
-12.3154, 11.6388, 5.8488, 10.2087, 6.32609, 5.95645, 10.4149, 6.98389, 4.00391, 11.8483, &
-7.4706, 5.50245, 10.3726, 8.77586, 4.90677, 10.4163, 8.16153, 6.93092, 13.7445, 10.3013, &
-6.58686, 11.7959, 6.50942, 7.31858, 13.4875, 7.93538, 6.6553, 12.7693, 9.16432, 8.15863, &
-8.87267, 11.5327, 5.35836, 8.89651, 11.1582, 7.45123, 10.5823, 10.5821, 5.87234, 8.52313, &
-7.48241, 6.88098, 7.04389, 8.55093, 5.87505, 11.2238, 7.98061, 8.73575, 7.65272, 9.31661, &
-8.08054, 9.40208, 10.2729, 9.34594, 10.6022, 9.87845, 7.7796, 7.34913, 10.6154, 6.3113, &
-10.4922, 12.3975, 6.83583, 10.438, 11.8593, 8.7102, 12.2607, 11.1839, 7.82265, 9.29334, &
-8.24435, 8.62586, 9.87488, 6.45058, 7.9423, 8.9374, 9.41897, 6.36459, 11.4998, 9.95905, &
-9.53615], [3, n_colloids])
+  colloids%mass = mass
 
   i_link = 0
   do i = 1, colloids%Nmax
      do j = i+1, colloids%Nmax
         x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
         dist = norm2(x)
-        if (dist < 2.8) then
+        if (dist < link_treshold) then
            ! count link
            i_link = i_link + 1
         end if
@@ -168,7 +157,7 @@ program single_janus_pbc
      do j = i+1, colloids%Nmax
         x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
         dist = norm2(x)
-        if (dist < 2.8) then
+        if (dist < link_treshold) then
            ! add link
            i_link = i_link + 1
            links(1, i_link) = i
