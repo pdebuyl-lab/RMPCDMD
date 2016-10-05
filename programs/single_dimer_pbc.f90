@@ -183,7 +183,7 @@ program single_dimer_pbc
   call h5gclose_f(params_group, error)
   call PTkill(config)
 
-  call axial_cf%init(block_length, N_loop*N_MD_steps/colloid_sampling, N_loop*N_MD_steps)
+  call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
   
   colloids% species(1) = 1
   colloids% species(2) = 2
