@@ -6,11 +6,10 @@ SIMDIR:=$(PWD)
 all: exp-help help
 include ../Makefile
 
-simulation: $(SIMDIR)
-	(cd $(SIMDIR) ; $(RMPCDMD)/build/single_janus_pbc $(EXPDIR)/janus.parameters)
+simulation: janus.h5
 
-ruckner-kapral.h5: ruckner-kapral.parameters $(RMPCDMD)/build/single_dimer_pbc
-	$(RMPCDMD)/build/single_dimer_pbc $<
+%.h5: %.parameters $(RMPCDMD)/build/chemotactic_cell
+	$(RMPCDMD)/build/rmpcdmd run single_janus_pbc $< $@ auto
 
 $(SIMDIR):
 	@mkdir $(SIMDIR)

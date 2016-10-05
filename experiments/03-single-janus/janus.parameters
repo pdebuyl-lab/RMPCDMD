@@ -8,8 +8,9 @@ probability = 1
 # simulation parameters
 N_MD = 100
 N_loop = 100
-seed = 859785368166103910
 h5md_file = janus.h5
+data_filename = n36_40019311_B_janus_001.h5
+link_treshold = 5
 
 # interaction parameters
 sigma_colloid = 1
