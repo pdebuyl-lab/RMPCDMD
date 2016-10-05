@@ -195,6 +195,8 @@ contains
     integer(HSIZE_T) :: dims(3), maxdims(3), start(3)
     integer :: rank
     double precision, allocatable :: pos(:,:)
+    integer, allocatable :: species(:)
+    logical :: do_species
 
     call f% open(filename, H5F_ACC_RDONLY_F)
 
@@ -206,9 +208,15 @@ contains
 
     if (mode == H5MD_FIXED) then
        call e% read_fixed(g, 'position', pos)
-       call this% init(size(pos, 2))
+       call h5oexists_by_name_f(g, 'species', do_species, f%error)
+       call this% init(size(pos, 2), 2)
+       if (do_species) call e% read_fixed(g, 'species', species)
        this% pos = pos
        deallocate(pos)
+       if (do_species) then
+          this%species = species
+          deallocate(species)
+       end if
     else if ( (mode == H5MD_TIME) .or. (mode == H5MD_LINEAR) ) then
        if (.not. present(idx) ) error stop 'missing idx in init_from_file'
        call e% open_time(g, 'position')
