@@ -38,8 +38,12 @@ program single_janus_pbc
 
   integer :: i, L(3)
   integer :: j, k
-  type(timer_t) :: varia, main
-  type(timer_t) :: time_flag, time_refuel, time_change
+
+  double precision :: total_time
+  type(timer_t), target :: varia, main, time_flag, time_refuel, time_change
+  type(timer_list_t) :: timer_list
+  integer(HID_T) :: timers_group
+
   type(threefry_rng_t), allocatable :: state(:)
   integer :: n_threads
   type(h5md_file_t) :: hfile
@@ -83,6 +87,12 @@ program single_janus_pbc
   call time_refuel%init('refuel')
   call time_change%init('change')
 
+  call timer_list%init(16)
+  call timer_list%append(varia)
+  call timer_list%append(time_flag)
+  call timer_list%append(time_refuel)
+  call timer_list%append(time_change)
+
   call h5open_f(error)
 
   prob = PTread_d(config,'probability')
@@ -122,7 +132,7 @@ program single_janus_pbc
 
   call solvent_colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
-  call solvent% init(N, N_species) !there will be 2 species of solvent particles
+  call solvent% init(N, N_species, system_name='solvent') !there will be 2 species of solvent particles
 
   call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
        'N/A', 'Pierre de Buyl')
@@ -393,40 +403,32 @@ program single_janus_pbc
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
 
+  ! Store timing data
+  call timer_list%append(solvent%time_stream)
+  call timer_list%append(solvent%time_step)
+  call timer_list%append(solvent%time_count)
+  call timer_list%append(solvent%time_sort)
+  call timer_list%append(solvent%time_ct)
+  call timer_list%append(solvent%time_md_pos)
+  call timer_list%append(solvent%time_md_vel)
+  call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(colloids%time_self_force)
+  call timer_list%append(neigh%time_update)
+  call timer_list%append(neigh%time_force)
+  call timer_list%append(colloids%time_max_disp)
+
+  call h5gcreate_f(hfile%id, 'timers', timers_group, error)
+  call timer_list%write(timers_group, total_time)
+  call h5md_write_dataset(timers_group, 'total', total_time)
+  call h5md_write_dataset(timers_group, main%name, main%total)
+  call h5gclose_f(timers_group, error)
+
   call janus_io%close()
   call solvent_io%close()
   call radial_hist_el%close()
   call n_solvent_el%close()
   call hfile%close()
   call h5close_f(error)
-
-  write(*,'(a16,f8.3)') solvent%time_stream%name, solvent%time_stream%total
-  write(*,'(a16,f8.3)') solvent%time_step%name, solvent%time_step%total
-  write(*,'(a16,f8.3)') solvent%time_count%name, solvent%time_count%total
-  write(*,'(a16,f8.3)') solvent%time_sort%name, solvent%time_sort%total
-  write(*,'(a16,f8.3)') solvent%time_ct%name, solvent%time_ct%total
-  write(*,'(a16,f8.3)') solvent%time_md_pos%name, solvent%time_md_pos%total
-  write(*,'(a16,f8.3)') solvent%time_md_vel%name, solvent%time_md_vel%total
-  write(*,'(a16,f8.3)') solvent%time_max_disp%name, solvent%time_max_disp%total
-  write(*,'(a16,f8.3)') colloids%time_self_force%name, colloids%time_self_force%total
-  write(*,'(a16,f8.3)') neigh%time_update%name, neigh%time_update%total
-  write(*,'(a16,f8.3)') neigh%time_force%name, neigh%time_force%total
-  write(*,'(a16,f8.3)') colloids%time_max_disp%name, colloids%time_max_disp%total
-  write(*,'(a16,f8.3)') time_flag%name, time_flag%total
-  write(*,'(a16,f8.3)') time_change%name, time_change%total
-  write(*,'(a16,f8.3)') time_refuel%name, time_refuel%total
-  write(*,'(a16,f8.3)') colloids%time_rattle_pos%name, colloids%time_rattle_pos%total
-  write(*,'(a16,f8.3)') colloids%time_rattle_vel%name, colloids%time_rattle_vel%total
-
-  write(*,'(a16,f8.3)') 'total', solvent%time_stream%total + solvent%time_step%total + &
-       solvent%time_count%total + solvent%time_sort%total + solvent%time_ct%total + &
-       solvent%time_md_pos%total + solvent%time_md_vel%total + &
-       solvent%time_max_disp%total + solvent%time_self_force%total + &
-       neigh%time_update%total + neigh%time_force%total + colloids%time_max_disp%total + &
-       time_flag%total + time_change%total + time_refuel%total
-
-  write(*,'(a16,f8.3)') varia%name, varia%total
-  write(*,'(a16,f8.3)') main%name, main%total
 
 contains
 
