@@ -468,7 +468,7 @@ contains
     logical :: do_change
     integer :: s_m, s_colloid
 
-    !$omp parallel do private(x, dist_to_colloid_sq, m_colloid, do_change)
+    !$omp parallel do private(m, s_m, x, s_colloid, dist_to_colloid_sq, m_colloid, do_change)
     do m = 1, solvent% Nmax
        s_m = solvent%species(m)
        if (solvent% flag(m) == 1) then
