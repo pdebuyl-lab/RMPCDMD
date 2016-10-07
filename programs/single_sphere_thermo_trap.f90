@@ -16,10 +16,9 @@
 !! \param k             trap stiffness
 !! \param tau           MPCD collision time
 !! \param alpha         MPCD collision angle
-!! \param thermostat    whether to enable bulk thermostatting
 !! \param N_therm       number of unsampled thermalization MPCD timesteps
 !! \param N_loop        number of MPCD timesteps
-!! \param N_MD_steps    number of MD timesteps per tau
+!! \param N_MD          number of MD timesteps per tau
 !! \param vxz_interval  interval for storing the xz velocity field
 !! \param sigma         size of spherical colloid
 !! \param epsilon       interaction parameter of sphere with fluid

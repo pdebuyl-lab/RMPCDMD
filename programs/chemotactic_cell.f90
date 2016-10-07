@@ -10,17 +10,18 @@
 !! \param g                magnitude of acceleration
 !! \param buffer_length    length of the inlet buffer
 !! \param max_speed        maximum velocity of profile to initialize the velocities
-!! \param prob             probability of reaction
+!! \param probability      probability of reaction
 !! \param alpha            angle of collision
 !! \param store_rho_xy     store the xy density of solvent particles on a grid
 !! \param dimer            simulate a dimer nanomotor (boolean, else it is a single sphere)
+!! \param N_type           assign N species to the single sphere (boolean, else it is a C sphere)
 !! \param L                length of simulation box in the 3 dimensions
 !! \param rho              fluid number density
 !! \param T                Temperature. Used for setting initial velocities and for wall thermostatting.
 !! \param d                length of rigid link
 !! \param N_in_front       place N sphere in front (higher x), for the dimer nanomotor
 !! \param tau              MPCD collision time
-!! \param N_MD_steps       number MD steps occuring in tau
+!! \param N_MD             number MD steps occuring in tau
 !! \param N_loop           number of MPCD timesteps
 !! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
 !! \param steps_fixed      number of steps during which the colloid is fixed (only when buffer_length>0)

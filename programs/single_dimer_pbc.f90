@@ -7,8 +7,7 @@
 !! \param rho         fluid number density
 !! \param T           Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
 !! \param tau         MPCD collision time
-!! \param alpha       MPCD collision angle
-!! \param prob        probability to change A to B upon collision
+!! \param probability probability to change A to B upon collision
 !! \param bulk_rmpcd  use bulkd rmpcd reaction for B->A instead of resetting
 !! \param bulk_rate   rate of B->A reaction
 !! \param N_MD        number MD steps occuring in tau
