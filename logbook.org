@@ -59,3 +59,11 @@ The procedure, whose first version was contributed by Sébastien Michelin, is th
 On the way, the lack of =md5sum= and =wget= on the mac was circumvented by using =openssl
 md5 -r= and =curl= instead. =CC= and =FC= must be specified, else the system-provided
 compiler takes priority for both the HDF5 build and for the cmake build.
+
+* Scaling and profiling with Allinea map
+<2016-10-10 Mon>
+
+A number of scaling tests have been performed with Allinea map on the VSC Tier-1 system
+Breniac. Many scaling issues were identified as OpenMP errors in the code leading to
+probable race conditions. Using also Intel Inspector to reveal potential races, many missing
+=private= attributes were set.
