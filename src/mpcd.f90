@@ -81,7 +81,7 @@ contains
     end if
 
     call particles%time_step%tic()
-    !$omp parallel
+    !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
     !$omp do private(start, n, local_v, i, vec, omega)
     do cell_idx = 1, cells% N

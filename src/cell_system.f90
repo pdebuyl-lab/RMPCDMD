@@ -76,22 +76,23 @@ contains
     class(cell_system_t), intent(inout) :: this
     double precision, intent(in) :: position(:, :)
 
-    integer :: i, idx, N_particles, t_id, t_max
+    integer :: i, idx, N_particles, thread_max
     integer :: p(3)
     integer :: L(3)
     logical :: nowalls
+    integer :: thread_id
 
     N_particles = size(position, 2)
-    t_max = omp_get_max_threads()
+    thread_max = omp_get_max_threads()
 
     L = this% L
     nowalls = .not. this% has_walls
 
     this%cell_count_tmp = 0
 
-    !$omp parallel private(i, p, idx, t_id)
-    t_id = omp_get_thread_num() + 1
-    !$omp do
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(i, p, idx)
     do i=1, N_particles
        p = floor( (position(:, i) / this% a ) - this%origin )
        if ( p(1) == L(1) ) p(1) = 0
@@ -100,16 +101,16 @@ contains
           if ( p(3) == L(3) ) p(3) = 0
        end if
        idx = compact_p_to_h(p, this%M) + 1
-       this%cell_count_tmp(idx, t_id) = this%cell_count_tmp(idx, t_id) + 1
+       this%cell_count_tmp(idx, thread_id) = this%cell_count_tmp(idx, thread_id) + 1
     end do
     !$omp end do
     !$omp end parallel
 
-    !$omp parallel do private(t_id)
+    !$omp parallel do private(thread_id)
     do i = 1, this%N
        this%cell_count(i) = 0
-       do t_id=1, t_max
-          this%cell_count(i) = this%cell_count(i) + this%cell_count_tmp(i, t_id)
+       do thread_id=1, thread_max
+          this%cell_count(i) = this%cell_count(i) + this%cell_count_tmp(i, thread_id)
        end do
     end do
 

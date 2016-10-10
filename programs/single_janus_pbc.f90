@@ -449,6 +449,7 @@ contains
                 dist_to_C_sq = dot_product(x, x)
                 if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
                    if (threefry_double(state(thread_id)) <= prob) then
+                      !$omp atomic write
                       solvent% flag(r) = 1
                    end if
                 end if
