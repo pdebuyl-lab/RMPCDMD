@@ -62,15 +62,16 @@ with h5py.File(args.file, 'r') as f:
             data = data.mean(axis=1)
         else:
             data = f['particles'][group][traj]['value'][:,args.index,:]
-        for i in range(3):
-            plt.subplot(3, 1, i+1)
+        axes = [plt.subplot(3, 1, 1)]
+        axes.extend([plt.subplot(3, 1, i, sharex=axes[0]) for i in [2,3]])
+        for i, ax in enumerate(axes):
             if args.hist:
-                plt.hist(data[:,i], bins=32)
+                ax.hist(data[:,i], bins=32, histtype='step', normed=True)
                 print('xyz'[i], 'mean', data[:,i].mean(),
                       'std', data[:,i].std())
             else:
-                plt.plot(get_time(f['particles'][group][traj]), data[:,i])
-                plt.ylabel('xyz'[i])
+                ax.plot(get_time(f['particles'][group][traj]), data[:,i])
+                ax.set_ylabel('xyz'[i])
 
     elif args.field:
         g = f['fields'][args.field]
