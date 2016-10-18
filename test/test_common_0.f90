@@ -28,7 +28,7 @@ program test_common_0
   x1 = 10.d0
   n = 19
 
-  call test% init(d_tol = x1 / sqrt(dble(nloop)))
+  call test% init(tolerance64=x1/sqrt(dble(nloop)))
 
   call p% init(x0, x1, n)
 

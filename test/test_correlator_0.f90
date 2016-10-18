@@ -23,7 +23,7 @@ program test_correlator_0
 
   double precision :: comp(l)
 
-  call test%init(d_tol = 1d-8)
+  call test%init(tolerance64=1d-8)
 
   call acf1%init(l, b)
   call acf2%init(l, b, dim=size(x))

@@ -18,7 +18,7 @@ program test_particle_system_0
   call system_clock(count=clock)
   call init_genrand(mt, int(clock, c_long))
   write(*,*) clock
-  call test% init(d_tol=12*epsilon(1.d0))
+  call test% init(tolerance64=12*epsilon(1.d0))
 
   call threefry_rng_init(state, int(clock, c_int64_t))
 
