@@ -12,7 +12,7 @@
 !! \param L             length of simulation box in the 3 dimensions
 !! \param rho           fluid number density
 !! \param T             Temperature. Used for setting initial velocities.
-!! \param wall_t        Temperature at the walls (two values).
+!! \param wall_T        Temperature at the walls (two values).
 !! \param k             trap stiffness
 !! \param tau           MPCD collision time
 !! \param alpha         MPCD collision angle
