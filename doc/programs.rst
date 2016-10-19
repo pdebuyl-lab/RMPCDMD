@@ -22,9 +22,11 @@ in ``experiments/`` contain configuration files for some simulations.
 
 .. doxyheader:: ../programs/single_dimer_pbc.f90
 
-.. doxyheader:: ../programs/poiseuille_flow.f90
-
 .. doxyheader:: ../programs/chemotactic_cell.f90
+
+.. doxyheader:: ../programs/single_janus_pbc.f90
+
+.. doxyheader:: ../programs/poiseuille_flow.f90
 
 .. doxyheader:: ../programs/single_sphere_thermo_trap.f90
 
