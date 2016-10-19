@@ -1,3 +1,27 @@
+!> Simulate a single Janus particle
+!!
+!! This simulations models a chemically active Janus particle in a periodic simulation box.
+!!
+!! \param L                     length of simulation box in the 3 dimensions
+!! \param rho                   fluid number density
+!! \param T                     Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
+!! \param tau                   MPCD collision time
+!! \param probability           probability to change A to B upon collision
+!! \param bulk_rate             rate of B->A reaction
+!! \param N_MD                  number MD steps occuring in tau
+!! \param N_loop                number of MPCD timesteps
+!! \param colloid_sampling      interval (in MD steps) of sampling the colloid position and velocity
+!! \param equilibration_loops   number of MPCD steps for equilibration
+!! \param epsilon_C             interaction parameter of C sphere with both solvent species (2 elements)
+!! \param epsilon_N             interaction parameter of N sphere with both solvent species (2 elements)
+!! \param data_filename         filename for input Janus coordinates
+!! \param epsilon_colloid       interaction parameter for colloid-colloid interactions
+!! \param link_treshold         distance criterion for finding rigid-body links
+!! \param rattle_pos_tolerance  absolute tolerance for Rattle (position part)
+!! \param rattle_vel_tolerance  absolute tolerance for Rattle (velocity part)
+!! \param sigma                 radius of the colloidal beads for colloid-solvent interactions
+!! \param sigma_colloid         radius of the colloidal beads for colloid-colloid interactions
+
 program single_janus_pbc
   use rmpcdmd_module
   use hdf5
@@ -48,7 +72,7 @@ program single_janus_pbc
   integer :: n_threads
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
-  integer(HID_T) :: fields_group
+  integer(HID_T) :: fields_group, params_group
   integer(HID_T) :: connectivity_group
   integer(HID_T) :: box_group
   integer(HID_T) :: tmp_id
@@ -70,6 +94,17 @@ program single_janus_pbc
   double precision :: link_treshold
   integer :: i_link
   double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
+  double precision :: unit_r(3)
+  double precision :: com_pos(3)
+  integer :: head
+
+  integer, parameter :: block_length = 8
+  type(axial_correlator_t) :: axial_cf
+  integer(HID_T) :: correlator_group
+
+  integer :: equilibration_loops
+  integer :: colloid_sampling
+  logical :: sampling
 
   type(args_t) :: args
   character(len=144) :: data_filename
@@ -94,56 +129,68 @@ program single_janus_pbc
   call timer_list%append(time_change)
 
   call h5open_f(error)
+  call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
+       'N/A', 'Pierre de Buyl')
+  call h5gcreate_f(hfile%id, 'parameters', params_group, error)
+  call hdf5_util_write_dataset(params_group, 'seed', args%seed)
 
-  prob = PTread_d(config,'probability')
-  bulk_rate = PTread_d(config,'bulk_rate')
 
-  L = PTread_ivec(config, 'L', 3)
-  rho = PTread_i(config, 'rho')
+  prob = PTread_d(config,'probability', loc=params_group)
+  bulk_rate = PTread_d(config,'bulk_rate', loc=params_group)
+
+  L = PTread_ivec(config, 'L', 3, loc=params_group)
+  rho = PTread_i(config, 'rho', loc=params_group)
   N = rho *L(1)*L(2)*L(3)
 
-  T = PTread_d(config, 'T')
+  T = PTread_d(config, 'T', loc=params_group)
   
-  tau = PTread_d(config, 'tau')
-  N_MD_steps = PTread_i(config, 'N_MD')
+  tau = PTread_d(config, 'tau', loc=params_group)
+  N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
+  colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
+  if (modulo(N_MD_steps, colloid_sampling) /= 0) then
+     error stop 'colloid_sampling must divide N_MD with no remainder'
+  end if
   dt = tau / N_MD_steps
-  N_loop = PTread_i(config, 'N_loop')
+  N_loop = PTread_i(config, 'N_loop', loc=params_group)
+  equilibration_loops = PTread_i(config, 'equilibration_loops', loc=params_group)
 
-  rattle_pos_tolerance = PTread_d(config, 'rattle_pos_tolerance')
-  rattle_vel_tolerance = PTread_d(config, 'rattle_vel_tolerance')
+  call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
-  sigma = PTread_d(config, 'sigma_colloid')
+  rattle_pos_tolerance = PTread_d(config, 'rattle_pos_tolerance', loc=params_group)
+  rattle_vel_tolerance = PTread_d(config, 'rattle_vel_tolerance', loc=params_group)
+
+  sigma = PTread_d(config, 'sigma_colloid', loc=params_group)
   sigma_v = sigma
   sigma_cut = sigma_v*2**(1.d0/6.d0)
   mass = rho * sigma**3 * 4 * 3.14159265/3
 
-  epsilon = PTread_d(config, 'epsilon_colloid')
+  epsilon = PTread_d(config, 'epsilon_colloid', loc=params_group)
 
   call colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
   ! solvent index first, colloid index second, in solvent_colloid_lj
-  sigma = PTread_d(config, 'sigma')
+  sigma = PTread_d(config, 'sigma', loc=params_group)
   sigma_v = sigma
   sigma_cut = sigma_v*2**(1.d0/6.d0)
   max_cut = maxval(sigma_cut)
 
-  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2)
-  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2)
+  epsilon(:,1) = PTread_dvec(config, 'epsilon_C', 2, loc=params_group)
+  epsilon(:,2) = PTread_dvec(config, 'epsilon_N', 2, loc=params_group)
 
   call solvent_colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
   call solvent% init(N, N_species, system_name='solvent') !there will be 2 species of solvent particles
 
-  call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
-       'N/A', 'Pierre de Buyl')
-  call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
+  data_filename = PTread_s(config, 'data_filename', loc=params_group)
+  link_treshold = PTread_d(config, 'link_treshold', loc=params_group)
 
-  data_filename = PTread_s(config, 'data_filename')
-  link_treshold = PTread_d(config, 'link_treshold')
-
+  call h5gclose_f(params_group, error)
   call PTkill(config)
 
+  call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
+
   call colloids%init_from_file(data_filename, 'janus', H5MD_FIXED)
+  head = get_head_idx(data_filename)
   colloids%image = 0
   colloids%vel = 0
   colloids%force = 0
@@ -183,19 +230,20 @@ program single_janus_pbc
   janus_io%id_info%store = .false.
   janus_io%position_info%store = .true.
   janus_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%position_info%step = N_MD_steps
-  janus_io%position_info%time = N_MD_steps*dt
+  janus_io%position_info%step = colloid_sampling
+  janus_io%position_info%time = colloid_sampling*dt
   janus_io%image_info%store = .true.
   janus_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%image_info%step = N_MD_steps
-  janus_io%image_info%time = N_MD_steps*dt
+  janus_io%image_info%step = colloid_sampling
+  janus_io%image_info%time = colloid_sampling*dt
   janus_io%velocity_info%store = .true.
   janus_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%velocity_info%step = N_MD_steps
-  janus_io%velocity_info%time = N_MD_steps*dt
+  janus_io%velocity_info%step = colloid_sampling
+  janus_io%velocity_info%time = colloid_sampling*dt
   janus_io%species_info%store = .true.
   janus_io%species_info%mode = H5MD_FIXED
   call janus_io%init(hfile, 'janus', colloids)
+  call h5md_write_attribute(janus_io%position%id, 'head', head)
 
   solvent_io%force_info%store = .false.
   solvent_io%id_info%store = .false.
@@ -277,10 +325,12 @@ program single_janus_pbc
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
 
-  write(*,*) 'Running for', N_loop, 'loops'
+  write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
   call main%tic()
-  do i = 1, N_loop
-     if (modulo(i,5) == 0) write(*,'(i05)',advance='no') i
+  sampling = .false.
+  do i = 0, N_loop+equilibration_loops
+     if (i==equilibration_loops) sampling = .true.
+     if (modulo(i,32) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
@@ -339,6 +389,22 @@ program single_janus_pbc
 
         call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
+        if (sampling) then
+           v_com = sum(colloids%vel, dim=2)/colloids%Nmax
+           com_pos = sum((colloids%pos(:,:)+ &
+                colloids%image(:,:)*spread(solvent_cells%edges, dim=2, ncopies=colloids%Nmax) ) &
+                , dim=2)/ colloids%Nmax
+           unit_r = rel_pos(colloids%pos(:,head), com_pos, solvent_cells%edges)
+           unit_r = unit_r / norm2(unit_r)
+           call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
+        end if
+
+        if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
+           call janus_io%position%append(colloids%pos)
+           call janus_io%velocity%append(colloids%vel)
+           call janus_io%image%append(colloids%image)
+        end if
+
         call time_flag%tic()
         call flag_particles
         call time_flag%tac()
@@ -350,23 +416,27 @@ program single_janus_pbc
 
      call varia%tic()
 
-     temperature = compute_temperature(solvent, solvent_cells)
-     kin_e = sum(solvent% vel**2)
-     v_com = sum(solvent%vel, dim=2)
-     tmp_mass = solvent%Nmax
-     do k = 1, colloids%Nmax
-        v_com = v_com + colloids%mass(colloids%species(k)) * colloids%vel(:,k)
-        tmp_mass = tmp_mass + colloids%mass(colloids%species(k))
-        kin_e = kin_e + colloids%mass(colloids%species(k)) * sum(colloids%vel(:,k)**2)
-     end do
-     v_com = v_com / tmp_mass
-     kin_e = kin_e / 2
+     if (sampling) then
+        temperature = compute_temperature(solvent, solvent_cells)
+        kin_e = sum(solvent% vel**2)
+        v_com = sum(solvent%vel, dim=2)
+        tmp_mass = solvent%Nmax
+        do k = 1, colloids%Nmax
+           v_com = v_com + colloids%mass(colloids%species(k)) * colloids%vel(:,k)
+           tmp_mass = tmp_mass + colloids%mass(colloids%species(k))
+           kin_e = kin_e + colloids%mass(colloids%species(k)) * sum(colloids%vel(:,k)**2)
+        end do
+        v_com = v_com / tmp_mass
+        kin_e = kin_e / 2
 
-     call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
+        com_pos = sum((colloids%pos(:,:)+ &
+             colloids%image(:,:)*spread(solvent_cells%edges, dim=2, ncopies=colloids%Nmax) ) &
+             , dim=2)/ colloids%Nmax
 
-     call janus_io%position%append(colloids%pos)
-     call janus_io%velocity%append(colloids%vel)
-     call janus_io%image%append(colloids%image)
+        call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
+        call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
+
+     end if
 
      call solvent_cells%random_shift(state(1))
 
@@ -399,6 +469,14 @@ program single_janus_pbc
   write(*,*) ''
 
   write(*,*) 'n extra sorting', n_extra_sorting
+
+  ! create a group for block correlators and write the data
+
+  call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
+  call axial_cf%write(correlator_group, N_MD_steps, N_MD_steps*dt, 1, dt)
+  call h5gclose_f(correlator_group, error)
+
+  ! write solvent coordinates for last step
 
   call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com, add=.false., force=.true.)
   call solvent_io%position%append(solvent%pos)
@@ -517,5 +595,30 @@ contains
        end if
     end do
   end subroutine refuel
+
+  !> Get index of the head bead in the Janus particle
+  function get_head_idx(filename) result(head)
+    character(len=*), intent(in) :: filename
+    integer :: head
+
+    integer(HID_T) :: file_id, obj_id, attr_id, space_id
+    integer :: error
+    integer(HSIZE_T) :: dims(1)
+    logical :: is_simple
+
+    call h5fopen_f(filename, H5F_ACC_RDONLY_F, file_id, error)
+    call h5oopen_f(file_id, 'particles/janus/position', obj_id, error)
+    call h5aopen_f(obj_id, 'head', attr_id, error)
+    call h5aget_space_f(attr_id, space_id, error)
+    call h5sis_simple_f(space_id, is_simple, error)
+    if (.not. is_simple) error stop 'head attribute not simple'
+    call h5aread_f(attr_id, H5T_NATIVE_INTEGER, head, dims, error)
+    call h5sclose_f(space_id, error)
+    call h5aclose_f(attr_id, error)
+    call h5oclose_f(obj_id, error)
+    call h5fclose_f(file_id, error)
+
+  end function get_head_idx
+
 
 end program single_janus_pbc
