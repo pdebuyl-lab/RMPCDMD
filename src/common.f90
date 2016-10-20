@@ -13,8 +13,10 @@ module common
   public :: timer_list_t
   public :: args_t
   public :: cross
+  public :: pi
 
   integer, parameter :: max_path_length = 255
+  double precision, parameter :: pi = 4*atan(1.d0)
 
   !> Container for a profile, e.g. v(x)
   !!

@@ -60,7 +60,6 @@ program setup_single_catalytic_fixed_sphere
 
   type(histogram_t) :: polar_hist
   type(h5md_element_t) :: polar_hist_el
-  double precision, parameter :: pi = 4.d0*atan(1.d0)
 
   logical :: rmpcd_refuel
   double precision :: bulk_rate
