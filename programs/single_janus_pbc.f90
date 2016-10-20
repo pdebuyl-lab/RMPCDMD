@@ -451,18 +451,20 @@ program single_janus_pbc
 
      call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
 
-     n_solvent = 0
-     do k = 1, solvent%Nmax
-        j = solvent%species(k)
-        if (j <= 0) continue
-        n_solvent(j) = n_solvent(j) + 1
-     end do
-     call n_solvent_el%append(n_solvent)
+     if (sampling) then
+        n_solvent = 0
+        do k = 1, solvent%Nmax
+           j = solvent%species(k)
+           if (j <= 0) continue
+           n_solvent(j) = n_solvent(j) + 1
+        end do
+        call n_solvent_el%append(n_solvent)
 
-     radial_hist%data = 0
-     call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
-          solvent_cells%edges, solvent)
-     call radial_hist_el%append(radial_hist%data)
+        radial_hist%data = 0
+        call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
+             solvent_cells%edges, solvent)
+        call radial_hist_el%append(radial_hist%data)
+     end if
 
   end do
   call main%tac()
