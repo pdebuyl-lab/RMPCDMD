@@ -65,6 +65,7 @@ program single_janus_pbc
 
   double precision :: total_time
   type(timer_t), target :: varia, main, time_flag, time_refuel, time_change
+  type(timer_t), target :: bulk_reac_timer
   type(timer_list_t) :: timer_list
   integer(HID_T) :: timers_group
 
@@ -121,12 +122,14 @@ program single_janus_pbc
   call time_flag%init('flag')
   call time_refuel%init('refuel')
   call time_change%init('change')
+  call bulk_reac_timer%init('bulk_reac')
 
-  call timer_list%init(16)
+  call timer_list%init(19)
   call timer_list%append(varia)
   call timer_list%append(time_flag)
   call timer_list%append(time_refuel)
   call timer_list%append(time_change)
+  call timer_list%append(bulk_reac_timer)
 
   call h5open_f(error)
   call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
@@ -449,7 +452,9 @@ program single_janus_pbc
 
      call simple_mpcd_step(solvent, solvent_cells, state)
 
+     call bulk_reac_timer%tic()
      call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
+     call bulk_reac_timer%tac()
 
      if (sampling) then
         n_solvent = 0
@@ -496,6 +501,8 @@ program single_janus_pbc
   call timer_list%append(solvent%time_md_vel)
   call timer_list%append(solvent%time_max_disp)
   call timer_list%append(colloids%time_self_force)
+  call timer_list%append(colloids%time_rattle_pos)
+  call timer_list%append(colloids%time_rattle_vel)
   call timer_list%append(neigh%time_update)
   call timer_list%append(neigh%time_force)
   call timer_list%append(colloids%time_max_disp)
