@@ -627,6 +627,9 @@ contains
     call h5oclose_f(obj_id, error)
     call h5fclose_f(file_id, error)
 
+    ! The index in the H5MD file is 0-based.
+    head = head + 1
+
   end function get_head_idx
 
 
