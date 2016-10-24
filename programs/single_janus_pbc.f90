@@ -254,7 +254,8 @@ program single_janus_pbc
   janus_io%species_info%store = .true.
   janus_io%species_info%mode = H5MD_FIXED
   call janus_io%init(hfile, 'janus', colloids)
-  call h5md_write_attribute(janus_io%position%id, 'head', head)
+  ! The index in the H5MD file is 0-based.
+  call h5md_write_attribute(janus_io%position%id, 'head', head-1)
 
   solvent_io%force_info%store = .false.
   solvent_io%id_info%store = .false.
