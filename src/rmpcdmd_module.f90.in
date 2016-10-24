@@ -9,6 +9,7 @@ module rmpcdmd_module
   use mpcd
   use md
   use correlator
+  use polar_fields
   implicit none
 
   character(len=*), parameter :: RMPCDMD_REVISION = '@RMPCDMD_REVISION@'
