@@ -35,7 +35,9 @@ program single_janus_pbc
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
   type(particle_system_t) :: colloids
+  type(particle_system_t) :: colloids_com
   type(neighbor_list_t) :: neigh
+  type(neighbor_list_t) :: neigh_com
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
 
@@ -89,6 +91,9 @@ program single_janus_pbc
 
   type(histogram_t) :: radial_hist
   type(h5md_element_t) :: radial_hist_el
+  double precision :: polar_r_max
+  type(polar_fields_t) :: polar
+  integer(HID_T) :: polar_id
 
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
@@ -96,7 +101,7 @@ program single_janus_pbc
   integer :: i_link
   double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
   double precision :: unit_r(3)
-  double precision :: com_pos(3)
+  double precision :: com_pos(3), head_pos(3)
   integer :: head
 
   integer, parameter :: block_length = 8
@@ -187,6 +192,8 @@ program single_janus_pbc
   data_filename = PTread_s(config, 'data_filename', loc=params_group)
   link_treshold = PTread_d(config, 'link_treshold', loc=params_group)
 
+  polar_r_max = PTread_d(config, 'polar_r_max', loc=params_group)
+
   call h5gclose_f(params_group, error)
   call PTkill(config)
 
@@ -198,6 +205,7 @@ program single_janus_pbc
   colloids%vel = 0
   colloids%force = 0
   colloids%mass = mass
+  call colloids_com%init(1)
 
   i_link = 0
   do i = 1, colloids%Nmax
@@ -299,7 +307,6 @@ program single_janus_pbc
        H5MD_LINEAR, step=N_MD_steps, time=N_MD_steps*dt)
   call h5md_write_attribute(radial_hist_el%id, 'xmin', radial_hist%xmin)
   call h5md_write_attribute(radial_hist_el%id, 'dx', radial_hist%dx)
-  call h5gclose_f(fields_group, error)
 
   call h5gcreate_f(hfile%id, 'connectivity', connectivity_group, error)
   call h5md_write_dataset(connectivity_group, 'janus_links', links-1)
@@ -312,16 +319,17 @@ program single_janus_pbc
 
   call solvent% sort(solvent_cells)
 
+  call polar%init(N_species, 64, sigma, polar_r_max, 64)
   call neigh% init(colloids% Nmax, int(300*sigma**3))
+  call neigh_com%init(colloids_com%Nmax, int(rho*4*polar_r_max**3))
 
   skin = 1.5
   n_extra_sorting = 0
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
+  call neigh_com%make_stencil(solvent_cells, polar_r_max)
 
   call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
-
-  ! insert polar histogram
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -397,7 +405,8 @@ program single_janus_pbc
            com_pos = sum((colloids%pos(:,:)+ &
                 colloids%image(:,:)*spread(solvent_cells%edges, dim=2, ncopies=colloids%Nmax) ) &
                 , dim=2)/ colloids%Nmax
-           unit_r = rel_pos(colloids%pos(:,head), com_pos, solvent_cells%edges)
+           head_pos = colloids%pos(:,head)+colloids%image(:,head)*solvent_cells%edges
+           unit_r = rel_pos(head_pos, com_pos, solvent_cells%edges)
            unit_r = unit_r / norm2(unit_r)
            call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
         end if
@@ -432,10 +441,6 @@ program single_janus_pbc
         v_com = v_com / tmp_mass
         kin_e = kin_e / 2
 
-        com_pos = sum((colloids%pos(:,:)+ &
-             colloids%image(:,:)*spread(solvent_cells%edges, dim=2, ncopies=colloids%Nmax) ) &
-             , dim=2)/ colloids%Nmax
-
         call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
         call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
 
@@ -469,6 +474,13 @@ program single_janus_pbc
         call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
              solvent_cells%edges, solvent)
         call radial_hist_el%append(radial_hist%data)
+
+        call varia%tic()
+        colloids_com%pos(:,1) = modulo(com_pos, solvent_cells%edges)
+        call neigh_com%update_list(colloids_com, solvent, polar_r_max, solvent_cells)
+        v_com = sum(colloids%vel, dim=2)/colloids%Nmax
+        call polar%update(colloids_com%pos(:,1), v_com, unit_r, solvent, neigh_com, solvent_cells)
+        call varia%tac()
      end if
 
   end do
@@ -490,6 +502,29 @@ program single_janus_pbc
   call solvent_io%velocity%append(solvent%vel)
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
+
+  ! store polar fields
+
+  polar%c = polar%c / N_loop
+  where (polar%count>0)
+     polar%v(1,:,:,:) = polar%v(1,:,:,:) / polar%count
+     polar%v(2,:,:,:) = polar%v(2,:,:,:) / polar%count
+  end where
+  call h5md_write_dataset(fields_group, 'polar_concentration', polar%c)
+  call h5oopen_f(fields_group, 'polar_concentration', polar_id, error)
+  call h5md_write_attribute(polar_id, 'r_min', polar%r_min)
+  call h5md_write_attribute(polar_id, 'r_max', polar%r_max)
+  call h5md_write_attribute(polar_id, 'dr', polar%dr)
+  call h5md_write_attribute(polar_id, 'dtheta', polar%dtheta)
+  call h5oclose_f(polar_id, error)
+
+  call h5md_write_dataset(fields_group, 'polar_velocity', polar%v)
+  call h5oopen_f(fields_group, 'polar_velocity', polar_id, error)
+  call h5md_write_attribute(polar_id, 'r_min', polar%r_min)
+  call h5md_write_attribute(polar_id, 'r_max', polar%r_max)
+  call h5md_write_attribute(polar_id, 'dr', polar%dr)
+  call h5md_write_attribute(polar_id, 'dtheta', polar%dtheta)
+  call h5oclose_f(polar_id, error)
 
   ! Store timing data
   call timer_list%append(solvent%time_stream)
@@ -513,6 +548,7 @@ program single_janus_pbc
   call h5md_write_dataset(timers_group, main%name, main%total)
   call h5gclose_f(timers_group, error)
 
+  call h5gclose_f(fields_group, error)
   call janus_io%close()
   call solvent_io%close()
   call radial_hist_el%close()
