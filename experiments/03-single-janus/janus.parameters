@@ -7,23 +7,20 @@ probability = 1
 
 # simulation parameters
 N_MD = 100
-N_loop = 100
-h5md_file = janus.h5
-data_filename = n36_40019311_B_janus_001.h5
-link_treshold = 5
+N_loop = 512
+colloid_sampling = 50
+equilibration_loops = 20
+data_filename = janus_structure.h5
+link_treshold = 2.5
+polar_r_max = 10
+bulk_rate = 0.1
 
 # interaction parameters
-sigma_colloid = 1
-epsilon_colloid = 0.1
-rattle_pos_tolerance = 1d-9
+sigma_colloid = 2
+epsilon_colloid = 2
+rattle_pos_tolerance = 1d-8
 rattle_vel_tolerance = 1d-8
 
 sigma = 3
 epsilon_N = 1.0 5.0
 epsilon_C = 1.0 1.0
-
-epsilon_N_N = 1.0
-epsilon_N_C = 1.0
-epsilon_C_C = 1.0
-bulk_rate = 0.001
-
