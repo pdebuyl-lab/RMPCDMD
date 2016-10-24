@@ -17,17 +17,16 @@ with h5py.File(args.file, 'r') as f:
         raise Exception('No timers group found')
     timers_group = f['timers']
     timers_names = timers_group.keys()
-    timers_data = []
-    for name in timers_names:
-        timers_data.append(timers_group[name][()])
+    timers = [(name, timers_group[name][()]) for name in timers_names]
 
-if timers_data:
+timers.sort(key=lambda x: x[1])
+if timers:
     if args.plot:
         import matplotlib.pyplot as plt
-        y_pos = np.arange(len(timers_names))
-        plt.barh(y_pos, timers_data, align='center')
-        plt.yticks(y_pos, timers_names)
+        y_pos = np.arange(len(timers))
+        plt.barh(y_pos, [t[1] for t in timers], align='center')
+        plt.yticks(y_pos, [t[0] for t in timers])
         plt.show()
     else:
-        for name, value in zip(timers_names, timers_data):
+        for name, value in timers:
             print(name, value)
