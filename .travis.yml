@@ -17,7 +17,7 @@ script:
   - python -c 'import numpy'
   - pip install h5py
   - python -c 'import h5py'
-  - ./scripts/download_and_build_hdf5.sh 1>hdf5_build.out 2>&1
+  - MAKEFLAGS='-j 4' ./scripts/download_and_build_hdf5.sh 1>hdf5_build.out 2>&1
   - mkdir build && cd build
   - HDF5_ROOT=../_hdf5-1.8.17 cmake ..
   - make VERBOSE=1
