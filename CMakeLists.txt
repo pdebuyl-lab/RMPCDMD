@@ -104,6 +104,10 @@ add_executable(test_correlator_0
 test/test_correlator_0.f90)
 target_link_libraries(test_correlator_0 RMPCDMD fortran_tester)
 
+add_executable(test_elastic_network_0
+test/test_elastic_network_0.f90)
+target_link_libraries(test_elastic_network_0 RMPCDMD fortran_tester)
+
 add_test(NAME test_cell_system_0 COMMAND test_cell_system_0)
 add_test(NAME test_common_0 COMMAND test_common_0)
 add_test(NAME test_common_1 COMMAND test_common_1)
@@ -111,5 +115,6 @@ add_test(NAME test_neighbor_list_0 COMMAND test_neighbor_list_0)
 add_test(NAME test_neighbor_list_1 COMMAND test_neighbor_list_1)
 add_test(NAME test_particle_system_0 COMMAND test_particle_system_0)
 add_test(NAME test_correlator_0 COMMAND test_correlator_0)
+add_test(NAME test_elastic_network_0 COMMAND test_elastic_network_0)
 
 set_tests_properties(test_neighbor_list_1 PROPERTIES WILL_FAIL TRUE)

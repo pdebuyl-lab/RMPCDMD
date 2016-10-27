@@ -61,6 +61,7 @@ module particle_system
      type(timer_t), pointer :: time_md_pos, time_md_vel, time_self_force, time_max_disp
      type(timer_t), pointer :: time_apply_pbc
      type(timer_t), pointer :: time_rattle_pos, time_rattle_vel
+     type(timer_t), pointer :: time_elastic
    contains
      procedure :: init
      procedure :: init_from_file
@@ -175,6 +176,8 @@ contains
     call this%time_rattle_pos%init('rattle_pos', trim(system_name_var))
     allocate(this%time_rattle_vel)
     call this%time_rattle_vel%init('rattle_vel', trim(system_name_var))
+    allocate(this%time_elastic)
+    call this%time_elastic%init('elastic_network', trim(system_name_var))
     allocate(this%time_apply_pbc)
     call this%time_apply_pbc%init('apply_pbc', trim(system_name_var))
 

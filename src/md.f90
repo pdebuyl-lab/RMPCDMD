@@ -13,6 +13,7 @@ module md
   public :: rattle_dimer_vel
   public :: rattle_body_pos, rattle_body_vel
   public :: lj93_zwall
+  public :: elastic_network
 
 contains
 
@@ -277,5 +278,35 @@ contains
     end do
 
   end function lj93_zwall
+
+  function elastic_network(p, links, distances, k, edges) result(e)
+    type(particle_system_t), intent(inout) :: p
+    integer, intent(in) :: links(:,:)
+    double precision, intent(in) :: distances(:)
+    double precision, intent(in) :: k
+    double precision, intent(in) :: edges(3)
+    double precision :: e
+
+    integer :: i, i1, i2, n_links
+    double precision :: x(3), f(3), r, r0
+
+    n_links = size(distances)
+
+    call p%time_elastic%tic()
+    e = 0
+    do i = 1, n_links
+       i1 = links(1,i)
+       i2 = links(2,i)
+       r0 = distances(i)
+       x = rel_pos(p%pos(:,i1), p%pos(:,i2), edges)
+       r = norm2(x)
+       e = e + k*(r-r0)**2/2
+       f = - k * (r - r0) * x / r
+       p%force(:,i1) = p%force(:,i1) + f
+       p%force(:,i2) = p%force(:,i2) - f
+    end do
+    call p%time_elastic%tac()
+
+  end function elastic_network
 
 end module md
