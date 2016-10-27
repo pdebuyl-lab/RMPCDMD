@@ -12,12 +12,16 @@ colloid_sampling = 50
 equilibration_loops = 20
 data_filename = janus_structure.h5
 link_treshold = 2.5
+do_read_links = F
 polar_r_max = 10
 bulk_rate = 0.1
 
 # interaction parameters
 sigma_colloid = 2
 epsilon_colloid = 2
+do_lennard_jones = T
+do_elastic = F
+do_rattle = T
 rattle_pos_tolerance = 1d-8
 rattle_vel_tolerance = 1d-8
 

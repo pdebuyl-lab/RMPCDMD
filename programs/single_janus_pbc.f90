@@ -2,6 +2,10 @@
 !!
 !! This simulations models a chemically active Janus particle in a periodic simulation box.
 !!
+!! The coordinates of the Janus particle's beads must be provided in a H5MD file, as a
+!! "fixed-in-time" dataset. The body of the particle can operate as a rigid-body (RATTLE) or
+!! an elastic network.
+!!
 !! \param L                     length of simulation box in the 3 dimensions
 !! \param rho                   fluid number density
 !! \param T                     Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
@@ -17,10 +21,17 @@
 !! \param data_filename         filename for input Janus coordinates
 !! \param epsilon_colloid       interaction parameter for colloid-colloid interactions
 !! \param link_treshold         distance criterion for finding rigid-body links
+!! \param do_read_links         read link information from a file
+!! \param links_file            filename for the links data
+!! \param do_rattle             perform RATTLE
+!! \param do_lennard_jones      compute colloid-colloid Lennard-Jones forces
+!! \param do_elastic            compute colloid-colloid elastic network forces
+!! \param elastic_k             elastic constant for the elastic network
 !! \param rattle_pos_tolerance  absolute tolerance for Rattle (position part)
 !! \param rattle_vel_tolerance  absolute tolerance for Rattle (velocity part)
 !! \param sigma                 radius of the colloidal beads for colloid-solvent interactions
 !! \param sigma_colloid         radius of the colloidal beads for colloid-colloid interactions
+!! \param polar_r_max           maximal radius for the polar fields
 
 program single_janus_pbc
   use rmpcdmd_module
@@ -52,7 +63,7 @@ program single_janus_pbc
   double precision :: sigma, sigma_v(2,2), sigma_cut(2,2)
   double precision :: mass(2)
 
-  double precision :: e1, e2
+  double precision :: e1, e2, e3
   double precision :: tau, dt , T
   double precision :: prob
   double precision :: bulk_rate
@@ -95,11 +106,13 @@ program single_janus_pbc
   type(polar_fields_t) :: polar
   integer(HID_T) :: polar_id
 
+  logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
   double precision :: link_treshold
   integer :: i_link
   double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
+  double precision :: elastic_k
   double precision :: unit_r(3)
   double precision :: com_pos(3), head_pos(3)
   integer :: head
@@ -114,6 +127,7 @@ program single_janus_pbc
 
   type(args_t) :: args
   character(len=144) :: data_filename
+  character(len=144) :: links_file
 
   args = get_input_args()
   call PTparse(config, args%input_file, 11)
@@ -129,7 +143,7 @@ program single_janus_pbc
   call time_change%init('change')
   call bulk_reac_timer%init('bulk_reac')
 
-  call timer_list%init(19)
+  call timer_list%init(20)
   call timer_list%append(varia)
   call timer_list%append(time_flag)
   call timer_list%append(time_refuel)
@@ -164,8 +178,13 @@ program single_janus_pbc
 
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
+  do_rattle = PTread_l(config, 'do_rattle', loc=params_group)
+  do_lennard_jones = PTread_l(config, 'do_lennard_jones', loc=params_group)
   rattle_pos_tolerance = PTread_d(config, 'rattle_pos_tolerance', loc=params_group)
   rattle_vel_tolerance = PTread_d(config, 'rattle_vel_tolerance', loc=params_group)
+
+  do_elastic = PTread_l(config, 'do_elastic', loc=params_group)
+  if (do_elastic) elastic_k = PTread_d(config, 'elastic_k', loc=params_group)
 
   sigma = PTread_d(config, 'sigma_colloid', loc=params_group)
   sigma_v = sigma
@@ -191,6 +210,8 @@ program single_janus_pbc
 
   data_filename = PTread_s(config, 'data_filename', loc=params_group)
   link_treshold = PTread_d(config, 'link_treshold', loc=params_group)
+  do_read_links = PTread_l(config, 'do_read_links', loc=params_group)
+  if (do_read_links) links_file = PTread_s(config, 'links_file', loc=params_group)
 
   polar_r_max = PTread_d(config, 'polar_r_max', loc=params_group)
 
@@ -207,33 +228,37 @@ program single_janus_pbc
   colloids%mass = mass
   call colloids_com%init(1)
 
-  i_link = 0
-  do i = 1, colloids%Nmax
-     do j = i+1, colloids%Nmax
-        x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
-        dist = norm2(x)
-        if (dist < link_treshold) then
-           ! count link
-           i_link = i_link + 1
-        end if
+  if (do_read_links) then
+     call read_links(links_file, i_link, links, links_d)
+  else
+     i_link = 0
+     do i = 1, colloids%Nmax
+        do j = i+1, colloids%Nmax
+           x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
+           dist = norm2(x)
+           if (dist < link_treshold) then
+              ! count link
+              i_link = i_link + 1
+           end if
+        end do
      end do
-  end do
-  allocate(links(2,i_link), links_d(i_link))
+     allocate(links(2,i_link), links_d(i_link))
 
-  i_link = 0
-  do i = 1, colloids%Nmax
-     do j = i+1, colloids%Nmax
-        x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
-        dist = norm2(x)
-        if (dist < link_treshold) then
-           ! add link
-           i_link = i_link + 1
-           links(1, i_link) = i
-           links(2, i_link) = j
-           links_d(i_link) = dist
-        end if
+     i_link = 0
+     do i = 1, colloids%Nmax
+        do j = i+1, colloids%Nmax
+           x = rel_pos(colloids%pos(:,i), colloids%pos(:,j), solvent_cells%edges)
+           dist = norm2(x)
+           if (dist < link_treshold) then
+              ! add link
+              i_link = i_link + 1
+              links(1, i_link) = i
+              links(2, i_link) = j
+              links_d(i_link) = dist
+           end if
+        end do
      end do
-  end do
+  end if
 
   write(*,*) 'number of links:', i_link
 
@@ -321,8 +346,8 @@ program single_janus_pbc
   call solvent% sort(solvent_cells)
 
   call polar%init(N_species, 64, sigma, polar_r_max, 64)
-  call neigh% init(colloids% Nmax, int(300*sigma**3))
-  call neigh_com%init(colloids_com%Nmax, int(rho*4*polar_r_max**3))
+  call neigh% init(colloids% Nmax, int(500*max(sigma,1.d0)**3))
+  call neigh_com%init(colloids_com%Nmax, int(rho*16*polar_r_max**3))
 
   skin = 1.5
   n_extra_sorting = 0
@@ -333,7 +358,16 @@ program single_janus_pbc
   call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
-  e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
+  if (do_lennard_jones) then
+     e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
+  else
+     e2 = 0
+  end if
+  if (do_elastic) then
+     e3 = elastic_network(colloids, links, links_d, elastic_k, solvent_cells%edges)
+  else
+     e3 = 0
+  end if
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
 
@@ -355,7 +389,7 @@ program single_janus_pbc
         end do
         call varia%tac()
 
-        call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+        if (do_rattle) call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -388,7 +422,8 @@ program single_janus_pbc
         colloids% force = 0
         call varia%tac()
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
-        e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
+        if (do_lennard_jones) e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
+        if (do_elastic) e3 = elastic_network(colloids, links, links_d, elastic_k, solvent_cells%edges)
 
         call md_vel(solvent, dt)
 
@@ -399,7 +434,7 @@ program single_janus_pbc
         end do
         call varia%tac()
 
-        call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+        if (do_rattle) call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
         if (sampling) then
            v_com = sum(colloids%vel, dim=2)/colloids%Nmax
@@ -442,7 +477,7 @@ program single_janus_pbc
         v_com = v_com / tmp_mass
         kin_e = kin_e / 2
 
-        call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
+        call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com)
         call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
 
      end if
@@ -498,7 +533,7 @@ program single_janus_pbc
 
   ! write solvent coordinates for last step
 
-  call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com, add=.false., force=.true.)
+  call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com, add=.false., force=.true.)
   call solvent_io%position%append(solvent%pos)
   call solvent_io%velocity%append(solvent%vel)
   call solvent_io%image%append(solvent%image)
@@ -539,6 +574,7 @@ program single_janus_pbc
   call timer_list%append(colloids%time_self_force)
   call timer_list%append(colloids%time_rattle_pos)
   call timer_list%append(colloids%time_rattle_vel)
+  call timer_list%append(colloids%time_elastic)
   call timer_list%append(neigh%time_update)
   call timer_list%append(neigh%time_force)
   call timer_list%append(colloids%time_max_disp)
@@ -669,5 +705,35 @@ contains
 
   end function get_head_idx
 
+  subroutine read_links(filename, n_links, links, links_d)
+    character(len=*), intent(in) :: filename
+    integer, intent(out) :: n_links
+    integer, allocatable, intent(out) :: links(:,:)
+    double precision, allocatable, intent(out) :: links_d(:)
+
+    integer :: i, iostat
+    integer :: i1, i2
+    double precision :: l
+
+    n_links = 0
+    open(11, file=filename)
+    count_loop: do while (.true.)
+       read(11, *, iostat=iostat) i1, i2, l
+       if (iostat.lt.0) exit count_loop
+       n_links = n_links + 1
+    end do count_loop
+    close(11)
+
+    allocate(links(2, n_links), links_d(n_links))
+    open(11, file=filename)
+    do i = 1, n_links
+       read(11, *, iostat=iostat) i1, i2, l
+       links(1, i) = i1+1
+       links(2, i) = i2+1
+       links_d(i) = l
+    end do
+    close(11)
+
+  end subroutine read_links
 
 end program single_janus_pbc
