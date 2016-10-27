@@ -34,7 +34,7 @@ executables are found (i.e. ``$HOME/.local/bin`` or ``$HOME/bin`` for instance).
 provides a unique interface to RMPCDMD.
 
 To analyze simulation data, RMPCDMD provides the command ``rmpcdmd plot`` (see :ref:`run`)
-that requires Python a a number of packages (see below).
+that requires Python and a number of packages (see below).
 
 .. note:: Once CMake has been executed, the RMPCDMD directory cannot be moved. If it is
           moved, the complete configuration procedure has to be restarted and the
