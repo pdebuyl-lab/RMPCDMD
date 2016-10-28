@@ -11,7 +11,7 @@ bulk_rate = 0.001
 N_MD = 10
 N_loop = 100
 equilibration_loops = 0
-colloid_sampling = 100
+colloid_sampling = 10
 
 # interaction parameters
 sigma_N = 3.0
