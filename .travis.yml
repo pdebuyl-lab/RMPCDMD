@@ -6,7 +6,7 @@ env:
   - OMP_NUM_THREADS=4
 
 install:
-  - sudo apt-get install -y gfortran libhdf5-dev
+  - sudo apt-get install -y gfortran libhdf5-dev hdf5-tools
 
 script:
   - virtualenv --python=python venv
