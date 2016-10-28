@@ -199,7 +199,7 @@ contains
 
     double precision :: g, d, error
     double precision :: s(3), k
-    double precision :: mass1, mass2, inv_mass
+    double precision :: i_mass1, i_mass2, inv_mass
     double precision, allocatable :: i_mass(:)
 
     integer :: rattle_i, rattle_max, i_link, n_link
@@ -217,25 +217,25 @@ contains
           i1 = links(1,i_link)
           i2 = links(2,i_link)
           d = distances(i_link)
-          mass1 = i_mass(p%species(i1))
-          mass2 = i_mass(p%species(i2))
-          inv_mass = mass1 + mass2
+          i_mass1 = i_mass(p%species(i1))
+          i_mass2 = i_mass(p%species(i2))
+          inv_mass = i_mass1 + i_mass2
 
           s = rel_pos(p% pos(:,i1), p% pos(:,i2), edges)
 
           k = dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass)
 
-          p% vel(:,i1) = p% vel(:,i1) - k*s/mass1
-          p% vel(:,i2) = p% vel(:,i2) + k*s/mass2
+          p% vel(:,i1) = p% vel(:,i1) - k*s*i_mass1
+          p% vel(:,i2) = p% vel(:,i2) + k*s*i_mass2
        end do
 
        do i_link = 1, n_link
           i1 = links(1,i_link)
           i2 = links(2,i_link)
           d = distances(i_link)
-          mass1 = i_mass(p%species(i1))
-          mass2 = i_mass(p%species(i2))
-          inv_mass = mass1 + mass2
+          i_mass1 = i_mass(p%species(i1))
+          i_mass2 = i_mass(p%species(i2))
+          inv_mass = i_mass1 + i_mass2
           s = rel_pos(p% pos(:,i1), p% pos(:,i2), edges)
           k = abs(dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass))
           if (k>error) error = k
