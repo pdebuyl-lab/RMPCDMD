@@ -138,13 +138,17 @@ contains
     double precision :: s(3) ! direction vector
     double precision :: r(3) ! old direction vector
     double precision :: rsq, ssq, rs
-    double precision :: mass1, mass2, inv_mass
+    double precision :: i_mass1, i_mass2, inv_mass
+    double precision, allocatable :: i_mass(:)
 
     integer :: rattle_i, rattle_max, i_link, n_link
     integer :: i1, i2
 
     n_link = size(links, dim=2)
     rattle_max = 1000
+
+    allocate(i_mass(size(p%mass)))
+    i_mass = 1/p%mass
 
     call p%time_rattle_pos%tic()
     rattle_loop: do rattle_i = 1, rattle_max
@@ -156,9 +160,9 @@ contains
 
           r = rel_pos(p% pos_rattle(:,i1),p% pos_rattle(:,i2), edges)
           s = rel_pos(p% pos(:,i1),p% pos(:,i2), edges)
-          mass1 = p%mass(p%species(i1))
-          mass2 = p%mass(p%species(i2))
-          inv_mass = 1/mass1 + 1/mass2
+          i_mass1 = i_mass(p%species(i1))
+          i_mass2 = i_mass(p%species(i2))
+          inv_mass = i_mass1 + i_mass2
 
           rsq = dot_product(r,r)
           ssq = dot_product(s,s)
@@ -167,11 +171,11 @@ contains
           g = rs - sqrt(rs**2 - rsq*(ssq-d**2))
           g = g / (dt * inv_mass * rsq)
 
-          p% pos(:,i1) = p% pos(:,i1) - g*dt*r/mass1
-          p% pos(:,i2) = p% pos(:,i2) + g*dt*r/mass2
+          p% pos(:,i1) = p% pos(:,i1) - g*dt*r*i_mass1
+          p% pos(:,i2) = p% pos(:,i2) + g*dt*r*i_mass2
 
-          p% vel(:,i1) = p% vel(:,i1) - g*r/mass1
-          p% vel(:,i2) = p% vel(:,i2) + g*r/mass2
+          p% vel(:,i1) = p% vel(:,i1) - g*r*i_mass1
+          p% vel(:,i2) = p% vel(:,i2) + g*r*i_mass2
        end do
 
        do i_link = 1, n_link
@@ -186,6 +190,7 @@ contains
 
     end do rattle_loop
     call p%time_rattle_pos%tac()
+    deallocate(i_mass)
 
     if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_pos'
 
