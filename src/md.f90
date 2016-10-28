@@ -140,6 +140,7 @@ contains
     double precision :: rsq, ssq, rs
     double precision :: i_mass1, i_mass2, inv_mass
     double precision, allocatable :: i_mass(:)
+    integer, allocatable :: im(:,:), im_r(:,:)
 
     integer :: rattle_i, rattle_max, i_link, n_link
     integer :: i1, i2
@@ -150,6 +151,21 @@ contains
     allocate(i_mass(size(p%mass)))
     i_mass = 1/p%mass
 
+    allocate(im(3,p%Nmax))
+    allocate(im_r(3,p%Nmax))
+
+    s = p%pos(:,1)
+    do i1 = 2, p%Nmax
+       im(:,i1) = floor(((p%pos(:,i1)-s)/edges) + 0.5d0)
+       p%pos(:,i1) = p%pos(:,i1) - im(:,i1)*edges
+    end do
+
+    s = p%pos_rattle(:,1)
+    do i1 = 2, p%Nmax
+       im_r(:,i1) = floor(((p%pos_rattle(:,i1)-s)/edges) + 0.5d0)
+       p%pos_rattle(:,i1) = p%pos_rattle(:,i1) - im_r(:,i1)*edges
+    end do
+
     call p%time_rattle_pos%tic()
     rattle_loop: do rattle_i = 1, rattle_max
        error = 0
@@ -158,8 +174,8 @@ contains
           i2 = links(2,i_link)
           d = distances(i_link)
 
-          r = rel_pos(p% pos_rattle(:,i1),p% pos_rattle(:,i2), edges)
-          s = rel_pos(p% pos(:,i1),p% pos(:,i2), edges)
+          r = p%pos_rattle(:,i1)-p%pos_rattle(:,i2)
+          s = p%pos(:,i1)-p%pos(:,i2)
           i_mass1 = i_mass(p%species(i1))
           i_mass2 = i_mass(p%species(i2))
           inv_mass = i_mass1 + i_mass2
@@ -182,7 +198,7 @@ contains
           i1 = links(1,i_link)
           i2 = links(2,i_link)
           d = distances(i_link)
-          r = rel_pos(p% pos(:,i1), p%pos(:,i2), edges)
+          r = p%pos(:,i1)-p%pos(:,i2)
           g = abs(sqrt(dot_product(r,r)) - d)
           if (g > error) error = g
        end do
@@ -191,6 +207,11 @@ contains
     end do rattle_loop
     call p%time_rattle_pos%tac()
     deallocate(i_mass)
+
+    do i1 = 2, p%Nmax
+       p%pos(:,i1) = p%pos(:,i1) + im(:,i1)*edges
+    end do
+    deallocate(im, im_r)
 
     if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_pos'
 
@@ -206,6 +227,7 @@ contains
     double precision :: s(3), k
     double precision :: i_mass1, i_mass2, inv_mass
     double precision, allocatable :: i_mass(:)
+    integer, allocatable :: im(:,:)
 
     integer :: rattle_i, rattle_max, i_link, n_link
     integer :: i1, i2
@@ -214,6 +236,14 @@ contains
     rattle_max = 1000
     allocate(i_mass(size(p%mass)))
     i_mass = 1/p%mass
+
+    allocate(im(3,p%Nmax))
+
+    s = p%pos(:,1)
+    do i1 = 2, p%Nmax
+       im(:,i1) = floor(((p%pos(:,i1)-s)/edges) + 0.5d0)
+       p%pos(:,i1) = p%pos(:,i1) - im(:,i1)*edges
+    end do
 
     call p%time_rattle_vel%tic()
     rattle_loop: do rattle_i = 1, rattle_max
@@ -226,7 +256,7 @@ contains
           i_mass2 = i_mass(p%species(i2))
           inv_mass = i_mass1 + i_mass2
 
-          s = rel_pos(p% pos(:,i1), p% pos(:,i2), edges)
+          s = p%pos(:,i1)-p%pos(:,i2)
 
           k = dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass)
 
@@ -241,7 +271,7 @@ contains
           i_mass1 = i_mass(p%species(i1))
           i_mass2 = i_mass(p%species(i2))
           inv_mass = i_mass1 + i_mass2
-          s = rel_pos(p% pos(:,i1), p% pos(:,i2), edges)
+          s = p%pos(:,i1)-p% pos(:,i2)
           k = abs(dot_product(p%vel(:,i1)-p%vel(:,i2), s) / (d**2*inv_mass))
           if (k>error) error = k
        end do
@@ -249,7 +279,11 @@ contains
     end do rattle_loop
     call p%time_rattle_vel%tac()
 
-    deallocate(i_mass)
+    do i1 = 2, p%Nmax
+       p%pos(:,i1) = p%pos(:,i1) + im(:,i1)*edges
+    end do
+
+    deallocate(i_mass, im)
 
     if (rattle_i==rattle_max) write(*,*) 'rattle_max reached in rattle_body_vel'
 
