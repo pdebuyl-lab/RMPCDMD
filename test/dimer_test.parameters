@@ -2,15 +2,15 @@
 T = 1
 L = 24 24 24
 rho = 10
-tau = 1
+tau = 0.001
 probability = 1.0
 bulk_rmpcd = F
 bulk_rate = 0.001
 
 # simulation parameters
-N_MD = 100
+N_MD = 10
 N_loop = 100
-equilibration_loops = 20
+equilibration_loops = 0
 colloid_sampling = 100
 
 # interaction parameters
