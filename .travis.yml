@@ -17,7 +17,7 @@ script:
   - python -c 'import numpy'
   - pip install h5py
   - python -c 'import h5py'
-  - MAKEFLAGS='-j 4' ./scripts/download_and_build_hdf5.sh 1>hdf5_build.out 2>&1
+  - ./scripts/download_and_build_hdf5.sh 1>hdf5_build.out 2>&1
   - mkdir build && cd build
   - HDF5_ROOT=../_hdf5-1.8.17 cmake ..
   - make VERBOSE=1
@@ -27,4 +27,6 @@ script:
   - python ../test/dimer_test.py dimer_test.h5
 
 after_failure:
+  - h5dump -d /particles/dimer/position/value dimer_test.h5
+  - h5dump -d /observables/temperature/value dimer_test.h5
   - cat ../hdf5_build.out

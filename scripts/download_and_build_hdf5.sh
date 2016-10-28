@@ -30,5 +30,5 @@ verify_sum && tar zxf "${HDF5_TARBALL}"
 if [ "$?" = "0" ] ; then
     cd ${HDF5_NAME}
     ./configure --enable-fortran --enable-fortran2003 --disable-shared --prefix="${BASEPATH}/_${HDF5_NAME}"
-    make ${MAKEFLAGS} && make install
+    make -j 4 && make install
 fi

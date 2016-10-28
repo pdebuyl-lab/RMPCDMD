@@ -9,7 +9,7 @@ bulk_rate = 0.001
 
 # simulation parameters
 N_MD = 100
-N_loop = 200
+N_loop = 100
 equilibration_loops = 20
 colloid_sampling = 100
 
