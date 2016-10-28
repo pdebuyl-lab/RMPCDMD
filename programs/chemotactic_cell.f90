@@ -601,7 +601,7 @@ program chemotactic_cell
      i = i+1
      if ( &
           ((.not. sampling) .and. (buffer_length == 0) .and. (i >= equilibration_loops)) .or. &
-          ((i_release==0) .and. (buffer_length > 0) .and. (.not. on_track)) ) then
+          ((i_release==0) .and. (buffer_length > 0) .and. (.not. fixed)) ) then
         i_release = i
         sampling = .true.
         write(*,*) 'i_release =', i_release
