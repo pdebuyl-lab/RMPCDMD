@@ -23,7 +23,7 @@ script:
   - make VERBOSE=1
   - ctest -V
   - sudo make install
-  - rmpcdmd run single_dimer_pbc ../test/dimer_test.parameters dimer_test.h5 -5640291227313373522
+  - rmpcdmd run single_dimer_pbc ../test/dimer_test.parameters dimer_test.h5 2296809391484081013
   - python ../test/dimer_test.py dimer_test.h5
 
 after_failure:
