@@ -102,6 +102,7 @@ program chemotactic_cell
   integer :: i_release, i_block
 
   type(timer_t), target :: flag_timer, change_timer, buffer_timer, varia
+  type(timer_t), target ::  main
   double precision :: total_time
   type(timer_list_t) :: timer_list
   integer(HID_T) :: timers_group
@@ -131,9 +132,10 @@ program chemotactic_cell
   call flag_timer%init('flag')
   call change_timer%init('change')
   call buffer_timer%init('buffer')
+  call main%init('main')
   call varia%init('varia')
 
-  call timer_list%init(13)
+  call timer_list%init(14)
   call timer_list%append(flag_timer)
   call timer_list%append(change_timer)
   call timer_list%append(buffer_timer)
@@ -410,6 +412,7 @@ program chemotactic_cell
   i_block = 0
   write(*,*) 'Running for', N_loop, 'loops'
   !start RMPCDMD
+  call main%tic()
   setup: do while (.not. stopped)
      if (modulo(i,20) == 0) write(*,'(i09)',advance='no') i
      md_loop: do j = 1, N_MD_steps
@@ -438,10 +441,8 @@ program chemotactic_cell
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
-           call varia%tic()
            call apply_pbc(colloids, solvent_cells% edges)
            call apply_pbc(solvent, solvent_cells% edges)
-           call varia%tac()
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
            call varia%tic()
@@ -608,6 +609,7 @@ program chemotactic_cell
      end if
      if (i-i_release > N_loop) exit setup
   end do setup
+  call main%tac()
 
   call thermo_data%append(hfile, temperature, e1+e2+e_wall, kin_e, e1+e2+e_wall+kin_e, v_com, add=.false., force=.true.)
 
@@ -637,12 +639,14 @@ program chemotactic_cell
   call timer_list%append(solvent%time_sort)
   call timer_list%append(solvent%time_ct)
   call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(solvent%time_apply_pbc)
   call timer_list%append(neigh%time_update)
   call timer_list%append(neigh%time_force)
 
   call timer_list%write(timers_group, total_time)
 
   call h5md_write_dataset(timers_group, 'total', total_time)
+  call h5md_write_dataset(timers_group, main%name, main%total)
 
   call h5gclose_f(timers_group, error)
 
