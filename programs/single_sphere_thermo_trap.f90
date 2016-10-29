@@ -85,7 +85,7 @@ program single_sphere_thermo_trap
 
   type(PTo) :: config
   integer :: L(3), n_threads
-  integer :: i, j
+  integer :: i, j, ijk
 
   type(timer_t) :: flag_timer, change_timer, varia
   integer(HID_T) :: timers_group
@@ -288,7 +288,10 @@ program single_sphere_thermo_trap
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
 
-        solvent% force = 0
+        !$omp parallel do
+        do ijk = 1, solvent%Nmax
+           solvent% force(:,ijk) = 0
+        end do
         colloids% force = 0
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_harmonic_trap(colloids, k, trap_center)
