@@ -283,6 +283,10 @@ program single_dimer_pbc
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
+  write(*,*) colloids%pos
+  write(*,*) colloids%vel
+  write(*,*) colloids%force
+  write(*,*) e1, e2
 
   call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
   write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
@@ -294,6 +298,7 @@ program single_dimer_pbc
      if (modulo(i,20) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
+        write(*,*) colloids%pos
 
         call varia%tic()
         ! Extra copy for rattle
