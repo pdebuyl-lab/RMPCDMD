@@ -29,4 +29,5 @@ script:
 after_failure:
   - h5dump -d /particles/dimer/position/value dimer_test.h5
   - h5dump -d /observables/temperature/value dimer_test.h5
+  - h5dump -d /observables/potential_energy/value dimer_test.h5
   - cat ../hdf5_build.out
