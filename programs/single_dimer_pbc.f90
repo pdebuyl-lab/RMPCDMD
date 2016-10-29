@@ -298,7 +298,7 @@ program single_dimer_pbc
      if (modulo(i,20) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
-        write(*,*) colloids%pos
+        write(*,*) 'after md_pos', colloids%pos
 
         call varia%tic()
         ! Extra copy for rattle
@@ -310,6 +310,7 @@ program single_dimer_pbc
 
         call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
         call varia%tac()
+        write(*,*) 'after rattle_dimer_pos', colloids%pos, colloids%vel
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -342,6 +343,7 @@ program single_dimer_pbc
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
         call md_vel(solvent, dt)
+        write(*,*) 'after md_vel', colloids%pos, colloids%vel
 
         call varia%tic()
         do k=1, colloids% Nmax
@@ -351,6 +353,7 @@ program single_dimer_pbc
 
         call rattle_dimer_vel(colloids, d, dt, solvent_cells% edges)
         call varia%tac()
+        write(*,*) 'after rattle vel', colloids%pos, colloids%vel
 
         if (sampling) then
            v_com = sum(colloids%vel, dim=2)/2
