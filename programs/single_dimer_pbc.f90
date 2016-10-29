@@ -187,6 +187,7 @@ program single_dimer_pbc
   colloids% species(1) = 1
   colloids% species(2) = 2
   colloids% vel = 0
+  colloids% force = 0
 
   dimer_io%force_info%store = .false.
   dimer_io%id_info%store = .false.
@@ -298,7 +299,7 @@ program single_dimer_pbc
      if (modulo(i,20) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
-        write(*,*) 'after md_pos', colloids%pos
+        write(*,*) 'after md_pos', colloids%pos, colloids%vel
 
         call varia%tic()
         ! Extra copy for rattle
