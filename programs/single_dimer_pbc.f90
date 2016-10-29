@@ -317,7 +317,10 @@ program single_dimer_pbc
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
            call varia%tic()
-           solvent% pos_old = solvent% pos
+           !$omp parallel do
+           do k = 1, solvent%Nmax
+              solvent% pos_old(:,k) = solvent% pos(:,k)
+           end do
            colloids% pos_old = colloids% pos
            n_extra_sorting = n_extra_sorting + 1
            call varia%tac()
@@ -393,6 +396,13 @@ program single_dimer_pbc
 
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
+     call varia%tic()
+     !$omp parallel do
+     do k = 1, solvent%Nmax
+        solvent% pos_old(:,k) = solvent% pos(:,k)
+     end do
+     colloids% pos_old = colloids% pos
+     call varia%tac()
 
      call simple_mpcd_step(solvent, solvent_cells, state)
      
