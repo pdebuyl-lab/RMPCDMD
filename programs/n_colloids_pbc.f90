@@ -108,6 +108,7 @@ program n_colloids_pbc
   call colloids%init(N_colloids, 1, [mass])
   colloids%species = 1
   colloids%vel = 0
+  colloids%force = 0
 
   colloids_io%force_info%store = .false.
   colloids_io%id_info%store = .false.
