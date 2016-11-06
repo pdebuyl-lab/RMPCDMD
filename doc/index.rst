@@ -16,6 +16,7 @@
 :Authors: Pierre de Buyl, Peter Colberg, Laurens Deprez, Mu-Jie Huang
 :License: BSD 3-clause
 :Website: http://lab.pdebuyl.be/rmpcdmd/
+:Version: |rmpcdmd_version|
 :Contact: `Pierre de Buyl <http://pdebuyl.be>`_
 
 
