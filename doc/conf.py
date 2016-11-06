@@ -58,7 +58,7 @@ master_doc = 'contents'
 # built documents.
 #
 # The short X.Y version.
-version = u'0.1-dev'
+version = u'1.0a'
 # The full version, including alpha/beta/rc tags.
 release = version
 
