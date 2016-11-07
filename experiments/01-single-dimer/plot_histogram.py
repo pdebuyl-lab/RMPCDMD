@@ -21,7 +21,7 @@ with h5py.File(args.file) as a:
     n_steps = csh.shape[0]
     z = xmin + np.arange(csh.shape[1])*dx
 
-plt.plot(z, csh[n_steps//2:].mean(axis=0) / (np.pi*(r_max**2-r_min**2)*dx) )
+plt.plot(z, csh[n_steps//2:].mean(axis=0) / (np.pi*(r_max**2-r_min**2)*dx))
 plt.xlabel(r'$z$', fontsize=20)
 plt.ylabel(r'$c_B(z)$', fontsize=20)
 plt.show()
