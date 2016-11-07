@@ -1,10 +1,10 @@
 #!/usr/bin/env python
+"Plot the mean square displacement of the dimer's center of mass."
 from __future__ import print_function, division
 
 import argparse
 
-description = "Plot the mean square displacement of the dimer's center of mass."
-parser = argparse.ArgumentParser(description=description)
+parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('file', type=str, help='H5MD datafile', nargs='+')
 args = parser.parse_args()
 
