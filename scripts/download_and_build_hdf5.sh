@@ -22,7 +22,7 @@ if [ "$?" != "0" ] ; then
     then
 	wget "${HDF5_SRC_URL}"
     else
-	curl -v --retry 5 --retry-delay 12 -O "${HDF5_SRC_URL}"
+	curl -L -O "${HDF5_SRC_URL}"
     fi
 fi
 
