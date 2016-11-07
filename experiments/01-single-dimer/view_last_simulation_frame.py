@@ -70,9 +70,10 @@ dimer_plot = mlab.quiver3d(dimer_all_pos[-1,:,0], dimer_all_pos[-1,:,1],
 dimer_plot.glyph.color_mode = 'color_by_scalar'
 dimer_plot.glyph.glyph_source.glyph_source.center = [0, 0, 0]
 
+mlab.axes(extent=[0, edges[0], 0, edges[1], 0, edges[2]])
+
 if args.unwrap:
     mlab.plot3d(dimer_all_pos[:,0,0], dimer_all_pos[:,0,1],
                 dimer_all_pos[:,0,2], line_width=10, color=(0.8, 0.4, 0))
 
-mlab.axes(extent=[0, edges[0], 0, edges[1], 0, edges[2]])
 mlab.show()
