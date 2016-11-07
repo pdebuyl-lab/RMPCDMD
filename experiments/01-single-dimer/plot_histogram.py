@@ -1,10 +1,10 @@
 #!/usr/bin/env python
+"Plot the histogram of B particles in a cylindrical shell around the dimer."
 from __future__ import print_function, division
 
 import argparse
 
-description = "Plot the histogram of B particles in a cylindrical shell around the dimer."
-parser = argparse.ArgumentParser(description=description)
+parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('file', type=str, help='H5MD datafile')
 args = parser.parse_args()
 
