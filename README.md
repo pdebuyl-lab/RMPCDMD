@@ -1,13 +1,11 @@
 RMPCDMD: Reactive MultiParticle Collision Dynamics - Molecular Dynamics
 =======================================================================
 
-**Homepage:** [RMPCDMD](http://lab.pdebuyl.be/rmpcdmd/) (includes documentation)
+**Homepage:** [RMPCDMD](http://lab.pdebuyl.be/rmpcdmd/) (includes documentation)  
+**License:** BSD 3-clause, see [LICENSE](LICENSE).
 
 RMPCDMD is a collection of Fortran modules and programs for the
 mesoscopic modeling of chemically active fluids with embedded colloids.
-
-This software represents the development version of the author to
-perform his research on nanomotor modeling.
 
 ## Status
 
@@ -19,49 +17,36 @@ Buyl and R. Kapral [Nanoscale 5, 1337-1344
 A. S. Mikhailov and R. Kapral [EPL 103, 60009
 (2013)](http://dx.doi.org/10.1209/0295-5075/103/60009).
 
-The current version has been totally refactored to remove the use of global
-variables, enable testing and enable OpenMP multithreaded operation and is
-presented in the article *RMPCDMD: Simulations of colloids with coarse-grained
+The current version has been totally refactored to remove the use of global variables,
+enable testing and enable OpenMP multithreaded operation.
+
+## Citation
+
+RMPCDMD is presented in the article *RMPCDMD: Simulations of colloids with coarse-grained
 hydrodynamics, chemical reactions and external fields*
 [[arXiv:1608.04904](https://arxiv.org/abs/1608.04904)].
 
-## Compile the code
+Please cite this paper if you use RMPCDMD in a research work. A bibtex entry is provided in
+the [CITATION](CITATION) file.
+
+## Requirements
 
 RMPCDMD has the following requirements:
 
-- A Fortran 2003 compiler (e.g. [gfortran](https://gcc.gnu.org/wiki/GFortran) ≥ 4.7 with support for [OpenMP](https://gcc.gnu.org/wiki/openmp) ≥ 3.1)
+- A Fortran 2008 compiler (e.g. [gfortran](https://gcc.gnu.org/wiki/GFortran) ≥ 4.7 with support for [OpenMP](https://gcc.gnu.org/wiki/openmp) ≥ 3.1)
 - A Fortran enabled [HDF5](https://www.hdfgroup.org/HDF5/) installation
 - [CMake](http://cmake.org/)
 - [GNU Make](https://www.gnu.org/software/make/)
 - [git](http://git-scm.com/)
 
-Under Linux, execute the following in a terminal
+See the documentation for
+[installation instructions](http://lab.pdebuyl.be/rmpcdmd/install.html) for Linux and OS X.
 
-    git clone https://github.com/pdebuyl-lab/RMPCDMD
-    cd RMPCDMD
-    git submodule init
-    git submodule update
-    mkdir build
-    cd build
-    cmake ..
-    make VERBOSE=1
+## Contact
 
-Then copy the file `rmpcdmd` in a location where executables are found
-(i.e. ``$HOME/.local/bin`` or ``$HOME/bin`` for instance).
-
-For OS X, refer to the [documentation](http://lab.pdebuyl.be/rmpcdmd/).
-
-## Run the code
-
-The most convenient manner to execute a simulation is to visit an "experiment"
-directory. From the root of the RMPCDMD software directory
-
-    cd experiments/01-single-dimer
-    make simulation
-
-## License
-
-BSD 3-clause, see [LICENSE](LICENSE).
+- The contact for RMPCDMD is the main author, [Pierre de Buyl](http://pdebuyl.be/).
+- Bug reports are welcome either by email or via
+  [GitHub issues](https://github.com/pdebuyl-lab/RMPCDMD/issues).
 
 ## Contributors
 

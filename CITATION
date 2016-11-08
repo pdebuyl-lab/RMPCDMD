@@ -1,0 +1,20 @@
+When using RMPCDMD in a publication, please cite the following paper:
+
+Pierre de Buyl, Mu-Jie Huang and Laurens Deprez. *RMPCDMD: Simulations of colloids with
+coarse-grained hydrodynamics, chemical reactions and external fields*, arXiv:1608.04904
+(2016).
+
+available at https://arxiv.org/abs/1608.04904
+
+Bibtex entry:
+
+~~~
+@Article{rmpcdmd_2016,
+    eprint = {1608.04904},
+    archivePrefix = {arXiv},
+    journal = {arXiv},
+    year = {2016},
+    title = {{RMPCDMD: Simulations of colloids with coarse-grained hydrodynamics, chemical reactions and external fields}},
+    author = {Pierre de Buyl and Mu-Jie Huang and Laurens Deprez}
+}
+~~~
