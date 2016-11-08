@@ -17,7 +17,6 @@
 :License: BSD 3-clause
 :Website: http://lab.pdebuyl.be/rmpcdmd/
 :Version: |rmpcdmd_version|
-:Contact: `Pierre de Buyl <http://pdebuyl.be>`_
 
 
 
@@ -46,8 +45,13 @@ Features:
 - Fortran 2008 codebase using modules and *no global variable*
 - OpenMP multithreaded operation
 
-Development of the code takes place on `GitHub <https://github.com/>`_. The code repository
-is `pdebuyl-lab/RMPCDMD <https://github.com/pdebuyl-lab/RMPCDMD>`_
+
+Development and contact information:
+
+- Development of the code takes place on `GitHub <https://github.com/pdebuyl-lab/RMPCDMD>`_.
+- The contact for RMPCDMD is the main author, `Pierre de Buyl <http://pdebuyl.be>`_.
+- Bug reports are welcome either by email or via `GitHub issues
+  <https://github.com/pdebuyl-lab/RMPCDMD/issues>`_
 
 The source code features inline comments, published with Doxygen: `api <api/index.html>`_.
 
