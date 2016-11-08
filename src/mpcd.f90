@@ -173,9 +173,8 @@ contains
 
   end subroutine mpcd_at_step
 
-  !> Collisions in partially filled cells at the walls use the rule of
-  !! Lamura, Gompper, Ihle and Kroll, EPL 56, 319-325 (2001)
-  !! http://dx.doi.org/10.1209/epl/i2001-00522-9
+  !> Collisions in partially filled cells at the walls use the rule of Lamura et al (2001)
+  !> \cite lamura_mpcd_epl_2001
   subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, &
        thermostat, bulk_temperature, alpha)
     use hilbert
