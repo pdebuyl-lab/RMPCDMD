@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Simulate a thermal gradient with an embedded colloidal sphere
 !!
 !! Consider a pure fluid under a thermal gradient in the z-direction. The confining plates

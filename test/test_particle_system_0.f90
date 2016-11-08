@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2015-2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 program test_particle_system_0
   use particle_system
   use mt19937ar_module

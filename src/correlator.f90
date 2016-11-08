@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Block correlators
 !!
 !! This modules defines a derived type for storing logarithmic block correlators. The

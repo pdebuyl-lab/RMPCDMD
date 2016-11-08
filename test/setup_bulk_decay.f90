@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 program setup_bulk_decay
   use common
   use cell_system

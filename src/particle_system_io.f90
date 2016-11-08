@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Facilities for particle data I/O
 !!
 !! The derived type thermo_t holds observables for temperature, center-of-mass velocity and

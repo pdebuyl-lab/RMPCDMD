@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Test the elastic network force routine
 !!
 !! The geometry is a cubic box of side 5 where the atoms are placed following this diagram

@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Routines to compute polar concentration and velocity profiles
 !!
 !! Polar data is stored according to a given orientation axis. The coordinates are defined

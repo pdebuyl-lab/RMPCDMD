@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2015-2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Compute compact Hilbert indices
 !!
 !! Ref. \cite hamilton_compact_hilbert_tr

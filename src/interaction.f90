@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2015-2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Lennard-Jones potential definition
 !!
 !! This module defines the derived type lj_params_t to hold the parameters for Lennard-Jones

@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2015-2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Simulate a single dimer nanomotor
 !!
 !! Consider a dimer nanomotor in a periodic simulation cell filled with A particles. After a

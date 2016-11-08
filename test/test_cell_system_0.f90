@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2015 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 program try_all
   use cell_system
   use hilbert

@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2015-2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Derived type and routines for neighbor listing
 !!
 !! The derived type neighbor_list_t holds a neighbor list. For module depedency reasons, the

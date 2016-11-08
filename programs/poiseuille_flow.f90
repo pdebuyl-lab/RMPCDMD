@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2015-2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Simulate a forced flow between two plates
 !!
 !! Consider a pure fluid under a constant acceleration in the x-direction. Confining plates,

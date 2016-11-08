@@ -1,3 +1,7 @@
+! This file is part of RMPCDMD
+! Copyright (c) 2016 Pierre de Buyl and contributors
+! License: BSD 3-clause (see file LICENSE)
+
 !> Model a chemotactic experiment in a microfluidic channel
 !!
 !! In this simulation, an inlet (x=0) is fed with A and S fluid species in the lower and
