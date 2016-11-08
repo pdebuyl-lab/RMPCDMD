@@ -8,10 +8,10 @@ bulk_rmpcd = F
 bulk_rate = 0.001
 
 # simulation parameters
-N_MD = 100
+N_MD = 125
 N_loop = 200
 equilibration_loops = 20
-colloid_sampling = 100
+colloid_sampling = 125
 
 # interaction parameters
 sigma_N = 3.0
