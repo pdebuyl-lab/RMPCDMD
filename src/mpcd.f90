@@ -648,6 +648,9 @@ contains
 
   end subroutine yzwall_collision
 
+  !> Return 2 for 3 and 3 for 2
+  !!
+  !! This routine is used for computing alternate dimensions y and z in collision detection.
   pure function change_23(i) result(r)
     integer, intent(in) :: i
     integer :: r
@@ -658,6 +661,7 @@ contains
     end if
   end function change_23
 
+  !> Apply a bulk unimolecular RMPCD reaction
   subroutine bulk_reaction(p, c, from, to, rate, tau, state)
     use omp_lib
     type(particle_system_t), intent(inout) :: p
