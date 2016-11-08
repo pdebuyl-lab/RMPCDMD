@@ -1,3 +1,8 @@
+!> Data for particles
+!!
+!! The derived type particle_system_t holds all particle-related data. Duplicates are used
+!! in the spatial sorting routines.
+
 module particle_system
   use common
   use interaction

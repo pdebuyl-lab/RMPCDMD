@@ -1,3 +1,9 @@
+!> Derived type and routines for neighbor listing
+!!
+!! The derived type neighbor_list_t holds a neighbor list. For module depedency reasons, the
+!! neighbor list base force computation for colloid-solvent interactions is also defined
+!! here, and also a naive \f$O(N^2)\f$ routine for colloid-colloid interactions.
+
 module neighbor_list
   use common
   use hilbert

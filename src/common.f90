@@ -1,3 +1,10 @@
+!> Utility routines
+!!
+!! This module contains routines of general use for RMPCDMD: minimum distance convention
+!! routine, histogramming, command-line options processing, timers.
+!!
+!! A parameter constant for pi is also defined.
+
 module common
   use iso_c_binding
   implicit none

@@ -1,3 +1,9 @@
+!> Spatial cells
+!!
+!! This module defines a derived type cell_system_t that contains the information for a
+!! 3-dimensional cartesian cell and the associated compact Hilbert index (see module
+!! hilbert).
+
 module cell_system
   use hilbert
   implicit none

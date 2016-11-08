@@ -1,3 +1,14 @@
+!> Block correlators
+!!
+!! This modules defines a derived type for storing logarithmic block correlators. The
+!! subroutines correlate_block_distsq and correlate_block_dot are correlators for the square
+!! distance and the dot product, respectively.
+!!
+!! The derived type axial_correlator_t groups correlators for axisymmetric bodies such as
+!! the dimer.
+!!
+!! See http://pdebuyl.be/blog/2016/correlators.html for information
+
 module correlator
   implicit none
 
@@ -38,6 +49,7 @@ module correlator
 
 contains
 
+  !> Initialize a correlator_t variable
   subroutine init(this, l, b, dim, n)
     class(correlator_t), intent(out) :: this
     integer, intent(in) :: l, b
@@ -69,6 +81,7 @@ contains
 
   end subroutine init
 
+  !> Add a data element to the correlator
   subroutine add(this, i, block_operation, x, x_n, xvec, xvec_n)
     class(correlator_t), intent(inout) :: this
     integer, intent(in) :: i
@@ -126,6 +139,7 @@ contains
 
   end subroutine add
 
+  !> Correlation routine for dot product
   subroutine correlate_block_dot(s, c, idx, l, n, dim)
     double precision, intent(in) :: s(:,:,:)
     double precision, intent(inout) :: c(:,:,:)
@@ -145,6 +159,7 @@ contains
 
   end subroutine correlate_block_dot
 
+  !> Correlation routine for squared distance
   subroutine correlate_block_distsq(s, c, idx, l, n, dim)
     double precision, intent(in) :: s(:,:,:)
     double precision, intent(inout) :: c(:,:,:)
@@ -164,6 +179,7 @@ contains
 
   end subroutine correlate_block_distsq
 
+  !> Return the number of blocks needed for a trajectory of length n_samples
   function get_n_blocks(l, n_blocks_max, n_samples) result(n_blocks)
     integer, intent(in) :: l, n_blocks_max, n_samples
     integer :: n_blocks
@@ -174,6 +190,7 @@ contains
 
   end function get_n_blocks
 
+  !> Initialize an axial correlator
   subroutine axial_init(this, block_length, n_samples, n_samples_fast)
     class(axial_correlator_t), intent(inout) :: this
     integer, intent(in) :: block_length, n_samples, n_samples_fast
@@ -191,6 +208,7 @@ contains
 
   end subroutine axial_init
 
+  !> Add a data element to an axial correlator (slow time scale)
   subroutine axial_add(this, i, com_pos, unit_r)
     class(axial_correlator_t), intent(inout) :: this
     integer, intent(in) :: i
@@ -201,6 +219,7 @@ contains
 
   end subroutine axial_add
 
+  !> Add a data element to an axial correlator (fast time scale)
   subroutine axial_add_fast(this, i, v_com, unit_r)
     class(axial_correlator_t), intent(inout) :: this
     integer, intent(in) :: i
@@ -216,6 +235,7 @@ contains
 
   end subroutine axial_add_fast
 
+  !> Write all correlators from an axial correlator variable to a HDF5 group
   subroutine axial_write(this, correlator_group, sampling, dt, fast_sampling, fast_dt)
     use hdf5
     implicit none
@@ -238,6 +258,7 @@ contains
 
   end subroutine axial_write
 
+  !> Write the data from a correlator_t variable to a HDF5 group
   subroutine write_correlator_block(loc, name, c, step, time)
     use hdf5
     use h5md_module

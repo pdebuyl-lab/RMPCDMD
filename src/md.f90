@@ -1,3 +1,11 @@
+!> Routines to perform Molecular Dynamics integration
+!!
+!! This module contains routines to perform velocity Verlet integration, Rattle for a dimer
+!! and for other rigid bodies.
+!!
+!! Routines to compute colloid-wall (with Lennard-Jones 9-3) and elastic network
+!! interactions.
+
 module md
   use particle_system
   use interaction

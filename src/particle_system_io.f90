@@ -1,3 +1,11 @@
+!> Facilities for particle data I/O
+!!
+!! The derived type thermo_t holds observables for temperature, center-of-mass velocity and
+!! potential, kinetic and total energy.
+!!
+!! The derived type particle_system_io_t contains the typical particle data for a
+!! simulation: position, velocity, etc.
+
 module particle_system_io
   use hdf5
   use h5md_module

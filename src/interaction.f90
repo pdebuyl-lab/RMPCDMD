@@ -1,3 +1,8 @@
+!> Lennard-Jones potential definition
+!!
+!! This module defines the derived type lj_params_t to hold the parameters for Lennard-Jones
+!! (LJ) potentials and the energy and force computations.
+
 module interaction
   implicit none
 
