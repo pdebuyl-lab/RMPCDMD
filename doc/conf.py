@@ -36,6 +36,8 @@ extensions = [
     'doxytag',
 ]
 
+numfig = True
+
 doxytag_relative_path = 'api/'
 doxytag_tagfile = 'rmpcdmd_tags.xml'
 
