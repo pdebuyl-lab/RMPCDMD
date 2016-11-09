@@ -74,6 +74,14 @@ If your HDF5 installation is properly setup, CMake should find it automatically.
 not the case, you may define the environment variable ``HDF5_ROOT=/path/to/hdf5`` before
 invoking cmake (see the OS X installation notes for an example).
 
+.. note:: When using compilers that are not the default one of the Linux distribution, such
+          as the Intel compilers, the following settings must be used (change the compiler
+          name if needed) *before* running cmake and *before* possibly building HDF5::
+
+              export CC=icc
+              export FC=ifort
+
+
 Building on OS X
 ----------------
 
@@ -95,10 +103,12 @@ compiler. Also, HDF5 is built locally::
     cd RMPCDMD
     git submodule init
     git submodule update
-    CC=gcc-mp-5 FC=gfortran-mp-5 ./scripts/download_and_build_hdf5.sh
+    export CC=gcc-mp-5
+    export FC=gfortran-mp-5
+    ./scripts/download_and_build_hdf5.sh
     mkdir build
     cd build
-    HDF5_ROOT=../_hdf5-1.8.17 cmake .. -DCMAKE_C_COMPILER=gcc-mp-5 -DCMAKE_Fortran_COMPILER=gfortran-mp-5
+    HDF5_ROOT=../_hdf5-1.8.17 cmake ..
     make
 
 The compiler names given here may vary depending on your setup.
@@ -124,9 +134,10 @@ Ubuntu. It must be run from the main RMPCDMD directory::
 
     ./scripts/download_and_build_hdf5.sh
 
-with compiler definitions on OS X (see above). This script must be run only once and the
-environment variable ``HDF5_ROOT`` must be set when invoking cmake (also see the OS X
-installation notes).
+with compiler definitions ``CC`` and ``FC`` set when using OS X or a compiler that is not
+the default one for the computer, such as ``icc`` and ``ifort``. This script must be run
+only once and the environment variable ``HDF5_ROOT`` must be set when invoking cmake (also
+see the OS X installation notes).
 
 The script downloads HDF5 1.8.17 and installs it under ``_hdf5-1.8.17``. You can remove the
 directory ``hdf5-1.8.17`` (no leading underscore) after the execution of the script.
