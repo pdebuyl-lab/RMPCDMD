@@ -156,6 +156,9 @@ Python packages:
 * `matplotlib <http://matplotlib.org/>`_
 * `h5py <http://www.h5py.org/>`_
 
+Optionally, you may wish to install `Mayavi <http://docs.enthought.com/mayavi/mayavi/>`_ for
+the 3D visualization of the dimer simulation.
+
 Installing those tools under Linux is straightforward::
 
     sudo apt-get install python-numpy python-scipy python-matplotlib python-h5py
