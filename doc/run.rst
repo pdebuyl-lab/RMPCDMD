@@ -24,6 +24,20 @@ Arguments
 When run with no argument, ``rmpcdmd run`` will list the parameters and the possible values
 for ``program``.
 
+The simulation programs (see :ref:`programs`) can also be executed directly at the
+command-line with the syntax::
+
+    ./program input output seed
+
+Where the arguments are the same as when using ``rmpcdmd``, with the differences
+
+* For ``seed`` the keyword ``auto`` cannot be used.
+* The ``./`` must be replaced by the full path to the build directory when executing from
+  another directory.
+* Less information is available in the output (start and end times, value of
+  ``OMP_NUM_THREADS`` environment variable.
+
+
 ``rmpcdmd plot``
 ----------------
 
