@@ -8,9 +8,9 @@ Requirements
 
 To compile RMPCDMD, the following software is required
 
-  - A Fortran 2003 compiler (e.g. `gfortran <https://gcc.gnu.org/wiki/GFortran>`_ ≥ 4.7 with
+  - A Fortran 2008 compiler (e.g. `gfortran <https://gcc.gnu.org/wiki/GFortran>`_ ≥ 4.7 with
     support for `OpenMP <https://gcc.gnu.org/wiki/openmp>`_ ≥ 3.1)
-  - A Fortran enabled `HDF5 <https://www.hdfgroup.org/HDF5/>`_ installation
+  - A Fortran-2003 enabled `HDF5 <https://www.hdfgroup.org/HDF5/>`_ installation
   - `CMake <http://cmake.org/>`_
   - `GNU Make <https://www.gnu.org/software/make/>`_
   - `git <http://git-scm.com/>`_

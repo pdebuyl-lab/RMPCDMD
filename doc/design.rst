@@ -47,7 +47,7 @@ external libraries (`fortran_h5md <https://github.com/pdebuyl/fortran_h5md>`_,
 `random_module <https://github.com/pdebuyl/random_module>`_, `ParseText
 <https://github.com/pdebuyl/ParseText>`_ and `fortran_tester
 <https://github.com/pdebuyl/fortran_tester>`_). The `HDF5 <https://www.hdfgroup.org/HDF5/>`_
-library is also necessary to build RMPCDMD.
+library, with the Fortran 2003 interface, is also necessary to build RMPCDMD.
 
 Random numbers
 --------------
