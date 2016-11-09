@@ -34,11 +34,16 @@ program test_particle_system_0
   ! Pick particle i and a random vector of norm <= sqrt(3)
   i = modulo(int(genrand_int31(mt)), N) + 1
   x = [ genrand_real1(mt), genrand_real1(mt), genrand_real1(mt) ]
+  write(*,*) 'i', i
+  write(*,*) 'x', x
+  write(*,*) 'pos(:,i)', p% pos(:,i)
   p% pos(:,i) = p% pos(:,i) + x
+  write(*,*) 'pos(:,i)', p% pos(:,i)
   call test% assert_positive( sqrt(3.d0) - p% maximum_displacement() )
 
   ! Restore particle i
   p% pos(:,i) = p% pos(:,i) - x
+  write(*,*) 'pos(:,i)', p% pos(:,i)
   call test% assert_close( p% maximum_displacement(), 0.d0 )
 
   call test% print()
