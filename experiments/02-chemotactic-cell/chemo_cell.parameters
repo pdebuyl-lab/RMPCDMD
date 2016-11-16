@@ -13,6 +13,7 @@ steps_fixed = 50
 g = 0.001
 buffer_length = 20
 store_rho_xy = T
+store_rho_xy_z = 6 9
 
 L = 44 32 15
 

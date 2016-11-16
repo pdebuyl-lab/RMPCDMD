@@ -17,6 +17,7 @@
 !! \param probability      probability of reaction
 !! \param alpha            angle of collision
 !! \param store_rho_xy     store the xy density of solvent particles on a grid
+!! \param store_rho_xy_z   bounds in z for the slice of rho_xy to store (2 elements)
 !! \param dimer            simulate a dimer nanomotor (boolean, else it is a single sphere)
 !! \param N_type           assign N species to the single sphere (boolean, else it is a C sphere)
 !! \param L                length of simulation box in the 3 dimensions
@@ -123,6 +124,7 @@ program chemotactic_cell
   double precision :: g(3) !gravity
   logical :: fixed, on_track, stopped, N_in_front, dimer, N_type
   logical :: store_rho_xy
+  double precision :: store_rho_xy_z(2)
   integer :: buffer_length
   logical :: sampling
   integer :: equilibration_loops
@@ -162,6 +164,7 @@ program chemotactic_cell
   prob = PTread_d(config,'probability', loc=params_group)
   alpha = PTread_d(config,'alpha', loc=params_group)
   store_rho_xy = PTread_l(config, 'store_rho_xy', loc=params_group)
+  store_rho_xy_z = PTread_dvec(config, 'store_rho_xy_z', 2, loc=params_group)
   dimer = PTread_l(config, 'dimer', loc=params_group)
   N_type = PTread_l(config, 'N_type', loc=params_group)
   if (dimer) then
@@ -308,8 +311,12 @@ program chemotactic_cell
 
   if (store_rho_xy) allocate(rho_xy(N_species, L(2), L(1)))
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
-  if (store_rho_xy)  call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
-       step=N_MD_steps, time=N_MD_steps*dt, offset_by_one=.true.)
+  if (store_rho_xy) then
+     call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
+          step=N_MD_steps, time=N_MD_steps*dt, offset_by_one=.true.)
+     call h5md_write_attribute(rho_xy_el%id, 'zmin', store_rho_xy_z(1))
+     call h5md_write_attribute(rho_xy_el%id, 'zmax', store_rho_xy_z(2))
+  end if
   call elem_vx% create_time(fields_group, 'vx', vx% data, ior(H5MD_TIME, H5MD_STORE_TIME), offset_by_one=.true.)
   call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME), offset_by_one=.true.)
 
@@ -834,14 +841,18 @@ contains
 
   subroutine compute_rho_xy
     integer :: i, s, ix, iy
+    double precision :: z
 
     rho_xy = 0
     do i = 1, solvent%Nmax
        s = solvent%species(i)
-       if (s <= 0) continue
-       ix = modulo(floor(solvent%pos(1,i)/solvent_cells%a), L(1)) + 1
-       iy = modulo(floor(solvent%pos(2,i)/solvent_cells%a), L(2)) + 1
-       rho_xy(s, iy, ix) = rho_xy(s, iy, ix) + 1
+       if (s <= 0) cycle
+       z = solvent%pos(3,i)
+       if ((z >= store_rho_xy_z(1)) .and. (z <= store_rho_xy_z(2))) then
+          ix = modulo(floor(solvent%pos(1,i)/solvent_cells%a), L(1)) + 1
+          iy = modulo(floor(solvent%pos(2,i)/solvent_cells%a), L(2)) + 1
+          rho_xy(s, iy, ix) = rho_xy(s, iy, ix) + 1
+       end if
     end do
 
   end subroutine compute_rho_xy
