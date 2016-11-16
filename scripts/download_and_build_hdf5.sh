@@ -6,6 +6,9 @@ HDF5_TARBALL=${HDF5_NAME}.tar.gz
 HDF5_SRC_URL=https://www.hdfgroup.org/ftp/HDF5/releases/${HDF5_NAME}/src/${HDF5_TARBALL}
 HDF5_SRC_MD5SUM=7d572f8f3b798a628b8245af0391a0ca
 BASEPATH="$(pwd)"
+if [ -z "${TMPDIR}" ] ; then
+   TMPDIR="${BASEPATH}"
+fi
 
 verify_sum() {
    if which md5sum ; then
@@ -26,9 +29,9 @@ if [ "$?" != "0" ] ; then
     fi
 fi
 
-verify_sum && tar zxf "${HDF5_TARBALL}"
+verify_sum && (cd "${TMPDIR}" ; tar zxf "${BASEPATH}/${HDF5_TARBALL}")
 if [ "$?" = "0" ] ; then
-    cd ${HDF5_NAME}
+    cd "${TMPDIR}/${HDF5_NAME}"
     ./configure --enable-fortran --enable-fortran2003 --disable-shared --prefix="${BASEPATH}/_${HDF5_NAME}"
     make ${MAKEFLAGS} && make install
 fi
