@@ -104,7 +104,7 @@ program poiseuille_flow
   call solvent_cells%count_particles(solvent% pos)
 
   call datafile% create(args%output_file, 'RMPCDMD:poiseuille_flow', &
-       'N/A', 'Pierre de Buyl')
+       RMPCDMD_REVISION, 'Pierre de Buyl')
 
   call PTkill(config)
 

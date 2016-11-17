@@ -148,7 +148,7 @@ program single_sphere_thermo_trap
   colloids% vel = 0
 
   call hfile%create(args%output_file, 'RMPCDMD::single_sphere_thermo_trap', &
-       'N/A', 'Pierre de Buyl')
+       RMPCDMD_REVISION, 'Pierre de Buyl')
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
   call PTkill(config)
