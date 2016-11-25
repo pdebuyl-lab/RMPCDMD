@@ -377,6 +377,7 @@ contains
     integer :: i
     double precision :: r_sq, rmax_sq
 
+    rmax_sq = 0
     call this%time_max_disp%tic()
     !$omp parallel do private(i, r_sq) reduction(MAX:rmax_sq)
     do i = 1, this% Nmax
