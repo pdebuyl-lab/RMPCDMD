@@ -4,6 +4,8 @@ RMPCDMD: Reactive MultiParticle Collision Dynamics - Molecular Dynamics
 **Homepage:** [RMPCDMD](http://lab.pdebuyl.be/rmpcdmd/) (includes documentation)  
 **License:** BSD 3-clause, see [LICENSE](LICENSE).
 
+[![Build Status](https://travis-ci.org/pdebuyl-lab/RMPCDMD.svg?branch=master)](https://travis-ci.org/pdebuyl-lab/RMPCDMD)
+
 RMPCDMD is a collection of Fortran modules and programs for the
 mesoscopic modeling of chemically active fluids with embedded colloids.
 
