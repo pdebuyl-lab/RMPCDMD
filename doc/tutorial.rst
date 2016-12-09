@@ -175,10 +175,14 @@ which is given in the listing below.
     rho = 9
     tau = 1.0
     probability = 1.0
+    bulk_rmpcd = F
+    bulk_rate = 0.001
 
     # simulation parameters
     N_MD = 200
     N_loop = 50
+    equilibration_loops = 50
+    colloid_sampling = 50
 
     # interaction parameters
     sigma_N = 4.0
@@ -269,7 +273,7 @@ files, such as ``h5md_plot.py``. Its usage is
 
 .. code:: bash
 
-    python h5md_plot.py dimer.h5 --obs temperature
+    rmpcdmd plot dimer.h5 --obs temperature
 
 (the ``obs`` option is preceded by two dashes) to display the
 temperature in the course of time. This program can also display the
@@ -277,7 +281,7 @@ trajectory of the dimer
 
 .. code:: bash
 
-    python h5md_plot.py dimer.h5 --traj dimer/position
+    rmpcdmd plot dimer.h5 --traj dimer/position
 
 More specific information on the dimer nanomotor can be obtained via Python programs located
 in the ``experiments/01-single-dimer`` directory.
@@ -329,21 +333,28 @@ An example simulation setup for self-proplusive Janus motor is provided in the d
     probability = 1
 
     # simulation parameters
-    N_MD = 50
-    N_loop = 50
+    N_MD = 100
+    N_loop = 512
+    colloid_sampling = 50
+    equilibration_loops = 20
+    data_filename = janus_structure.h5
+    link_treshold = 2.5
+    do_read_links = F
+    polar_r_max = 10
+    bulk_rate = 0.1
 
     # interaction parameters
-    sigma_colloid = 1
-    epsilon_colloid = 1
+    sigma_colloid = 2
+    epsilon_colloid = 2
+    do_lennard_jones = T
+    do_elastic = F
+    do_rattle = T
+    rattle_pos_tolerance = 1d-8
+    rattle_vel_tolerance = 1d-8
 
     sigma = 3
-    epsilon_N = 1.0 0.5
-    epsilon_C = 1.0 0.5
-
-    epsilon_N_N = 1.0
-    epsilon_N_C = 1.0
-    epsilon_C_C = 1.0
-    bulk_rate = 0.001
+    epsilon_N = 1.0 5.0
+    epsilon_C = 1.0 1.0
 
 
 To run the simulation, use ``make simulation``, and check the propulsion speed :math:`V_z`
