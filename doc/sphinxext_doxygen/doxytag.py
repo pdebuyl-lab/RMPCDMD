@@ -28,7 +28,7 @@ def load_tagfile(app):
     env = app.builder.env
     d = {}
     for f in tagfile.findall('compound'):
-        if f.get('kind') == 'file':
+        if f.get('kind') in ('file', 'module'):
             for m in f.findall('member'):
                 name = m.find('name').text
                 anchor_file = m.find('anchorfile').text
