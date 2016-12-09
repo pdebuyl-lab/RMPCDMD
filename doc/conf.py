@@ -234,7 +234,7 @@ latex_elements = {
 # Additional stuff for the LaTeX preamble.
 'preamble': r'''
 \makeatletter
-\renewenvironment{thebibliography}[1]
+\renewenvironment{sphinxthebibliography}[1]
      {
       \@mkboth{\MakeUppercase\bibname}{\MakeUppercase\bibname}%
       \list{\@biblabel{\@arabic\c@enumiv}}%
