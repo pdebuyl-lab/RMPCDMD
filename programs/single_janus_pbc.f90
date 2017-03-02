@@ -110,7 +110,7 @@ program single_janus_pbc
   type(polar_fields_t) :: polar
   integer(HID_T) :: polar_id
 
-  logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic
+  logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic, do_quaternion
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
   double precision :: link_treshold
@@ -120,6 +120,8 @@ program single_janus_pbc
   double precision :: unit_r(3)
   double precision :: com_pos(3), head_pos(3)
   integer :: head
+  type(rigid_body_t) :: rigid_janus
+  double precision :: quaternion_treshold
 
   integer, parameter :: block_length = 8
   type(axial_correlator_t) :: axial_cf
@@ -186,6 +188,9 @@ program single_janus_pbc
   do_lennard_jones = PTread_l(config, 'do_lennard_jones', loc=params_group)
   rattle_pos_tolerance = PTread_d(config, 'rattle_pos_tolerance', loc=params_group)
   rattle_vel_tolerance = PTread_d(config, 'rattle_vel_tolerance', loc=params_group)
+
+  do_quaternion  = PTread_l(config, 'do_quaternion', loc=params_group)
+  quaternion_treshold = PTread_d(config, 'quaternion_treshold', loc=params_group)
 
   do_elastic = PTread_l(config, 'do_elastic', loc=params_group)
   if (do_elastic) elastic_k = PTread_d(config, 'elastic_k', loc=params_group)
@@ -263,6 +268,8 @@ program single_janus_pbc
         end do
      end do
   end if
+
+  if (do_quaternion) call rigid_janus%init(colloids, 1, colloids%Nmax, solvent_cells%edges)
 
   write(*,*) 'number of links:', i_link
 
@@ -374,6 +381,7 @@ program single_janus_pbc
   end if
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
+  if (do_quaternion) call rigid_janus%compute_force_torque(colloids, solvent_cells%edges)
 
   write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
   call main%tic()
@@ -384,16 +392,21 @@ program single_janus_pbc
      md_loop: do j = 1, N_MD_steps
         call md_pos(solvent, dt)
 
-        call varia%tic()
-        ! Extra copy for rattle
-        colloids% pos_rattle = colloids% pos
-        do k=1, colloids% Nmax
-           colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
-                dt**2 * colloids% force(:,k) / (2 * colloids% mass(colloids%species(k)))
-        end do
-        call varia%tac()
+        if (do_rattle) then
+           call varia%tic()
+           ! Extra copy for rattle
+           colloids% pos_rattle = colloids% pos
+           do k=1, colloids% Nmax
+              colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
+                   dt**2 * colloids% force(:,k) / (2 * colloids% mass(colloids%species(k)))
+           end do
+           call varia%tac()
 
-        if (do_rattle) call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+           call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+
+        else if (do_quaternion) then
+           call rigid_janus%vv1(colloids, dt, quaternion_treshold)
+        end if
 
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
@@ -431,14 +444,21 @@ program single_janus_pbc
 
         call md_vel(solvent, dt)
 
-        call varia%tic()
-        do k = 1, colloids%Nmax
-           colloids% vel(:,k) = colloids% vel(:,k) + &
-             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids%mass(colloids%species(k)))
-        end do
-        call varia%tac()
+        if (do_quaternion) then
+           call rigid_janus%compute_force_torque(colloids, solvent_cells%edges)
+           call rigid_janus%vv2(colloids, dt, solvent_cells%edges)
+        else
+           call varia%tic()
+           do k = 1, colloids%Nmax
+              colloids% vel(:,k) = colloids% vel(:,k) + &
+                   dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids%mass(colloids%species(k)))
+           end do
+           call varia%tac()
+        end if
 
-        if (do_rattle) call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+        if (do_rattle) then
+           call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+        end if
 
         if (sampling) then
            v_com = sum(colloids%vel, dim=2)/colloids%Nmax
