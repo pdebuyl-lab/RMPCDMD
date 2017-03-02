@@ -12,6 +12,7 @@ add_subdirectory(ParseText)
 add_subdirectory(fortran_h5md)
 add_subdirectory(fortran_tester)
 add_subdirectory(random_module)
+add_subdirectory(fortran_quaternion)
 
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY} ${HDF5_Fortran_INCLUDE_DIR})
 
@@ -40,7 +41,7 @@ src/md.f90
 src/neighbor_list.f90
 src/polar_fields.f90
 ${RMPCDMD_BINARY_DIR}/rmpcdmd_module.f90)
-target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module)
+target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module quaternion)
 add_dependencies(RMPCDMD RMPCDMD_REVISION_TARGET)
 
 add_executable(setup_simple_fluid
