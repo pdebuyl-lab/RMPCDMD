@@ -43,7 +43,14 @@ def get_doxytag_role(app):
         env = app.builder.env
         config = app.config
         text = utils.unescape(text)
-        full_url = config.doxytag_relative_path + env.doxytag_dict[text]
+        # handle rst files in subdirectories
+        relative_path = env.path2doc(inliner.document.current_source)
+        if relative_path is not None:
+            num_sep = len(relative_path.split(os.path.sep))-1
+        else:
+            num_sep = 0
+        full_url = ('../'*num_sep)+config.doxytag_relative_path + env.doxytag_dict[text]
+
         pnode = nodes.reference(text, text, internal=False, refuri=full_url)
         return [pnode], []
     return doxytag_role
