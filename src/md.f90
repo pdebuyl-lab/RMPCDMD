@@ -14,6 +14,7 @@ module md
   use particle_system
   use interaction
   use common
+  use quaternion
   implicit none
 
   private
@@ -26,6 +27,26 @@ module md
   public :: rattle_body_pos, rattle_body_vel
   public :: lj93_zwall
   public :: elastic_network
+  public :: rigid_body_t
+
+  type rigid_body_t
+     integer :: i_start
+     integer :: i_stop
+     double precision :: mass
+     double precision :: pos(3)
+     double precision, allocatable :: pos_body(:,:)
+     double precision :: vel(3)
+     double precision :: force(3)
+     double precision :: q(4)
+     double precision :: L(3)
+     double precision :: torque(3)
+     double precision :: I_body(3)
+   contains
+     procedure :: init => rigid_body_init
+     procedure :: compute_force_torque => rigid_body_compute_force_torque
+     procedure :: vv1 => rigid_body_vv1
+     procedure :: vv2 => rigid_body_vv2
+  end type rigid_body_t
 
 contains
 
@@ -364,5 +385,153 @@ contains
     call p%time_elastic%tac()
 
   end function elastic_network
+
+  !! Compute body frame positions and inertia tensor
+  subroutine rigid_body_init(this, ps, i_start, i_stop, edges)
+    class(rigid_body_t), intent(out) :: this
+    type(particle_system_t), intent(inout) :: ps
+    integer, intent(in) :: i_start
+    integer, intent(in) :: i_stop
+    double precision, intent(in) :: edges(3)
+
+    double precision :: mass
+    double precision :: pos(3)
+    integer :: i
+
+    this%i_start = i_start
+    this%i_stop = i_stop
+
+    this%mass = 0
+    this%pos = 0
+    this%vel = 0
+    do i = i_start, i_stop
+       mass = ps%mass(ps%species(i))
+       this%mass = this%mass + mass
+       this%pos = this%pos + mass*(ps%pos(:,i)+ps%image(:,i)*edges)
+       this%vel = this%vel + mass*ps%vel(:,i)
+    end do
+    this%pos = this%pos/this%mass
+    this%vel = this%vel/this%mass
+
+    allocate(this%pos_body(3,i_stop-i_start+1))
+
+    this%I_body = 0
+    do i = i_start, i_stop
+       mass = ps%mass(ps%species(i))
+       pos = ps%pos(:,i)+ps%image(:,i)*edges - this%pos
+       this%pos_body(:,i) = pos
+       this%I_body = this%I_body + mass*pos**2
+    end do
+
+    this%force = 0
+    this%torque = 0
+    this%q = qnew(s=1.d0)
+    this%L = 0
+
+  end subroutine rigid_body_init
+
+  !! Compute torque and force on the rigid body in the lab frame
+  subroutine rigid_body_compute_force_torque(this, ps, edges)
+    class(rigid_body_t), intent(inout) :: this
+    type(particle_system_t), intent(in) :: ps
+    double precision, intent(in) :: edges(3)
+
+    double precision :: f(3)
+    integer :: i
+
+    this%force = 0
+    this%torque = 0
+    do i = this%i_start, this%i_stop
+       f = ps%force(:,i)
+       this%force = this%force + f
+       this%torque = this%torque + cross(ps%pos(:,i)+ps%image(:,i)*edges-this%pos, f)
+    end do
+
+  end subroutine rigid_body_compute_force_torque
+
+  !> Perform first velocity-Verlet step for quaternion dynamics
+  !!
+  !! \manual{algorithms/quaternions}
+  subroutine rigid_body_vv1(this, ps, dt, treshold)
+    class(rigid_body_t), intent(inout) :: this
+    type(particle_system_t), intent(inout) :: ps
+    double precision, intent(in) :: dt
+    double precision, intent(in) :: treshold
+
+    double precision :: L(3), L_body(3), L_body_dot(3), omega_body(3), q(4), q_old(4), q_dot(4), torque_body(3)
+    double precision :: I_inv(3)
+
+    integer :: i
+
+    I_inv = 1/this%I_body
+
+    ! timestep 0
+    L = this%L
+    q = this%q
+
+    L_body = qrot(qconj(q), L)
+    torque_body = qrot(qconj(q), this%torque)
+    omega_body = L_body*I_inv
+
+    L_body_dot = torque_body - cross(omega_body, L_body)
+
+    ! timestep 1/2
+    L_body = L_body + dt*L_body_dot/2
+    omega_body = L_body*I_inv
+    q_dot = qmul(q, qnew(v=omega_body))/2
+    q = q + q_dot*dt/2
+    q = qnormalize(q)
+    L =  this%L + this%torque*dt/2
+
+    ! Iterative procedure
+
+    q_old = q
+    iterative_q: do while (.true.)
+       L_body = qrot(qconj(q), L)
+       omega_body = I_inv*L_body
+       q_dot = qmul(q, qnew(v=omega_body))/2
+       q = this%q + q_dot*dt/2
+       q = qnormalize(q)
+       if (qnorm(q-q_old)<treshold) exit iterative_q
+       q_old = q
+    end do iterative_q
+
+    this%q = qnormalize(this%q + dt*q_dot)
+
+    this%pos = this%pos + this%vel*dt + this%force*dt**2/(2*this%mass)
+
+    do i = this%i_start, this%i_stop
+       ps%pos(:,i) = this%pos + qrot(q, this%pos_body(:,i))
+    end do
+
+    this%L = this%L + this%torque*dt/2
+    this%vel = this%vel + this%force*dt/(2*this%mass)
+
+  end subroutine rigid_body_vv1
+
+  !! Perform second velocity-Verlet step for quaternion dynamics
+  !!
+  !! \manual{algorithms/quaternions}
+  subroutine rigid_body_vv2(this, ps, dt, edges)
+    class(rigid_body_t), intent(inout) :: this
+    type(particle_system_t), intent(inout) :: ps
+    double precision, intent(in) :: dt
+    double precision, intent(in) :: edges(3)
+
+    double precision :: L_body(3), omega(3), omega_body(3)
+    integer :: i
+
+    this%L = this%L + this%torque*dt/2
+    L_body = qrot(qconj(this%q), this%L)
+    omega_body = L_body/this%I_body
+    omega = qrot(this%q, omega_body)
+
+    this%vel = this%vel + this%force*dt/(2*this%mass)
+
+    do i = this%i_start, this%i_stop
+       ps%vel(:,i) = this%vel + cross(omega, ps%pos(:,i)+ps%image(:,i)*edges-this%pos)
+    end do
+
+  end subroutine rigid_body_vv2
 
 end module md

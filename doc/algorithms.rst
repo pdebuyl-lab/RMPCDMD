@@ -1,6 +1,11 @@
 Algorithms
 ==========
 
+.. toctree::
+   :maxdepth: 1
+
+   algorithms/quaternions
+
 MPCD
 ----
 
