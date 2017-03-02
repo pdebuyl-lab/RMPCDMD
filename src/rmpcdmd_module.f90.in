@@ -10,6 +10,7 @@ module rmpcdmd_module
   use md
   use correlator
   use polar_fields
+  use quaternion
   implicit none
 
   character(len=*), parameter :: RMPCDMD_REVISION = '@RMPCDMD_REVISION@'
