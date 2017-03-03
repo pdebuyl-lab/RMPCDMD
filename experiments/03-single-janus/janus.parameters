@@ -24,6 +24,8 @@ do_elastic = F
 do_rattle = T
 rattle_pos_tolerance = 1d-8
 rattle_vel_tolerance = 1d-8
+do_quaternion = F
+quaternion_treshold = 1d-13
 
 sigma = 3
 epsilon_N = 1.0 5.0
