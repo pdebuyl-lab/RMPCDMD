@@ -24,9 +24,11 @@ enable testing and enable OpenMP multithreaded operation.
 
 ## Citation
 
-RMPCDMD is presented in the article *RMPCDMD: Simulations of colloids with coarse-grained
-hydrodynamics, chemical reactions and external fields*
-[[arXiv:1608.04904](https://arxiv.org/abs/1608.04904)].
+RMPCDMD is presented in the article *RMPCDMD: Simulations of colloids with
+coarse-grained hydrodynamics, chemical reactions and external fields*, Journal
+of Open Research Software (JORS) **5**, 3 (2017)
+[doi](http://doi.org/10.5334/jors.142) -
+[arXiv:1608.04904](https://arxiv.org/abs/1608.04904)
 
 Please cite this paper if you use RMPCDMD in a research work. A bibtex entry is provided in
 the [CITATION](CITATION) file.
