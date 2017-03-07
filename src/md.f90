@@ -501,7 +501,7 @@ contains
     this%pos = this%pos + this%vel*dt + this%force*dt**2/(2*this%mass)
 
     do i = this%i_start, this%i_stop
-       ps%pos(:,i) = this%pos + qrot(q, this%pos_body(:,i))
+       ps%pos(:,i) = this%pos + qrot(this%q, this%pos_body(:,i))
     end do
 
     this%L = this%L + this%torque*dt/2
