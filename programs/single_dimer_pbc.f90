@@ -270,7 +270,7 @@ program single_dimer_pbc
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
 
-  call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
+  call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
   cyl_shell_rmin = max(sigma_N, sigma_C)
   cyl_shell_rmax = cyl_shell_rmin + 2
@@ -320,7 +320,7 @@ program single_dimer_pbc
            call apply_pbc(colloids, solvent_cells% edges)
            call varia%tac()
            call solvent% sort(solvent_cells)
-           call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells)
+           call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells, solvent_colloid_lj)
            call varia%tic()
            !$omp parallel do
            do k = 1, solvent%Nmax
@@ -399,8 +399,10 @@ program single_dimer_pbc
      call solvent_cells%random_shift(state(1))
      call varia%tac()
 
+     call apply_pbc(solvent, solvent_cells% edges)
+     call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells)
+     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
      call varia%tic()
      !$omp parallel do
      do k = 1, solvent%Nmax
