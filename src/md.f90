@@ -420,7 +420,7 @@ contains
        mass = ps%mass(ps%species(i))
        pos = ps%pos(:,i)+ps%image(:,i)*edges - this%pos
        this%pos_body(:,i) = pos
-       this%I_body = this%I_body + mass*pos**2
+       this%I_body = this%I_body + mass*(sum(pos**2)-pos**2)
     end do
 
     this%force = 0
