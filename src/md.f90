@@ -431,12 +431,11 @@ contains
   end subroutine rigid_body_init
 
   !! Compute torque and force on the rigid body in the lab frame
-  subroutine rigid_body_compute_force_torque(this, ps, edges)
+  subroutine rigid_body_compute_force_torque(this, ps)
     class(rigid_body_t), intent(inout) :: this
     type(particle_system_t), intent(in) :: ps
-    double precision, intent(in) :: edges(3)
 
-    double precision :: f(3)
+    double precision :: pos(3), f(3)
     integer :: i
 
     this%force = 0
@@ -444,7 +443,8 @@ contains
     do i = this%i_start, this%i_stop
        f = ps%force(:,i)
        this%force = this%force + f
-       this%torque = this%torque + cross(ps%pos(:,i)+ps%image(:,i)*edges-this%pos, f)
+       pos = qrot(this%q, this%pos_body(:,i))
+       this%torque = this%torque + cross(pos, f)
     end do
 
   end subroutine rigid_body_compute_force_torque
@@ -512,13 +512,13 @@ contains
   !! Perform second velocity-Verlet step for quaternion dynamics
   !!
   !! \manual{algorithms/quaternions}
-  subroutine rigid_body_vv2(this, ps, dt, edges)
+  subroutine rigid_body_vv2(this, ps, dt)
     class(rigid_body_t), intent(inout) :: this
     type(particle_system_t), intent(inout) :: ps
     double precision, intent(in) :: dt
-    double precision, intent(in) :: edges(3)
 
     double precision :: L_body(3), omega(3), omega_body(3)
+    double precision :: pos(3)
     integer :: i
 
     this%L = this%L + this%torque*dt/2
@@ -529,7 +529,8 @@ contains
     this%vel = this%vel + this%force*dt/(2*this%mass)
 
     do i = this%i_start, this%i_stop
-       ps%vel(:,i) = this%vel + cross(omega, ps%pos(:,i)+ps%image(:,i)*edges-this%pos)
+       pos = qrot(this%q, this%pos_body(:,i))
+       ps%vel(:,i) = this%vel + cross(omega, pos)
     end do
 
   end subroutine rigid_body_vv2
