@@ -104,6 +104,8 @@ program single_janus_pbc
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
 
+  type(h5md_element_t) :: q_el, janus_pos_el, janus_vel_el
+
   type(histogram_t) :: radial_hist
   type(h5md_element_t) :: radial_hist_el
   double precision :: polar_r_max
@@ -328,6 +330,18 @@ program single_janus_pbc
        n_solvent, H5MD_LINEAR, step=N_MD_steps, &
        time=N_MD_steps*dt)
 
+  call q_el%create_time(hfile%observables, 'q', &
+       rigid_janus%q, H5MD_LINEAR, step=1, &
+       time=dt)
+
+  call janus_pos_el%create_time(hfile%observables, 'janus_pos', &
+       rigid_janus%pos, H5MD_LINEAR, step=1, &
+       time=dt)
+
+  call janus_vel_el%create_time(hfile%observables, 'janus_vel', &
+       rigid_janus%vel, H5MD_LINEAR, step=1, &
+       time=dt)
+
   call h5gcreate_f(janus_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
@@ -381,7 +395,7 @@ program single_janus_pbc
   end if
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
-  if (do_quaternion) call rigid_janus%compute_force_torque(colloids, solvent_cells%edges)
+  if (do_quaternion) call rigid_janus%compute_force_torque(colloids)
 
   write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
   call main%tic()
@@ -445,8 +459,8 @@ program single_janus_pbc
         call md_vel(solvent, dt)
 
         if (do_quaternion) then
-           call rigid_janus%compute_force_torque(colloids, solvent_cells%edges)
-           call rigid_janus%vv2(colloids, dt, solvent_cells%edges)
+           call rigid_janus%compute_force_torque(colloids)
+           call rigid_janus%vv2(colloids, dt)
         else
            call varia%tic()
            do k = 1, colloids%Nmax
@@ -469,12 +483,15 @@ program single_janus_pbc
            unit_r = rel_pos(head_pos, com_pos, solvent_cells%edges)
            unit_r = unit_r / norm2(unit_r)
            call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
+           call janus_pos_el%append(rigid_janus%pos)
+           call janus_vel_el%append(rigid_janus%vel)
         end if
 
         if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
            call janus_io%position%append(colloids%pos)
            call janus_io%velocity%append(colloids%vel)
            call janus_io%image%append(colloids%image)
+           call q_el%append(rigid_janus%q)
         end if
 
         call time_flag%tic()
@@ -614,6 +631,9 @@ program single_janus_pbc
   call solvent_io%close()
   call radial_hist_el%close()
   call n_solvent_el%close()
+  call q_el%close()
+  call janus_pos_el%close()
+  call janus_vel_el%close()
   call hfile%close()
   call h5close_f(error)
 
