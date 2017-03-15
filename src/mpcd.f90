@@ -676,7 +676,7 @@ contains
 
     !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
-    !$omp do private(start, n, local_rate, i, pick, s)
+    !$omp do private(cell_idx, start, n, local_rate, i, pick, s)
     do cell_idx = 1, c%N
        if ( (c%cell_count(cell_idx) <= 1) .or. .not. c%is_reac(cell_idx) ) cycle
 
