@@ -452,16 +452,18 @@ contains
   !> Perform first velocity-Verlet step for quaternion dynamics
   !!
   !! \manual{algorithms/quaternions}
-  subroutine rigid_body_vv1(this, ps, dt, treshold)
+  subroutine rigid_body_vv1(this, ps, dt, treshold, edges)
     class(rigid_body_t), intent(inout) :: this
     type(particle_system_t), intent(inout) :: ps
     double precision, intent(in) :: dt
     double precision, intent(in) :: treshold
+    double precision, intent(in) :: edges(3)
 
     double precision :: L(3), L_body(3), L_body_dot(3), omega_body(3), q(4), q_old(4), q_dot(4), torque_body(3)
     double precision :: I_inv(3)
+    double precision :: old_pos(3)
 
-    integer :: i
+    integer :: i, j
 
     I_inv = 1/this%I_body
 
@@ -501,7 +503,15 @@ contains
     this%pos = this%pos + this%vel*dt + this%force*dt**2/(2*this%mass)
 
     do i = this%i_start, this%i_stop
+       old_pos = ps%pos(:,i)
        ps%pos(:,i) = this%pos + qrot(this%q, this%pos_body(:,i))
+       do j = 1, 3
+          if (ps%pos(j,i) - old_pos(j) > edges(j)/2) then
+             ps%pos(j,i) = ps%pos(j,i) - edges(j)
+          else if (ps%pos(j,i) - old_pos(j) < -edges(j)/2) then
+             ps%pos(j,i) = ps%pos(j,i) + edges(j)
+          end if
+       end do
     end do
 
     this%L = this%L + this%torque*dt/2

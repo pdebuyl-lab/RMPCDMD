@@ -419,7 +419,7 @@ program single_janus_pbc
            call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
         else if (do_quaternion) then
-           call rigid_janus%vv1(colloids, dt, quaternion_treshold)
+           call rigid_janus%vv1(colloids, dt, quaternion_treshold, solvent_cells%edges)
         end if
 
         so_max = solvent% maximum_displacement()
