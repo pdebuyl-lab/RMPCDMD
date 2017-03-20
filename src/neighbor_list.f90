@@ -175,6 +175,11 @@ contains
 
     e = 0
 
+    !$omp parallel do
+    do i = 1, ps2%Nmax
+       ps2%md_flag(i) = 0
+    end do
+
     call n_list%time_force%tic()
     !$omp parallel do private(x, s1, f1, j, idx, s2, d, r_sq, f) &
     !$omp& reduction(+:e)
@@ -200,6 +205,8 @@ contains
              ps2%force(2, idx) = ps2% force(2,idx) - f(2)
              !$omp atomic
              ps2%force(3, idx) = ps2% force(3,idx) - f(3)
+             !$omp atomic write
+             ps2%md_flag(idx) = 1
           end if
        end do
        ps1% force(:, i) = ps1% force(:, i) + f1

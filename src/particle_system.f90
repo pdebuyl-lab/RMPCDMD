@@ -66,6 +66,10 @@ module particle_system
      integer, pointer :: wall_flag(:)
      integer, pointer :: wall_flag_old(:)
      integer, pointer :: wall_flag_pointer(:)
+     integer, pointer :: md_flag1(:)
+     integer, pointer :: md_flag2(:)
+     integer, pointer :: md_flag(:)
+     integer, pointer :: md_flag_store(:)
      type(timer_t), pointer :: time_stream, time_step, time_sort, time_count, time_ct
      type(timer_t), pointer :: time_md_pos, time_md_vel, time_self_force, time_max_disp
      type(timer_t), pointer :: time_apply_pbc
@@ -156,6 +160,11 @@ contains
     this% wall_flag_old => this% wall_flag2
 
     this% wall_flag = 0
+
+    allocate(this%md_flag1(Nmax))
+    allocate(this%md_flag2(Nmax))
+    this%md_flag => this%md_flag1
+    this%md_flag_store => this%md_flag2
 
     if (present(system_name)) then
        system_name_var = system_name
@@ -352,6 +361,7 @@ contains
        this% species_old(start) = this% species(i)
        this% flag_old(start) = this% flag(i)
        this% wall_flag_old(start) = this% wall_flag(i)
+       this% md_flag_store(start) = this% md_flag(i)
     end do
 
     cells% cell_start = cells% cell_start - cells% cell_count
@@ -366,6 +376,7 @@ contains
     call switch(this% species, this% species_old)
     call switch(this% wall_flag, this% wall_flag_old)
     call switch(this% flag, this% flag_old)
+    call switch(this% md_flag, this% md_flag_store)
 
   end subroutine sort
 
