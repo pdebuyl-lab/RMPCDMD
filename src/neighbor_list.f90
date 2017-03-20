@@ -186,7 +186,7 @@ contains
        do j = 1, n_list% n(i)
           idx = n_list% list(j, i)
           s2 = ps2% species(idx)
-          if (s2 <= 0) continue
+          if (s2 <= 0) cycle
           d = rel_pos(x, ps2% pos(:, idx), L)
           r_sq = sum(d**2)
           if ( r_sq <= lj_params% cut_sq(s2, s1) ) then
