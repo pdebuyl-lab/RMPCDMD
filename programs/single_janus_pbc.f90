@@ -69,7 +69,7 @@ program single_janus_pbc
 
   double precision :: e1, e2, e3
   double precision :: tau, dt , T
-  double precision :: prob
+  double precision :: prob, reaction_radius
   double precision :: bulk_rate
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
@@ -226,6 +226,8 @@ program single_janus_pbc
 
   polar_r_max = PTread_d(config, 'polar_r_max', loc=params_group)
 
+  reaction_radius = PTread_d(config, 'reaction_radius', loc=params_group)
+
   call h5gclose_f(params_group, error)
   call PTkill(config)
 
@@ -271,7 +273,7 @@ program single_janus_pbc
      end do
   end if
 
-  if (do_quaternion) call rigid_janus%init(colloids, 1, colloids%Nmax, solvent_cells%edges)
+  call rigid_janus%init(colloids, 1, colloids%Nmax, solvent_cells%edges)
 
   write(*,*) 'number of links:', i_link
 
@@ -461,7 +463,7 @@ program single_janus_pbc
         if (do_quaternion) then
            call rigid_janus%compute_force_torque(colloids)
            call rigid_janus%vv2(colloids, dt)
-        else
+        else if (do_rattle) then
            call varia%tic()
            do k = 1, colloids%Nmax
               colloids% vel(:,k) = colloids% vel(:,k) + &
@@ -641,11 +643,10 @@ contains
 
   subroutine flag_particles
     double precision :: dist_to_C_sq
-    integer :: i, r, s, thread_id
+    integer :: i, r, s
     double precision :: x(3)
 
-    !$omp parallel private(thread_id)
-    thread_id = omp_get_thread_num() + 1
+    !$omp parallel
     !$omp do private(i, s, r, x, dist_to_C_sq)
     do i = 1, colloids%Nmax
        if (colloids%species(i)==1) then
@@ -655,10 +656,8 @@ contains
                 x = rel_pos(colloids% pos(:,i),solvent% pos(:,r),solvent_cells% edges)
                 dist_to_C_sq = dot_product(x, x)
                 if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-                   if (threefry_double(state(thread_id)) <= prob) then
-                      !$omp atomic write
-                      solvent% flag(r) = 1
-                   end if
+                   !$omp atomic write
+                   solvent% flag(r) = 1
                 end if
              end if
           end do
@@ -670,32 +669,24 @@ contains
   end subroutine flag_particles
 
   subroutine change_species
-    double precision :: dist_to_colloid_sq
-    integer :: m, m_colloid
-    double precision :: x(3)
-    logical :: do_change
-    integer :: s_m, s_colloid
+    integer :: m, thread_id
+    double precision :: dist
 
-    !$omp parallel do private(m, s_m, x, s_colloid, dist_to_colloid_sq, m_colloid, do_change)
-    do m = 1, solvent% Nmax
-       s_m = solvent%species(m)
-       if (solvent% flag(m) == 1) then
-          do_change = .true.
-          colloid_dist_loop: do m_colloid = 1, colloids%Nmax
-             s_colloid = colloids%species(m_colloid)
-             x = rel_pos(colloids% pos(:,m_colloid), solvent% pos(:,m), solvent_cells% edges)
-             dist_to_colloid_sq = dot_product(x, x)
-             if (dist_to_colloid_sq < solvent_colloid_lj%cut_sq(s_m,s_colloid)) then
-                do_change = .false.
-                exit colloid_dist_loop
-             end if
-          end do colloid_dist_loop
-          if (do_change) then
-             solvent% species(m) = 2
-             solvent% flag(m) = 0
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(m, dist)
+    change_loop: do m = 1, solvent%Nmax
+       if (solvent%species(m) /= 1) cycle change_loop
+       if ((solvent%flag(m) == 1) .and. (solvent%md_flag(m) == 0)) then
+          dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
+          if (dist > reaction_radius) then
+             if (threefry_double(state(thread_id)) < 1) solvent%species(m) = 2
+             solvent%flag(m) = 0
           end if
        end if
-    end do
+    end do change_loop
+    !$omp end do
+    !$omp end parallel
 
   end subroutine change_species
   
