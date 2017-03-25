@@ -468,7 +468,7 @@ program single_janus_pbc
         end if
 
         if (do_rattle) then
-           call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
+           call rattle_body_vel(colloids, links, links_d, dt, solvent_cells% edges, rattle_vel_tolerance)
         end if
 
         if (sampling) then
