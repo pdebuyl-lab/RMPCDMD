@@ -79,20 +79,21 @@ contains
   end subroutine init
 
   !> Update the fields
-  subroutine update(this, x, v, unit_r, solvent, n_list, cells)
+  subroutine update(this, x, v, unit_r, solvent, cells)
     class(polar_fields_t), intent(inout) :: this
     double precision, intent(in) :: x(3)
     double precision, intent(in) :: v(3)
     double precision, intent(in) :: unit_r(3)
     type(particle_system_t), intent(in) :: solvent
-    type(neighbor_list_t), intent(in) :: n_list
     type(cell_system_t), intent(in) :: cells
 
     double precision :: r_min, r_min_sq, r_max, r_max_sq, dr, dtheta
     double precision :: r_sq, v_r, v_th, r, theta
     double precision, dimension(3) :: d, one_r, out_of_plane, one_theta, L
     double precision, dimension(3) :: solvent_v
-    integer :: j, idx, s2, i_r, i_th
+    integer :: idx, s2, i_r, i_th
+
+    integer :: cell_idx, start, n
 
     r_min = this%r_min
     r_min_sq = r_min**2
@@ -102,30 +103,43 @@ contains
     dtheta = this%dtheta
     L = cells%edges
 
-    do j = 1, n_list%n(1)
-       idx = n_list%list(j, 1)
-       s2 = solvent%species(idx)
-       if (s2 <= 0) cycle
-       d = rel_pos(solvent%pos(:,idx), x, L)
-       r_sq = sum(d**2)
-       if (( r_sq >= r_min_sq ) .and. ( r_sq < r_max_sq )) then
-          ! compute r, i_r, theta, i_theta
-          r = sqrt(r_sq)
-          i_r = floor((r-r_min)/dr) + 1
-          theta = acos( dot_product(unit_r,d)/r )
-          i_th = floor(theta/dtheta) + 1
-          this%c(s2, i_th, i_r) = this%c(s2, i_th, i_r) + 1
-          one_r = d/r
-          ! compute v_r, v_theta
-          out_of_plane = cross(unit_r, one_r)
-          one_theta = cross(one_r, out_of_plane)
-          solvent_v = solvent%vel(:,idx) - v
-          v_r = dot_product(solvent_v, one_r)
-          v_th = dot_product(solvent_v, one_theta)
-          this%v(1, s2, i_th, i_r) = this%v(1, s2, i_th, i_r) + v_r
-          this%v(2, s2, i_th, i_r) = this%v(1, s2, i_th, i_r) + v_th
-          this%count(s2, i_th, i_r) = this%count(s2, i_th, i_r) + 1
-       end if
+    !$omp parallel do &
+    !$omp private(cell_idx, idx, start, n, s2, d, r_sq, r, i_r, theta, i_th, one_r, &
+    !$omp out_of_plane, one_theta, solvent_v, v_th)
+    do cell_idx = 1, cells%N
+
+       ! TODO: check if minimum distance from x to cell corners is below r_max
+
+       start = cells% cell_start(cell_idx)
+       n = cells% cell_count(cell_idx)
+
+       do idx = start, start + n - 1
+          s2 = solvent%species(idx)
+          if (s2 <= 0) cycle
+          d = rel_pos(solvent%pos(:,idx), x, L)
+          r_sq = sum(d**2)
+          if (( r_sq >= r_min_sq ) .and. ( r_sq < r_max_sq )) then
+             ! compute r, i_r, theta, i_theta
+             r = sqrt(r_sq)
+             i_r = floor((r-r_min)/dr) + 1
+             theta = acos( dot_product(unit_r,d)/r )
+             i_th = floor(theta/dtheta) + 1
+             this%c(s2, i_th, i_r) = this%c(s2, i_th, i_r) + 1
+             one_r = d/r
+             ! compute v_r, v_theta
+             out_of_plane = cross(unit_r, one_r)
+             one_theta = cross(one_r, out_of_plane)
+             solvent_v = solvent%vel(:,idx) - v
+             v_r = dot_product(solvent_v, one_r)
+             v_th = dot_product(solvent_v, one_theta)
+             !$omp atomic
+             this%v(1, s2, i_th, i_r) = this%v(1, s2, i_th, i_r) + v_r
+             !$omp atomic
+             this%v(2, s2, i_th, i_r) = this%v(1, s2, i_th, i_r) + v_th
+             !$omp atomic
+             this%count(s2, i_th, i_r) = this%count(s2, i_th, i_r) + 1
+          end if
+       end do
     end do
 
   end subroutine update

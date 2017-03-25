@@ -50,9 +50,7 @@ program single_janus_pbc
   type(cell_system_t) :: solvent_cells
   type(particle_system_t) :: solvent
   type(particle_system_t) :: colloids
-  type(particle_system_t) :: colloids_com
   type(neighbor_list_t) :: neigh
-  type(neighbor_list_t) :: neigh_com
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
 
@@ -239,7 +237,6 @@ program single_janus_pbc
   colloids%vel = 0
   colloids%force = 0
   colloids%mass = mass
-  call colloids_com%init(1)
 
   if (do_read_links) then
      call read_links(links_file, i_link, links, links_d)
@@ -374,13 +371,11 @@ program single_janus_pbc
 
   call polar%init(N_species, 64, sigma, polar_r_max, 64)
   call neigh% init(colloids% Nmax, int(500*max(sigma,1.d0)**3))
-  call neigh_com%init(colloids_com%Nmax, int(rho*16*polar_r_max**3))
 
   skin = 1.5
   n_extra_sorting = 0
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
-  call neigh_com%make_stencil(solvent_cells, polar_r_max)
 
   call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
@@ -555,10 +550,8 @@ program single_janus_pbc
         call radial_hist_el%append(radial_hist%data)
 
         call varia%tic()
-        colloids_com%pos(:,1) = modulo(com_pos, solvent_cells%edges)
-        call neigh_com%update_list(colloids_com, solvent, polar_r_max, solvent_cells)
         v_com = sum(colloids%vel, dim=2)/colloids%Nmax
-        call polar%update(colloids_com%pos(:,1), v_com, unit_r, solvent, neigh_com, solvent_cells)
+        call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
         call varia%tac()
      end if
 
