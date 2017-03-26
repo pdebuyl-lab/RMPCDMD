@@ -35,3 +35,7 @@ print(doxygen_parameters)
 print(PT_parameters)
 print(doxygen_parameters == PT_parameters)
 
+if doxygen_parameters != PT_parameters:
+    print(set(doxygen_parameters)-set(PT_parameters), 'are not in Doxygen')
+    print(set(PT_parameters)-set(doxygen_parameters), 'are not in the program')
+
