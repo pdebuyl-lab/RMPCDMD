@@ -24,6 +24,7 @@
 !! \param epsilon_N             interaction parameter of N sphere with both solvent species (2 elements)
 !! \param data_filename         filename for input Janus coordinates
 !! \param epsilon_colloid       interaction parameter for colloid-colloid interactions
+!! \param reaction_radius       radius for the reaction around the Janus particle
 !! \param link_treshold         distance criterion for finding rigid-body links
 !! \param do_read_links         read link information from a file
 !! \param links_file            filename for the links data
@@ -33,6 +34,8 @@
 !! \param elastic_k             elastic constant for the elastic network
 !! \param rattle_pos_tolerance  absolute tolerance for Rattle (position part)
 !! \param rattle_vel_tolerance  absolute tolerance for Rattle (velocity part)
+!! \param do_quaternion         perform quaternion velocity Verlet
+!! \param quaternion_treshold   treshold for the iterative procedure for the quaternion integrator
 !! \param sigma                 radius of the colloidal beads for colloid-solvent interactions
 !! \param sigma_colloid         radius of the colloidal beads for colloid-colloid interactions
 !! \param polar_r_max           maximal radius for the polar fields
@@ -87,11 +90,13 @@ program single_janus_pbc
   type(threefry_rng_t), allocatable :: state(:)
   integer :: n_threads
   type(h5md_file_t) :: hfile
+  type(h5md_file_t) :: input_data_file
   type(h5md_element_t) :: dummy_element
   integer(HID_T) :: fields_group, params_group
   integer(HID_T) :: connectivity_group
   integer(HID_T) :: box_group
   integer(HID_T) :: tmp_id
+  integer(HID_T) :: pos_dset
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   double precision :: v_com(3), x(3)
@@ -102,7 +107,7 @@ program single_janus_pbc
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
 
-  type(h5md_element_t) :: q_el, janus_pos_el, janus_vel_el
+  type(h5md_element_t) :: q_el, janus_pos_el, janus_vel_el, u_el
 
   type(histogram_t) :: radial_hist
   type(h5md_element_t) :: radial_hist_el
@@ -118,8 +123,8 @@ program single_janus_pbc
   double precision :: dist, rattle_pos_tolerance, rattle_vel_tolerance
   double precision :: elastic_k
   double precision :: unit_r(3)
-  double precision :: com_pos(3), head_pos(3)
-  integer :: head
+  double precision :: com_pos(3)
+  double precision :: alpha, beta, z0
   type(rigid_body_t) :: rigid_janus
   double precision :: quaternion_treshold
 
@@ -229,10 +234,20 @@ program single_janus_pbc
   call h5gclose_f(params_group, error)
   call PTkill(config)
 
+  call solvent_cells%init(L, 1.d0)
+
   call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
 
   call colloids%init_from_file(data_filename, 'janus', H5MD_FIXED)
-  head = get_head_idx(data_filename)
+
+  call input_data_file%open(data_filename, H5F_ACC_RDONLY_F)
+  call h5oopen_f(input_data_file%particles, 'janus/position', pos_dset, error)
+  call h5md_read_attribute(pos_dset, 'alpha', alpha)
+  call h5md_read_attribute(pos_dset, 'beta', beta)
+  call h5md_read_attribute(pos_dset, 'z0', z0)
+  call h5oclose_f(pos_dset, error)
+  call input_data_file%close()
+
   colloids%image = 0
   colloids%vel = 0
   colloids%force = 0
@@ -291,8 +306,6 @@ program single_janus_pbc
   janus_io%species_info%store = .true.
   janus_io%species_info%mode = H5MD_FIXED
   call janus_io%init(hfile, 'janus', colloids)
-  ! The index in the H5MD file is 0-based.
-  call h5md_write_attribute(janus_io%position%id, 'head', head-1)
 
   solvent_io%force_info%store = .false.
   solvent_io%id_info%store = .false.
@@ -323,14 +336,16 @@ program single_janus_pbc
   solvent% force = 0
   solvent% species = 1
 
-  call solvent_cells%init(L, 1.d0)
-
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, H5MD_LINEAR, step=N_MD_steps, &
        time=N_MD_steps*dt)
 
   call q_el%create_time(hfile%observables, 'q', &
        rigid_janus%q, H5MD_LINEAR, step=1, &
+       time=dt)
+
+  call u_el%create_time(hfile%observables, 'u', &
+       unit_r, H5MD_LINEAR, step=1, &
        time=dt)
 
   call janus_pos_el%create_time(hfile%observables, 'janus_pos', &
@@ -415,8 +430,13 @@ program single_janus_pbc
 
            call rattle_body_pos(colloids, links, links_d, dt, solvent_cells% edges, rattle_pos_tolerance)
 
+           com_pos = modulo(sum((colloids%pos(:,:)+ &
+                colloids%image(:,:)*spread(solvent_cells%edges, dim=2, ncopies=colloids%Nmax) ) &
+                , dim=2)/ colloids%Nmax, solvent_cells%edges)
+
         else if (do_quaternion) then
            call rigid_janus%vv1(colloids, dt, quaternion_treshold, solvent_cells%edges)
+           com_pos = modulo(rigid_janus%pos, solvent_cells%edges)
         end if
 
         so_max = solvent% maximum_displacement()
@@ -476,9 +496,11 @@ program single_janus_pbc
            com_pos = sum((colloids%pos(:,:)+ &
                 colloids%image(:,:)*spread(solvent_cells%edges, dim=2, ncopies=colloids%Nmax) ) &
                 , dim=2)/ colloids%Nmax
-           head_pos = colloids%pos(:,head)+colloids%image(:,head)*solvent_cells%edges
-           unit_r = rel_pos(head_pos, com_pos, solvent_cells%edges)
-           unit_r = unit_r / norm2(unit_r)
+           if (do_rattle .and. (.not. do_quaternion)) then
+              rigid_janus%pos = com_pos
+              rigid_janus%vel = v_com
+           end if
+           unit_r = get_unit_r()
            call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
            call janus_pos_el%append(rigid_janus%pos)
            call janus_vel_el%append(rigid_janus%vel)
@@ -489,6 +511,7 @@ program single_janus_pbc
            call janus_io%velocity%append(colloids%vel)
            call janus_io%image%append(colloids%image)
            call q_el%append(rigid_janus%q)
+           call u_el%append(unit_r)
         end if
 
         call time_flag%tic()
@@ -627,6 +650,7 @@ program single_janus_pbc
   call radial_hist_el%close()
   call n_solvent_el%close()
   call q_el%close()
+  call u_el%close()
   call janus_pos_el%close()
   call janus_vel_el%close()
   call hfile%close()
@@ -706,33 +730,6 @@ contains
     end do
   end subroutine refuel
 
-  !> Get index of the head bead in the Janus particle
-  function get_head_idx(filename) result(head)
-    character(len=*), intent(in) :: filename
-    integer :: head
-
-    integer(HID_T) :: file_id, obj_id, attr_id, space_id
-    integer :: error
-    integer(HSIZE_T) :: dims(1)
-    logical :: is_simple
-
-    call h5fopen_f(filename, H5F_ACC_RDONLY_F, file_id, error)
-    call h5oopen_f(file_id, 'particles/janus/position', obj_id, error)
-    call h5aopen_f(obj_id, 'head', attr_id, error)
-    call h5aget_space_f(attr_id, space_id, error)
-    call h5sis_simple_f(space_id, is_simple, error)
-    if (.not. is_simple) error stop 'head attribute not simple'
-    call h5aread_f(attr_id, H5T_NATIVE_INTEGER, head, dims, error)
-    call h5sclose_f(space_id, error)
-    call h5aclose_f(attr_id, error)
-    call h5oclose_f(obj_id, error)
-    call h5fclose_f(file_id, error)
-
-    ! The index in the H5MD file is 0-based.
-    head = head + 1
-
-  end function get_head_idx
-
   subroutine read_links(filename, n_links, links, links_d)
     character(len=*), intent(in) :: filename
     integer, intent(out) :: n_links
@@ -763,5 +760,17 @@ contains
     close(11)
 
   end subroutine read_links
+
+  function get_unit_r() result(u_r)
+    double precision :: u_r(3)
+    double precision :: r1(3), r2(3), r3(3)
+
+    r1 = rel_pos(colloids%pos(:,1), com_pos, solvent_cells%edges)
+    r2 = rel_pos(colloids%pos(:,2), com_pos, solvent_cells%edges)
+    r3 = rel_pos(colloids%pos(:,3), com_pos, solvent_cells%edges)
+
+    u_r = (r1 + alpha*r2 + beta*r3) / z0
+
+  end function get_unit_r
 
 end program single_janus_pbc
