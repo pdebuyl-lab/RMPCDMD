@@ -41,6 +41,7 @@ module md
      double precision :: L(3)
      double precision :: torque(3)
      double precision :: I_body(3)
+     double precision :: omega_body(3)
    contains
      procedure :: init => rigid_body_init
      procedure :: compute_force_torque => rigid_body_compute_force_torque
@@ -527,14 +528,14 @@ contains
     type(particle_system_t), intent(inout) :: ps
     double precision, intent(in) :: dt
 
-    double precision :: L_body(3), omega(3), omega_body(3)
+    double precision :: L_body(3), omega(3)
     double precision :: pos(3)
     integer :: i
 
     this%L = this%L + this%torque*dt/2
     L_body = qrot(qconj(this%q), this%L)
-    omega_body = L_body/this%I_body
-    omega = qrot(this%q, omega_body)
+    this%omega_body = L_body/this%I_body
+    omega = qrot(this%q, this%omega_body)
 
     this%vel = this%vel + this%force*dt/(2*this%mass)
 
