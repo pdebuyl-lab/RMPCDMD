@@ -128,7 +128,8 @@ contains
              one_r = d/r
              ! compute v_r, v_theta
              out_of_plane = cross(unit_r, one_r)
-             one_theta = cross(one_r, out_of_plane)
+             one_theta = cross(out_of_plane, one_r)
+             one_theta = one_theta/norm2(one_theta)
              solvent_v = solvent%vel(:,idx) - v
              v_r = dot_product(solvent_v, one_r)
              v_th = dot_product(solvent_v, one_theta)
