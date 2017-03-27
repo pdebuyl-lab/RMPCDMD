@@ -107,7 +107,7 @@ program single_janus_pbc
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
 
-  type(h5md_element_t) :: q_el, janus_pos_el, janus_vel_el, u_el
+  type(h5md_element_t) :: q_el, omega_body_el, janus_pos_el, janus_vel_el, u_el
 
   type(histogram_t) :: radial_hist
   type(h5md_element_t) :: radial_hist_el
@@ -130,6 +130,7 @@ program single_janus_pbc
 
   integer, parameter :: block_length = 8
   type(axial_correlator_t) :: axial_cf
+  type(correlator_t) :: omega_cf
   integer(HID_T) :: correlator_group
 
   integer :: equilibration_loops
@@ -340,9 +341,13 @@ program single_janus_pbc
        n_solvent, H5MD_LINEAR, step=N_MD_steps, &
        time=N_MD_steps*dt)
 
-  call q_el%create_time(hfile%observables, 'q', &
-       rigid_janus%q, H5MD_LINEAR, step=1, &
-       time=dt)
+  if (do_quaternion) then
+     call q_el%create_time(hfile%observables, 'q', &
+          rigid_janus%q, H5MD_LINEAR, step=1, time=dt)
+     call omega_body_el%create_time(hfile%observables, 'omega_body', &
+          rigid_janus%omega_body, H5MD_LINEAR, step=1, time=dt)
+     call omega_cf%init(block_length, get_n_blocks(block_length, 8, N_loop), dim=3)
+  end if
 
   call u_el%create_time(hfile%observables, 'u', &
        unit_r, H5MD_LINEAR, step=1, &
@@ -510,8 +515,11 @@ program single_janus_pbc
            call janus_io%position%append(colloids%pos)
            call janus_io%velocity%append(colloids%vel)
            call janus_io%image%append(colloids%image)
-           call q_el%append(rigid_janus%q)
            call u_el%append(unit_r)
+           if (do_quaternion) then
+              call q_el%append(rigid_janus%q)
+              call omega_body_el%append(rigid_janus%omega_body)
+           end if
         end if
 
         call time_flag%tic()
@@ -576,6 +584,9 @@ program single_janus_pbc
         v_com = sum(colloids%vel, dim=2)/colloids%Nmax
         call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
         call varia%tac()
+
+        if (do_quaternion) call omega_cf%add(i-equilibration_loops, correlate_block_dot, xvec=rigid_janus%omega_body)
+
      end if
 
   end do
@@ -588,6 +599,7 @@ program single_janus_pbc
 
   call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
   call axial_cf%write(correlator_group, N_MD_steps, N_MD_steps*dt, 1, dt)
+  call write_correlator_block(correlator_group, 'omega_body_autocorrelation', omega_cf, N_MD_steps, N_MD_steps*dt)
   call h5gclose_f(correlator_group, error)
 
   ! write solvent coordinates for last step
@@ -649,7 +661,10 @@ program single_janus_pbc
   call solvent_io%close()
   call radial_hist_el%close()
   call n_solvent_el%close()
-  call q_el%close()
+  if (do_quaternion) then
+     call q_el%close()
+     call omega_body_el%close()
+  end if
   call u_el%close()
   call janus_pos_el%close()
   call janus_vel_el%close()
