@@ -11,11 +11,11 @@ N_loop = 512
 colloid_sampling = 50
 equilibration_loops = 20
 data_filename = janus_structure.h5
-reaction_radius = 7.4
-link_treshold = 2.5
+reaction_radius = 7.3
+link_treshold = 2.7
 do_read_links = F
 polar_r_max = 10
-bulk_rate = 0.1
+bulk_rate = 0.01
 
 # interaction parameters
 sigma_colloid = 2
