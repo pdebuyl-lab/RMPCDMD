@@ -712,7 +712,7 @@ contains
        if ((solvent%flag(m) == 1) .and. (solvent%md_flag(m) == 0)) then
           dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
           if (dist > reaction_radius) then
-             if (threefry_double(state(thread_id)) < 1) solvent%species(m) = 2
+             if (threefry_double(state(thread_id)) < prob) solvent%species(m) = 2
              solvent%flag(m) = 0
           end if
        end if
