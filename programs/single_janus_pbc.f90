@@ -155,7 +155,7 @@ program single_janus_pbc
   call time_change%init('change')
   call bulk_reac_timer%init('bulk_reac')
 
-  call timer_list%init(20)
+  call timer_list%init(22)
   call timer_list%append(varia)
   call timer_list%append(time_flag)
   call timer_list%append(time_refuel)
@@ -448,10 +448,8 @@ program single_janus_pbc
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
-           call varia%tic()
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
-           call varia%tac()
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells, solvent_colloid_lj)
            call varia%tic()
@@ -531,10 +529,9 @@ program single_janus_pbc
 
      end do md_loop
 
-     call varia%tic()
-
      if (sampling) then
         temperature = compute_temperature(solvent, solvent_cells)
+        call varia%tic()
         kin_e = sum(solvent% vel**2)
         v_com = sum(solvent%vel, dim=2)
         tmp_mass = solvent%Nmax
@@ -548,12 +545,10 @@ program single_janus_pbc
 
         call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com)
         call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
-
+        call varia%tac()
      end if
 
      call solvent_cells%random_shift(state(1))
-
-     call varia%tac()
 
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
@@ -642,10 +637,12 @@ program single_janus_pbc
   call timer_list%append(solvent%time_md_pos)
   call timer_list%append(solvent%time_md_vel)
   call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(solvent%time_apply_pbc)
   call timer_list%append(colloids%time_self_force)
   call timer_list%append(colloids%time_rattle_pos)
   call timer_list%append(colloids%time_rattle_vel)
   call timer_list%append(colloids%time_elastic)
+  call timer_list%append(colloids%time_apply_pbc)
   call timer_list%append(neigh%time_update)
   call timer_list%append(neigh%time_force)
   call timer_list%append(colloids%time_max_disp)
