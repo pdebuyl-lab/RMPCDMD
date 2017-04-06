@@ -84,6 +84,7 @@ program single_janus_pbc
   double precision :: total_time
   type(timer_t), target :: varia, main, time_flag, time_refuel, time_change
   type(timer_t), target :: bulk_reac_timer
+  type(timer_t), target :: q_timer
   type(timer_list_t) :: timer_list
   integer(HID_T) :: timers_group
 
@@ -154,13 +155,15 @@ program single_janus_pbc
   call time_refuel%init('refuel')
   call time_change%init('change')
   call bulk_reac_timer%init('bulk_reac')
+  call q_timer%init('quaternion_vv')
 
-  call timer_list%init(22)
+  call timer_list%init(23)
   call timer_list%append(varia)
   call timer_list%append(time_flag)
   call timer_list%append(time_refuel)
   call timer_list%append(time_change)
   call timer_list%append(bulk_reac_timer)
+  call timer_list%append(q_timer)
 
   call h5open_f(error)
   call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
@@ -440,8 +443,10 @@ program single_janus_pbc
                 , dim=2)/ colloids%Nmax, solvent_cells%edges)
 
         else if (do_quaternion) then
+           call q_timer%tic()
            call rigid_janus%vv1(colloids, dt, quaternion_treshold, solvent_cells%edges)
            com_pos = modulo(rigid_janus%pos, solvent_cells%edges)
+           call q_timer%tac()
         end if
 
         so_max = solvent% maximum_displacement()
@@ -479,8 +484,10 @@ program single_janus_pbc
         call md_vel(solvent, dt)
 
         if (do_quaternion) then
+           call q_timer%tic()
            call rigid_janus%compute_force_torque(colloids)
            call rigid_janus%vv2(colloids, dt)
+           call q_timer%tac()
         else if (do_rattle) then
            call varia%tic()
            do k = 1, colloids%Nmax
