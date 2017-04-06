@@ -532,8 +532,13 @@ program single_janus_pbc
      if (sampling) then
         temperature = compute_temperature(solvent, solvent_cells)
         call varia%tic()
-        kin_e = sum(solvent% vel**2)
-        v_com = sum(solvent%vel, dim=2)
+        kin_e = 0
+        v_com = 0
+        !$omp parallel do private(k) reduction(+:kin_e) reduction(+:v_com)
+        do k = 1, solvent%Nmax
+           kin_e = kin_e + sum(solvent%vel(:,k)**2)
+           v_com = v_com + solvent%vel(:,k)
+        end do
         tmp_mass = solvent%Nmax
         do k = 1, colloids%Nmax
            v_com = v_com + colloids%mass(colloids%species(k)) * colloids%vel(:,k)
