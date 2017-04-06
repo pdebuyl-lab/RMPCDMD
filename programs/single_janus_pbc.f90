@@ -574,6 +574,7 @@ program single_janus_pbc
      call bulk_reac_timer%tac()
 
      if (sampling) then
+        call varia%tic()
         n_solvent = 0
         !$omp parallel do private(k,j) reduction(+:n_solvent)
         do k = 1, solvent%Nmax
@@ -583,7 +584,6 @@ program single_janus_pbc
         end do
         call n_solvent_el%append(n_solvent)
 
-        call varia%tic()
         radial_hist%data = 0
         call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
              solvent_cells%edges, solvent)
