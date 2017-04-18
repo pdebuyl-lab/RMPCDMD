@@ -721,6 +721,10 @@ contains
   subroutine change_species
     integer :: m, thread_id
     double precision :: dist
+    double precision :: j_pos(3), local_l(3)
+
+    j_pos = rigid_janus%pos
+    local_l = solvent_cells%edges
 
     !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
@@ -728,7 +732,7 @@ contains
     change_loop: do m = 1, solvent%Nmax
        if (solvent%species(m) /= 1) cycle change_loop
        if ((solvent%flag(m) == 1) .and. (solvent%md_flag(m) == 0)) then
-          dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
+          dist = norm2(rel_pos(modulo(j_pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
           if (dist > reaction_radius) then
              if (threefry_double(state(thread_id)) < prob) solvent%species(m) = 2
              solvent%flag(m) = 0
