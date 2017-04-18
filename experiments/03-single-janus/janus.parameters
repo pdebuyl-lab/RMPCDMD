@@ -9,6 +9,7 @@ probability = 1
 N_MD = 100
 N_loop = 512
 colloid_sampling = 50
+do_solvent_io = F
 equilibration_loops = 20
 data_filename = janus_structure.h5
 reaction_radius = 7.3
