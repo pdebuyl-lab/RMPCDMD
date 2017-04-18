@@ -19,6 +19,7 @@
 !! \param N_MD                  number MD steps occuring in tau
 !! \param N_loop                number of MPCD timesteps
 !! \param colloid_sampling      interval (in MD steps) of sampling the colloid position and velocity
+!! \param do_solvent_io         if true (T), a snapshot of the solvent in the final step is dump to the datafile
 !! \param equilibration_loops   number of MPCD steps for equilibration
 !! \param epsilon_C             interaction parameter of C sphere with both solvent species (2 elements)
 !! \param epsilon_N             interaction parameter of N sphere with both solvent species (2 elements)
@@ -116,7 +117,7 @@ program single_janus_pbc
   type(polar_fields_t) :: polar
   integer(HID_T) :: polar_id
 
-  logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic, do_quaternion
+  logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic, do_quaternion, do_solvent_io
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
   double precision :: link_treshold
@@ -184,6 +185,7 @@ program single_janus_pbc
   tau = PTread_d(config, 'tau', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
   colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
+  do_solvent_io = PTread_l(config, 'do_solvent_io', loc=params_group)
   if (modulo(N_MD_steps, colloid_sampling) /= 0) then
      error stop 'colloid_sampling must divide N_MD with no remainder'
   end if
@@ -311,25 +313,27 @@ program single_janus_pbc
   janus_io%species_info%mode = H5MD_FIXED
   call janus_io%init(hfile, 'janus', colloids)
 
-  solvent_io%force_info%store = .false.
-  solvent_io%id_info%store = .false.
-  solvent_io%position_info%store = .true.
-  solvent_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%position_info%step = N_loop*N_MD_steps
-  solvent_io%position_info%time = N_loop*N_MD_steps*dt
-  solvent_io%image_info%store = .true.
-  solvent_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%image_info%step = N_loop*N_MD_steps
-  solvent_io%image_info%time = N_loop*N_MD_steps*dt
-  solvent_io%velocity_info%store = .true.
-  solvent_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%velocity_info%step = N_loop*N_MD_steps
-  solvent_io%velocity_info%time = N_loop*N_MD_steps*dt
-  solvent_io%species_info%store = .true.
-  solvent_io%species_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%species_info%step = N_loop*N_MD_steps
-  solvent_io%species_info%time = N_loop*N_MD_steps*dt
-  call solvent_io%init(hfile, 'solvent', solvent)
+  if (do_solvent_io) then
+     solvent_io%force_info%store = .false.
+     solvent_io%id_info%store = .false.
+     solvent_io%position_info%store = .true.
+     solvent_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+     solvent_io%position_info%step = N_loop*N_MD_steps
+     solvent_io%position_info%time = N_loop*N_MD_steps*dt
+     solvent_io%image_info%store = .true.
+     solvent_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+     solvent_io%image_info%step = N_loop*N_MD_steps
+     solvent_io%image_info%time = N_loop*N_MD_steps*dt
+     solvent_io%velocity_info%store = .true.
+     solvent_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+     solvent_io%velocity_info%step = N_loop*N_MD_steps
+     solvent_io%velocity_info%time = N_loop*N_MD_steps*dt
+     solvent_io%species_info%store = .true.
+     solvent_io%species_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+     solvent_io%species_info%step = N_loop*N_MD_steps
+     solvent_io%species_info%time = N_loop*N_MD_steps*dt
+     call solvent_io%init(hfile, 'solvent', solvent)
+  end if
 
   do k = 1, solvent%Nmax
      solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
@@ -369,10 +373,12 @@ program single_janus_pbc
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
 
-  call h5gcreate_f(solvent_io%group, 'box', box_group, error)
-  call h5md_write_attribute(box_group, 'dimension', 3)
-  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
-  call h5gclose_f(box_group, error)
+  if (do_solvent_io) then
+     call h5gcreate_f(solvent_io%group, 'box', box_group, error)
+     call h5md_write_attribute(box_group, 'dimension', 3)
+     call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
+     call h5gclose_f(box_group, error)
+  end if
 
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
   call radial_hist%init(0.d0, 5*sigma, 100, 2)
@@ -613,10 +619,13 @@ program single_janus_pbc
   ! write solvent coordinates for last step
 
   call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com, add=.false., force=.true.)
-  call solvent_io%position%append(solvent%pos)
-  call solvent_io%velocity%append(solvent%vel)
-  call solvent_io%image%append(solvent%image)
-  call solvent_io%species%append(solvent%species)
+  if (do_solvent_io) then
+     call solvent_io%position%append(solvent%pos)
+     call solvent_io%velocity%append(solvent%vel)
+     call solvent_io%image%append(solvent%image)
+     call solvent_io%species%append(solvent%species)
+     call solvent_io%close()
+  end if
 
   ! store polar fields
 
@@ -668,7 +677,6 @@ program single_janus_pbc
 
   call h5gclose_f(fields_group, error)
   call janus_io%close()
-  call solvent_io%close()
   call radial_hist_el%close()
   call n_solvent_el%close()
   if (do_quaternion) then
