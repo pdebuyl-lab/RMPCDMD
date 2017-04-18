@@ -84,6 +84,7 @@ program single_janus_pbc
 
   double precision :: total_time
   type(timer_t), target :: varia, main, time_flag, time_refuel, time_change
+  type(timer_t), target :: so_timer
   type(timer_t), target :: bulk_reac_timer
   type(timer_t), target :: q_timer
   type(timer_list_t) :: timer_list
@@ -152,14 +153,16 @@ program single_janus_pbc
 
   call main%init('main')
   call varia%init('varia')
+  call so_timer%init('so_timer')
   call time_flag%init('flag')
   call time_refuel%init('refuel')
   call time_change%init('change')
   call bulk_reac_timer%init('bulk_reac')
   call q_timer%init('quaternion_vv')
 
-  call timer_list%init(23)
+  call timer_list%init(24)
   call timer_list%append(varia)
+  call timer_list%append(so_timer)
   call timer_list%append(time_flag)
   call timer_list%append(time_refuel)
   call timer_list%append(time_change)
@@ -463,11 +466,13 @@ program single_janus_pbc
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells, solvent_colloid_lj)
-           call varia%tic()
+           call so_timer%tic()
            !$omp parallel do
            do k = 1, solvent%Nmax
               solvent% pos_old(:,k) = solvent% pos(:,k)
            end do
+           call so_timer%tac()
+           call varia%tic()
            colloids% pos_old = colloids% pos
            n_extra_sorting = n_extra_sorting + 1
            call varia%tac()
@@ -476,13 +481,16 @@ program single_janus_pbc
         call varia%tic()
         call switch(solvent% force, solvent% force_old)
         call switch(colloids% force, colloids% force_old)
+        call varia%tac()
 
+        call so_timer%tic()
         !$omp parallel do
         do k = 1, solvent%Nmax
            solvent% force(:,k) = 0
         end do
+        call so_timer%tac()
         colloids% force = 0
-        call varia%tac()
+
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         if (do_lennard_jones) e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (do_elastic) e3 = elastic_network(colloids, links, links_d, elastic_k, solvent_cells%edges)
@@ -544,14 +552,16 @@ program single_janus_pbc
 
      if (sampling) then
         temperature = compute_temperature(solvent, solvent_cells)
-        call varia%tic()
         kin_e = 0
         v_com = 0
+        call so_timer%tic()
         !$omp parallel do private(k) reduction(+:kin_e) reduction(+:v_com)
         do k = 1, solvent%Nmax
            kin_e = kin_e + sum(solvent%vel(:,k)**2)
            v_com = v_com + solvent%vel(:,k)
         end do
+        call so_timer%tac()
+        call varia%tic()
         tmp_mass = solvent%Nmax
         do k = 1, colloids%Nmax
            v_com = v_com + colloids%mass(colloids%species(k)) * colloids%vel(:,k)
