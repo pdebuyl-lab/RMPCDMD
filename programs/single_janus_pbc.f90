@@ -583,7 +583,7 @@ program single_janus_pbc
      call bulk_reac_timer%tac()
 
      if (sampling) then
-        call varia%tic()
+        call so_timer%tic()
         n_solvent = 0
         !$omp parallel do private(k,j) reduction(+:n_solvent)
         do k = 1, solvent%Nmax
@@ -591,8 +591,10 @@ program single_janus_pbc
            if (j <= 0) cycle
            n_solvent(j) = n_solvent(j) + 1
         end do
+        call so_timer%tac()
         call n_solvent_el%append(n_solvent)
 
+        call varia%tic()
         v_com = sum(colloids%vel, dim=2)/colloids%Nmax
         call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
         call varia%tac()
