@@ -112,8 +112,6 @@ program single_janus_pbc
 
   type(h5md_element_t) :: q_el, omega_body_el, janus_pos_el, janus_vel_el, u_el
 
-  type(histogram_t) :: radial_hist
-  type(h5md_element_t) :: radial_hist_el
   double precision :: polar_r_max
   type(polar_fields_t) :: polar
   integer(HID_T) :: polar_id
@@ -384,11 +382,6 @@ program single_janus_pbc
   end if
 
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
-  call radial_hist%init(0.d0, 5*sigma, 100, 2)
-  call radial_hist_el%create_time(fields_group, 'radial_histogram', radial_hist%data, &
-       H5MD_LINEAR, step=N_MD_steps, time=N_MD_steps*dt)
-  call h5md_write_attribute(radial_hist_el%id, 'xmin', radial_hist%xmin)
-  call h5md_write_attribute(radial_hist_el%id, 'dx', radial_hist%dx)
 
   call h5gcreate_f(hfile%id, 'connectivity', connectivity_group, error)
   call h5md_write_dataset(connectivity_group, 'janus_links', links-1)
@@ -600,11 +593,6 @@ program single_janus_pbc
         end do
         call n_solvent_el%append(n_solvent)
 
-        radial_hist%data = 0
-        call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
-             solvent_cells%edges, solvent)
-        call radial_hist_el%append(radial_hist%data)
-
         v_com = sum(colloids%vel, dim=2)/colloids%Nmax
         call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
         call varia%tac()
@@ -687,7 +675,6 @@ program single_janus_pbc
 
   call h5gclose_f(fields_group, error)
   call janus_io%close()
-  call radial_hist_el%close()
   call n_solvent_el%close()
   if (do_quaternion) then
      call q_el%close()
