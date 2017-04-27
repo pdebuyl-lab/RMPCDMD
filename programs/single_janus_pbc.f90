@@ -796,12 +796,16 @@ contains
   function get_unit_r() result(u_r)
     double precision :: u_r(3)
     double precision :: r1(3), r2(3), r3(3)
+    double precision, parameter :: one_z(3) = [0.d0, 0.d0, 1.d0]
 
-    r1 = rel_pos(colloids%pos(:,1), com_pos, solvent_cells%edges)
-    r2 = rel_pos(colloids%pos(:,2), com_pos, solvent_cells%edges)
-    r3 = rel_pos(colloids%pos(:,3), com_pos, solvent_cells%edges)
-
-    u_r = (r1 + alpha*r2 + beta*r3) / z0
+    if (do_quaternion) then
+       u_r = qrot(rigid_janus%q, one_z)
+    else
+       r1 = rel_pos(colloids%pos(:,1), com_pos, solvent_cells%edges)
+       r2 = rel_pos(colloids%pos(:,2), com_pos, solvent_cells%edges)
+       r3 = rel_pos(colloids%pos(:,3), com_pos, solvent_cells%edges)
+       u_r = (r1 + alpha*r2 + beta*r3) / z0
+    end if
 
   end function get_unit_r
 
