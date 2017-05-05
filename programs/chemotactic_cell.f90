@@ -313,27 +313,27 @@ program chemotactic_cell
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
   if (store_rho_xy) then
      call rho_xy_el%create_time(fields_group, 'rho_xy', rho_xy, ior(H5MD_LINEAR,H5MD_STORE_TIME), &
-          step=N_MD_steps, time=N_MD_steps*dt, offset_by_one=.true.)
+          step=N_MD_steps, time=N_MD_steps*dt)
      call h5md_write_attribute(rho_xy_el%id, 'zmin', store_rho_xy_z(1))
      call h5md_write_attribute(rho_xy_el%id, 'zmax', store_rho_xy_z(2))
   end if
-  call elem_vx% create_time(fields_group, 'vx', vx% data, ior(H5MD_TIME, H5MD_STORE_TIME), offset_by_one=.true.)
-  call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME), offset_by_one=.true.)
+  call elem_vx% create_time(fields_group, 'vx', vx% data, ior(H5MD_TIME, H5MD_STORE_TIME))
+  call elem_vx_count% create_time(fields_group, 'vx_count', vx% count, ior(H5MD_TIME, H5MD_STORE_TIME))
 
   call h5gclose_f(fields_group, error)
 
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt, offset_by_one=.true.)
+       time=N_MD_steps*dt)
   call catalytic_change_el%create_time(hfile%observables, 'catalytic_change', &
        catalytic_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt, offset_by_one=.true.)
+       time=N_MD_steps*dt)
   call bulk_change_el%create_time(hfile%observables, 'bulk_change', &
        bulk_change, ior(H5MD_LINEAR,H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt, offset_by_one=.true.)
+       time=N_MD_steps*dt)
   call omega_el%create_time(hfile%observables, 'omega', &
        omega(3), ior(H5MD_LINEAR,H5MD_STORE_TIME), step=colloid_sampling, &
-       time=colloid_sampling*dt, offset_by_one=.true.)
+       time=colloid_sampling*dt)
 
   if (dimer) then
      colloids% pos(3,:) = solvent_cells% edges(3)/2.d0
