@@ -462,7 +462,7 @@ contains
 
     double precision :: L(3), L_body(3), L_body_dot(3), omega_body(3), q(4), q_old(4), q_dot(4), torque_body(3)
     double precision :: I_inv(3)
-    double precision :: old_pos(3)
+    double precision :: old_pos(3), delta_pos(3)
 
     integer :: i, j
 
@@ -506,13 +506,8 @@ contains
     do i = this%i_start, this%i_stop
        old_pos = ps%pos(:,i)
        ps%pos(:,i) = this%pos + qrot(this%q, this%pos_body(:,i))
-       do j = 1, 3
-          if (ps%pos(j,i) - old_pos(j) > edges(j)/2) then
-             ps%pos(j,i) = ps%pos(j,i) - edges(j)
-          else if (ps%pos(j,i) - old_pos(j) < -edges(j)/2) then
-             ps%pos(j,i) = ps%pos(j,i) + edges(j)
-          end if
-       end do
+       delta_pos = ps%pos(:,i) - old_pos + edges/2
+       ps%pos(:,i) = ps%pos(:,i) - floor(delta_pos / edges)*edges
     end do
 
     this%L = this%L + this%torque*dt/2
