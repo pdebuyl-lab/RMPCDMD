@@ -3,6 +3,7 @@ T = .333333333
 L = 32 32 32
 rho = 9
 tau = 1.0
+alpha = 1.57079632679
 probability = 1
 
 # simulation parameters

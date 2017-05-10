@@ -14,6 +14,7 @@
 !! \param rho                   fluid number density
 !! \param T                     Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
 !! \param tau                   MPCD collision time
+!! \param alpha                 angle of collision
 !! \param probability           probability to change A to B upon collision
 !! \param bulk_rate             rate of B->A reaction
 !! \param N_MD                  number MD steps occuring in tau
@@ -71,6 +72,7 @@ program single_janus_pbc
 
   double precision :: e1, e2, e3
   double precision :: tau, dt , T
+  double precision :: mpcd_alpha
   double precision :: prob, reaction_radius
   double precision :: bulk_rate
   double precision :: skin, co_max, so_max
@@ -184,6 +186,7 @@ program single_janus_pbc
   T = PTread_d(config, 'T', loc=params_group)
   
   tau = PTread_d(config, 'tau', loc=params_group)
+  mpcd_alpha = PTread_d(config,'alpha', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
   colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
   do_solvent_io = PTread_l(config, 'do_solvent_io', loc=params_group)
@@ -576,7 +579,7 @@ program single_janus_pbc
      call solvent% sort(solvent_cells)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
-     call simple_mpcd_step(solvent, solvent_cells, state)
+     call simple_mpcd_step(solvent, solvent_cells, state, alpha=mpcd_alpha)
 
      call bulk_reac_timer%tic()
      call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
