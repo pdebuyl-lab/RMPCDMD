@@ -12,6 +12,7 @@
 
 module md
   use particle_system
+  use cell_system
   use interaction
   use common
   use quaternion
@@ -28,6 +29,7 @@ module md
   public :: lj93_zwall
   public :: elastic_network
   public :: rigid_body_t
+  public :: cell_md_pos, cell_md_vel
 
   type rigid_body_t
      integer :: i_start
@@ -69,6 +71,31 @@ contains
 
   end subroutine md_pos
 
+  subroutine cell_md_pos(cells, particles, dt, md_flag)
+    type(cell_system_t), intent(inout) :: cells
+    type(particle_system_t), intent(inout) :: particles
+    double precision, intent(in) :: dt
+    logical, intent(in) :: md_flag
+
+    double precision :: dt_sq
+    integer :: i, j
+
+    dt_sq = dt**2/2
+
+    call particles%time_md_pos%tic()
+    !$omp parallel do private(i, j)
+    do i = 1, cells%N
+       if (cells%is_md(i) .eqv. md_flag) then
+          do j = cells%cell_start(i), cells%cell_start(i) + cells%cell_count(i) - 1
+             particles% pos(:,j) = particles% pos(:,j) + dt * particles% vel(:,j) + dt_sq * particles% force(:,j)
+          end do
+       end if
+    end do
+
+    call particles%time_md_pos%tac()
+
+  end subroutine cell_md_pos
+
   subroutine apply_pbc(particles, edges)
     type(particle_system_t), intent(inout) :: particles
     double precision, intent(in) :: edges(3)
@@ -105,6 +132,32 @@ contains
     call particles%time_md_vel%tac()
 
   end subroutine md_vel
+
+  subroutine cell_md_vel(cells, particles, dt, md_flag)
+    type(cell_system_t), intent(in) :: cells
+    type(particle_system_t), intent(inout) :: particles
+    double precision, intent(in) :: dt
+    logical, intent(in) :: md_flag
+
+    integer :: i, j
+
+    call particles%time_md_vel%tic()
+    !$omp parallel do private(i, j)
+    do i = 1, cells%N
+       if (cells%is_md(i) .eqv. md_flag) then
+          do j = cells%cell_start(i), cells%cell_start(i) + cells%cell_count(i) - 1
+             if (particles%wall_flag(j)==0) then
+                particles% vel(:,j) = particles% vel(:,j) + &
+                     dt * ( particles% force(:,j) + particles% force_old(:,j) ) / 2
+             else
+                particles%wall_flag(j) = 0
+             end if
+          end do
+       end if
+    end do
+    call particles%time_md_vel%tac()
+
+  end subroutine cell_md_vel
 
   subroutine rattle_dimer_pos(p, d, dt,edges)
     type(particle_system_t), intent(inout) :: p

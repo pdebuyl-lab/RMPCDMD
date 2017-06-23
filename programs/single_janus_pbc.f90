@@ -78,6 +78,7 @@ program single_janus_pbc
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
+  double precision :: loop_i_last_sort
 
   type(PTo) :: config
 
@@ -402,6 +403,7 @@ program single_janus_pbc
 
   skin = 1.5
   n_extra_sorting = 0
+  loop_i_last_sort = 0
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
 
@@ -429,7 +431,7 @@ program single_janus_pbc
      if (i==equilibration_loops) sampling = .true.
      if (modulo(i,32) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
-        call md_pos(solvent, dt)
+        call cell_md_pos(solvent_cells, solvent, dt, md_flag=.true.)
 
         if (do_rattle) then
            call varia%tic()
@@ -458,9 +460,12 @@ program single_janus_pbc
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1d0) .or. (so_max >= skin*0.9d0) ) then
+           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           call cell_md_vel(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
+           loop_i_last_sort = N_MD_steps*i + j
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells, solvent_colloid_lj)
            call so_timer%tic()
            !$omp parallel do
@@ -491,7 +496,7 @@ program single_janus_pbc
         if (do_lennard_jones) e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (do_elastic) e3 = elastic_network(colloids, links, links_d, elastic_k, solvent_cells%edges)
 
-        call md_vel(solvent, dt)
+        call cell_md_vel(solvent_cells, solvent, dt, md_flag=.true.)
 
         if (do_quaternion) then
            call q_timer%tic()
@@ -574,9 +579,13 @@ program single_janus_pbc
 
      call solvent_cells%random_shift(state(1))
 
+     call cell_md_pos(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+     call cell_md_vel(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
+     loop_i_last_sort = N_MD_steps*i + j
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
      call simple_mpcd_step(solvent, solvent_cells, state, alpha=mpcd_alpha)
