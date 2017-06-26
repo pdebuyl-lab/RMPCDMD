@@ -456,7 +456,7 @@ program single_janus_pbc
            call q_timer%tac()
         end if
 
-        so_max = solvent% maximum_displacement()
+        so_max = cell_maximum_displacement(solvent_cells, solvent, delta_t=dt*(N_MD_steps*i+j - loop_i_last_sort))
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1d0) .or. (so_max >= skin*0.9d0) ) then
@@ -472,6 +472,7 @@ program single_janus_pbc
            do k = 1, solvent%Nmax
               solvent% pos_old(:,k) = solvent% pos(:,k)
            end do
+           call compute_cell_wise_max_v
            call so_timer%tac()
            call varia%tic()
            colloids% pos_old = colloids% pos
@@ -585,10 +586,16 @@ program single_janus_pbc
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
-     loop_i_last_sort = N_MD_steps*i + j
+     loop_i_last_sort = N_MD_steps*(i+1)
      call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
+     !$omp parallel do
+     do k = 1, solvent%Nmax
+        solvent% pos_old(:,k) = solvent% pos(:,k)
+     end do
+     colloids% pos_old = colloids% pos
 
      call simple_mpcd_step(solvent, solvent_cells, state, alpha=mpcd_alpha)
+     call compute_cell_wise_max_v
 
      call bulk_reac_timer%tic()
      call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
@@ -820,5 +827,21 @@ contains
     end if
 
   end function get_unit_r
+
+  subroutine compute_cell_wise_max_v
+    integer :: i, j
+    double precision :: local_max_v
+
+    !$omp parallel do private(i, j, local_max_v)
+    do i = 1, solvent_cells%N
+       local_max_v = 0
+       do j = solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
+          local_max_v = max(local_max_v, norm2(solvent%vel(:,j)))
+       end do
+       solvent_cells%max_v(i) = local_max_v
+    end do
+    write(31,*) solvent_cells%max_v
+
+  end subroutine compute_cell_wise_max_v
 
 end program single_janus_pbc

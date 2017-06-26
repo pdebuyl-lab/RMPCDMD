@@ -16,6 +16,7 @@ module particle_system
   public :: particle_system_t
   public :: compute_cylindrical_shell_histogram
   public :: compute_radial_histogram
+  public :: cell_maximum_displacement
 
   type particle_system_t
      integer :: Nmax
@@ -394,9 +395,7 @@ contains
     do i = 1, this% Nmax
        if (this% species(i) >= 0) then
           r_sq = sum((this%pos(:, i)-this%pos_old(:, i))**2)
-          if (r_sq > rmax_sq) then
-             rmax_sq = r_sq
-          end if
+          rmax_sq = max(rmax_sq, r_sq)
        end if
     end do
     call this%time_max_disp%tac()
@@ -404,6 +403,41 @@ contains
     r = sqrt(rmax_sq)
 
   end function maximum_displacement
+
+  function cell_maximum_displacement(cells, p, delta_t) result(r)
+    use cell_system
+    implicit none
+    class(cell_system_t), intent(in) :: cells
+    class(particle_system_t), intent(in) :: p
+    double precision, intent(in) :: delta_t
+    double precision :: r
+
+    integer :: i, j
+    double precision :: r_sq, rmax_sq, local_rmax_sq
+
+    rmax_sq = 0
+
+    !$omp parallel do private(i, j, r_sq) reduction(MAX:rmax_sq)
+    do i = 1, cells%N
+       local_rmax_sq = 0
+       if (cells%is_md(i)) then
+          do j = cells%cell_start(i), cells%cell_start(i) + cells%cell_count(i) - 1
+             if (p% species(j) >= 0) then
+                r_sq = sum((p%pos(:, j)-p%pos_old(:, j))**2)
+                if (r_sq > local_rmax_sq) then
+                   local_rmax_sq = r_sq
+                end if
+             end if
+          end do
+       else
+          local_rmax_sq = (cells%max_v(i)*delta_t)**2
+       end if
+       rmax_sq = max(rmax_sq, local_rmax_sq)
+    end do
+
+    r = sqrt(rmax_sq)
+
+  end function cell_maximum_displacement
 
   subroutine compute_cylindrical_shell_histogram(hist, x1, x2, L, bin_species, r_min, r_max, solvent)
     type(histogram_t), intent(inout) :: hist

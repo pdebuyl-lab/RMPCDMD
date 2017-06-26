@@ -28,6 +28,7 @@ module cell_system
      integer, allocatable :: cell_start(:)
      logical, allocatable :: is_md(:)
      logical, allocatable :: is_reac(:)
+     double precision, allocatable :: max_v(:)
      integer :: M(3)
      integer :: bc(3)
      logical :: has_walls
@@ -78,6 +79,7 @@ contains
     allocate(this%cell_start(this%N))
     allocate(this%is_md(this%N))
     allocate(this%is_reac(this%N))
+    allocate(this%max_v(this%N))
 
   end subroutine init
 
