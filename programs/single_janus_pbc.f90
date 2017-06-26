@@ -840,7 +840,6 @@ contains
        end do
        solvent_cells%max_v(i) = local_max_v
     end do
-    write(31,*) solvent_cells%max_v
 
   end subroutine compute_cell_wise_max_v
 
