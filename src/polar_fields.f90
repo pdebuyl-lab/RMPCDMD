@@ -47,6 +47,7 @@ module polar_fields
      double precision :: r_max
      double precision :: dr
      double precision :: dtheta
+     type(timer_t), pointer :: time_polar_update
    contains
      procedure :: init
      procedure :: update
@@ -76,6 +77,9 @@ contains
     this%dr = (r_max - r_min) / N_r
     this%dtheta = pi/N_theta
 
+    allocate(this%time_polar_update)
+    call this%time_polar_update%init('polar_update')
+
   end subroutine init
 
   !> Update the fields
@@ -103,6 +107,7 @@ contains
     dtheta = this%dtheta
     L = cells%edges
 
+    call this%time_polar_update%tic()
     !$omp parallel do &
     !$omp private(cell_idx, idx, start, n, s2, d, r_sq, r, i_r, theta, i_th, one_r, &
     !$omp out_of_plane, one_theta, solvent_v, v_th)
@@ -142,6 +147,7 @@ contains
           end if
        end do
     end do
+    call this%time_polar_update%tac()
 
   end subroutine update
 

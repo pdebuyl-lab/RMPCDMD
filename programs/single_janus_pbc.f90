@@ -161,7 +161,7 @@ program single_janus_pbc
   call bulk_reac_timer%init('bulk_reac')
   call q_timer%init('quaternion_vv')
 
-  call timer_list%init(24)
+  call timer_list%init(25)
   call timer_list%append(varia)
   call timer_list%append(so_timer)
   call timer_list%append(time_flag)
@@ -399,6 +399,7 @@ program single_janus_pbc
   call solvent% sort(solvent_cells)
 
   call polar%init(N_species, 64, sigma, polar_r_max, 64)
+  call timer_list%append(polar%time_polar_update)
   call neigh% init(colloids% Nmax, int(500*max(sigma,1.d0)**3))
 
   skin = 1.5
@@ -615,8 +616,8 @@ program single_janus_pbc
 
         call varia%tic()
         v_com = sum(colloids%vel, dim=2)/colloids%Nmax
-        call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
         call varia%tac()
+        call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
 
         if (do_quaternion) call omega_cf%add(i-equilibration_loops, correlate_block_dot, xvec=rigid_janus%omega_body)
 
