@@ -110,7 +110,7 @@ contains
     call this%time_polar_update%tic()
     !$omp parallel do &
     !$omp private(cell_idx, idx, start, n, s2, d, r_sq, r, i_r, theta, i_th, one_r, &
-    !$omp out_of_plane, one_theta, solvent_v, v_th)
+    !$omp out_of_plane, one_theta, solvent_v, v_th, v_r)
     do cell_idx = 1, cells%N
 
        ! TODO: check if minimum distance from x to cell corners is below r_max
@@ -129,6 +129,7 @@ contains
              i_r = floor((r-r_min)/dr) + 1
              theta = acos( dot_product(unit_r,d)/r )
              i_th = floor(theta/dtheta) + 1
+             !$omp atomic
              this%c(s2, i_th, i_r) = this%c(s2, i_th, i_r) + 1
              one_r = d/r
              ! compute v_r, v_theta
