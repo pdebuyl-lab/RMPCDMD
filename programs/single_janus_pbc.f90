@@ -833,14 +833,15 @@ contains
     integer :: i, j
     double precision :: local_max_v
 
-    !$omp parallel do private(i, j, local_max_v)
+    local_max_v = 0
+    !$omp parallel do private(i, j) reduction(max:local_max_v)
     do i = 1, solvent_cells%N
        local_max_v = 0
        do j = solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
           local_max_v = max(local_max_v, norm2(solvent%vel(:,j)))
        end do
-       solvent_cells%max_v(i) = local_max_v
     end do
+    solvent_cells%max_v = local_max_v
 
   end subroutine compute_cell_wise_max_v
 
