@@ -97,7 +97,12 @@ contains
     double precision, dimension(3) :: solvent_v
     integer :: idx, s2, i_r, i_th
 
+    double precision, allocatable :: this_c(:,:,:)
+    integer, allocatable :: this_count(:,:,:)
+    double precision, allocatable :: this_v(:,:,:,:)
+
     integer :: cell_idx, start, n
+    integer :: n_species, n_theta, n_r
 
     r_min = this%r_min
     r_min_sq = r_min**2
@@ -107,10 +112,22 @@ contains
     dtheta = this%dtheta
     L = cells%edges
 
+    n_species = size(this%c, dim=1)
+    n_theta = size(this%c, dim=2)
+    n_r = size(this%c, dim=3)
+
+    allocate(this_c, mold=this%c)
+    allocate(this_v, mold=this%v)
+    allocate(this_count, mold=this%count)
+    this_c = 0
+    this_v = 0
+    this_count = 0
+
     call this%time_polar_update%tic()
     !$omp parallel do &
     !$omp private(cell_idx, idx, start, n, s2, d, r_sq, r, i_r, theta, i_th, one_r, &
-    !$omp out_of_plane, one_theta, solvent_v, v_th, v_r)
+    !$omp out_of_plane, one_theta, solvent_v, v_th, v_r) &
+    !$omp reduction(+:this_v) reduction(+:this_c) reduction(+:this_count)
     do cell_idx = 1, cells%N
 
        ! TODO: check if minimum distance from x to cell corners is below r_max
@@ -129,8 +146,7 @@ contains
              i_r = floor((r-r_min)/dr) + 1
              theta = acos( dot_product(unit_r,d)/r )
              i_th = floor(theta/dtheta) + 1
-             !$omp atomic
-             this%c(s2, i_th, i_r) = this%c(s2, i_th, i_r) + 1
+             this_c(s2, i_th, i_r) = this_c(s2, i_th, i_r) + 1
              one_r = d/r
              ! compute v_r, v_theta
              out_of_plane = cross(unit_r, one_r)
@@ -139,15 +155,20 @@ contains
              solvent_v = solvent%vel(:,idx) - v
              v_r = dot_product(solvent_v, one_r)
              v_th = dot_product(solvent_v, one_theta)
-             !$omp atomic
-             this%v(1, s2, i_th, i_r) = this%v(1, s2, i_th, i_r) + v_r
-             !$omp atomic
-             this%v(2, s2, i_th, i_r) = this%v(1, s2, i_th, i_r) + v_th
-             !$omp atomic
-             this%count(s2, i_th, i_r) = this%count(s2, i_th, i_r) + 1
+             this_v(:, s2, i_th, i_r) = this_v(:, s2, i_th, i_r) + [v_r, v_th]
+             this_count(s2, i_th, i_r) = this_count(s2, i_th, i_r) + 1
           end if
        end do
     end do
+
+    this%v = this%v + this_v
+    this%c = this%c + this_c
+    this%count = this%count + this_count
+
+    deallocate(this_c)
+    deallocate(this_v)
+    deallocate(this_count)
+
     call this%time_polar_update%tac()
 
   end subroutine update
