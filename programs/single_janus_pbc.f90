@@ -304,16 +304,16 @@ program single_janus_pbc
   janus_io%id_info%store = .false.
   janus_io%position_info%store = .true.
   janus_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%position_info%step = colloid_sampling
-  janus_io%position_info%time = colloid_sampling*dt
+  janus_io%position_info%step = N_MD_steps
+  janus_io%position_info%time = N_MD_steps*dt
   janus_io%image_info%store = .true.
   janus_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%image_info%step = colloid_sampling
-  janus_io%image_info%time = colloid_sampling*dt
+  janus_io%image_info%step = N_MD_steps
+  janus_io%image_info%time = N_MD_steps*dt
   janus_io%velocity_info%store = .true.
   janus_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%velocity_info%step = colloid_sampling
-  janus_io%velocity_info%time = colloid_sampling*dt
+  janus_io%velocity_info%step = N_MD_steps
+  janus_io%velocity_info%time = N_MD_steps*dt
   janus_io%species_info%store = .true.
   janus_io%species_info%mode = H5MD_FIXED
   call janus_io%init(hfile, 'janus', colloids)
@@ -355,23 +355,23 @@ program single_janus_pbc
 
   if (do_quaternion) then
      call q_el%create_time(hfile%observables, 'q', &
-          rigid_janus%q, H5MD_LINEAR, step=1, time=dt)
+          rigid_janus%q, H5MD_LINEAR, step=colloid_sampling, time=colloid_sampling*dt)
      call omega_body_el%create_time(hfile%observables, 'omega_body', &
-          rigid_janus%omega_body, H5MD_LINEAR, step=1, time=dt)
+          rigid_janus%omega_body, H5MD_LINEAR, step=colloid_sampling, time=colloid_sampling*dt)
      call omega_cf%init(block_length, get_n_blocks(block_length, 8, N_loop), dim=3)
   end if
 
   call u_el%create_time(hfile%observables, 'u', &
-       unit_r, H5MD_LINEAR, step=1, &
-       time=dt)
+       unit_r, H5MD_LINEAR, step=colloid_sampling, &
+       time=colloid_sampling*dt)
 
   call janus_pos_el%create_time(hfile%observables, 'janus_pos', &
-       rigid_janus%pos, H5MD_LINEAR, step=1, &
-       time=dt)
+       rigid_janus%pos, H5MD_LINEAR, step=colloid_sampling, &
+       time=colloid_sampling*dt)
 
   call janus_vel_el%create_time(hfile%observables, 'janus_vel', &
-       rigid_janus%vel, H5MD_LINEAR, step=1, &
-       time=dt)
+       rigid_janus%vel, H5MD_LINEAR, step=colloid_sampling, &
+       time=colloid_sampling*dt)
 
   call h5gcreate_f(janus_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
@@ -529,15 +529,12 @@ program single_janus_pbc
            end if
            unit_r = get_unit_r()
            call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
-           call janus_pos_el%append(rigid_janus%pos)
-           call janus_vel_el%append(rigid_janus%vel)
         end if
 
         if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
-           call janus_io%position%append(colloids%pos)
-           call janus_io%velocity%append(colloids%vel)
-           call janus_io%image%append(colloids%image)
            call u_el%append(unit_r)
+           call janus_pos_el%append(rigid_janus%pos)
+           call janus_vel_el%append(rigid_janus%vel)
            if (do_quaternion) then
               call q_el%append(rigid_janus%q)
               call omega_body_el%append(rigid_janus%omega_body)
@@ -621,7 +618,10 @@ program single_janus_pbc
 
         if (do_quaternion) call omega_cf%add(i-equilibration_loops, correlate_block_dot, xvec=rigid_janus%omega_body)
 
-     end if
+        call janus_io%position%append(colloids%pos)
+        call janus_io%velocity%append(colloids%vel)
+        call janus_io%image%append(colloids%image)
+    end if
 
   end do
   call main%tac()
