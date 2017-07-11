@@ -3,7 +3,7 @@ set -x
 
 HDF5_NAME=hdf5-1.8.17
 HDF5_TARBALL=${HDF5_NAME}.tar.gz
-HDF5_SRC_URL=https://www.hdfgroup.org/ftp/HDF5/releases/${HDF5_NAME}/src/${HDF5_TARBALL}
+HDF5_SRC_URL=https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.8/${HDF5_NAME}/src/${HDF5_TARBALL}
 HDF5_SRC_MD5SUM=7d572f8f3b798a628b8245af0391a0ca
 BASEPATH="$(pwd)"
 if [ -z "${TMPDIR}" ] ; then
