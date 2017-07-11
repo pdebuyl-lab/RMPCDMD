@@ -40,7 +40,6 @@ module polar_fields
   public :: polar_fields_t
 
   type polar_fields_t
-     double precision, allocatable :: c(:,:,:)
      integer, allocatable :: count(:,:,:)
      double precision, allocatable :: v(:,:,:,:)
      double precision :: r_min
@@ -64,11 +63,9 @@ contains
     double precision, intent(in) :: r_max
     integer, intent(in) :: N_theta
 
-    allocate(this%c(N_species, N_theta, N_r))
     allocate(this%count(N_species, N_theta, N_r))
     allocate(this%v(2, N_species, N_theta, N_r))
 
-    this%c = 0
     this%count = 0
     this%v = 0
 
@@ -97,7 +94,6 @@ contains
     double precision, dimension(3) :: solvent_v
     integer :: idx, s2, i_r, i_th
 
-    double precision, allocatable :: this_c(:,:,:)
     integer, allocatable :: this_count(:,:,:)
     double precision, allocatable :: this_v(:,:,:,:)
 
@@ -112,14 +108,12 @@ contains
     dtheta = this%dtheta
     L = cells%edges
 
-    n_species = size(this%c, dim=1)
-    n_theta = size(this%c, dim=2)
-    n_r = size(this%c, dim=3)
+    n_species = size(this%count, dim=1)
+    n_theta = size(this%count, dim=2)
+    n_r = size(this%count, dim=3)
 
-    allocate(this_c, mold=this%c)
-    allocate(this_v, mold=this%v)
-    allocate(this_count, mold=this%count)
-    this_c = 0
+    allocate(this_v(2, n_species, n_theta, n_r))
+    allocate(this_count(n_species, n_theta, n_r))
     this_v = 0
     this_count = 0
 
@@ -127,7 +121,7 @@ contains
     !$omp parallel do &
     !$omp private(cell_idx, idx, start, n, s2, d, r_sq, r, i_r, theta, i_th, one_r, &
     !$omp out_of_plane, one_theta, solvent_v, v_th, v_r) &
-    !$omp reduction(+:this_v) reduction(+:this_c) reduction(+:this_count)
+    !$omp reduction(+:this_v) reduction(+:this_count)
     do cell_idx = 1, cells%N
 
        ! TODO: check if minimum distance from x to cell corners is below r_max
@@ -146,7 +140,6 @@ contains
              i_r = floor((r-r_min)/dr) + 1
              theta = acos( dot_product(unit_r,d)/r )
              i_th = floor(theta/dtheta) + 1
-             this_c(s2, i_th, i_r) = this_c(s2, i_th, i_r) + 1
              one_r = d/r
              ! compute v_r, v_theta
              out_of_plane = cross(unit_r, one_r)
@@ -162,10 +155,8 @@ contains
     end do
 
     this%v = this%v + this_v
-    this%c = this%c + this_c
     this%count = this%count + this_count
 
-    deallocate(this_c)
     deallocate(this_v)
     deallocate(this_count)
 

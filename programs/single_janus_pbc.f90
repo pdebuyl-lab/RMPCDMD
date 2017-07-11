@@ -649,12 +649,11 @@ program single_janus_pbc
 
   ! store polar fields
 
-  polar%c = polar%c / N_loop
   where (polar%count>0)
      polar%v(1,:,:,:) = polar%v(1,:,:,:) / polar%count
      polar%v(2,:,:,:) = polar%v(2,:,:,:) / polar%count
   end where
-  call h5md_write_dataset(fields_group, 'polar_concentration', polar%c)
+  call h5md_write_dataset(fields_group, 'polar_concentration', dble(polar%count)/N_loop)
   call h5oopen_f(fields_group, 'polar_concentration', polar_id, error)
   call h5md_write_attribute(polar_id, 'r_min', polar%r_min)
   call h5md_write_attribute(polar_id, 'r_max', polar%r_max)
