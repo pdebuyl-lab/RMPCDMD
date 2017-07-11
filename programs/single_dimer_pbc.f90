@@ -314,7 +314,7 @@ program single_dimer_pbc
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
 
-        if ( (co_max >= skin/2) .or. (so_max >= skin/2) ) then
+        if ( (co_max >= skin*0.1d0) .or. (so_max >= skin*0.89d0) ) then
            call varia%tic()
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)

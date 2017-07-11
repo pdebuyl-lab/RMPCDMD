@@ -419,23 +419,20 @@ contains
 
     !$omp parallel do private(i, j, r_sq) reduction(MAX:rmax_sq)
     do i = 1, cells%N
+       if (.not. cells%is_md(i)) cycle
        local_rmax_sq = 0
-       if (cells%is_md(i)) then
-          do j = cells%cell_start(i), cells%cell_start(i) + cells%cell_count(i) - 1
-             if (p% species(j) >= 0) then
-                r_sq = sum((p%pos(:, j)-p%pos_old(:, j))**2)
-                if (r_sq > local_rmax_sq) then
-                   local_rmax_sq = r_sq
-                end if
+       do j = cells%cell_start(i), cells%cell_start(i) + cells%cell_count(i) - 1
+          if (p% species(j) >= 0) then
+             r_sq = sum((p%pos(:, j)-p%pos_old(:, j))**2)
+             if (r_sq > local_rmax_sq) then
+                local_rmax_sq = r_sq
              end if
-          end do
-       else
-          local_rmax_sq = (cells%max_v(i)*delta_t)**2
-       end if
+          end if
+       end do
        rmax_sq = max(rmax_sq, local_rmax_sq)
     end do
 
-    r = sqrt(rmax_sq)
+    r = max(sqrt(rmax_sq), cells%max_v*delta_t)
 
   end function cell_maximum_displacement
 
