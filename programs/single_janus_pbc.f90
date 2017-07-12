@@ -355,22 +355,22 @@ program single_janus_pbc
 
   if (do_quaternion) then
      call q_el%create_time(hfile%observables, 'q', &
-          rigid_janus%q, H5MD_LINEAR, step=colloid_sampling, time=colloid_sampling*dt)
+          rigid_janus%q, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=colloid_sampling, time=colloid_sampling*dt)
      call omega_body_el%create_time(hfile%observables, 'omega_body', &
-          rigid_janus%omega_body, H5MD_LINEAR, step=colloid_sampling, time=colloid_sampling*dt)
+          rigid_janus%omega_body, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=colloid_sampling, time=colloid_sampling*dt)
      call omega_cf%init(block_length, get_n_blocks(block_length, 8, N_loop), dim=3)
   end if
 
   call u_el%create_time(hfile%observables, 'u', &
-       unit_r, H5MD_LINEAR, step=colloid_sampling, &
+       unit_r, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=colloid_sampling, &
        time=colloid_sampling*dt)
 
   call janus_pos_el%create_time(hfile%observables, 'janus_pos', &
-       rigid_janus%pos, H5MD_LINEAR, step=colloid_sampling, &
+       rigid_janus%pos, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=colloid_sampling, &
        time=colloid_sampling*dt)
 
   call janus_vel_el%create_time(hfile%observables, 'janus_vel', &
-       rigid_janus%vel, H5MD_LINEAR, step=colloid_sampling, &
+       rigid_janus%vel, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=colloid_sampling, &
        time=colloid_sampling*dt)
 
   call h5gcreate_f(janus_io%group, 'box', box_group, error)
