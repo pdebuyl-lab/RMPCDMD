@@ -83,7 +83,7 @@ program single_janus_pbc
   type(PTo) :: config
 
   integer :: i, L(3)
-  integer :: j, k
+  integer :: j, k, cell_idx
 
   double precision :: total_time
   type(timer_t), target :: varia, main, time_flag, time_refuel, time_change
@@ -487,9 +487,14 @@ program single_janus_pbc
         call varia%tac()
 
         call so_timer%tic()
-        !$omp parallel do
-        do k = 1, solvent%Nmax
-           solvent% force(:,k) = 0
+        !$omp parallel do private(cell_idx, k)
+        do cell_idx = 1, solvent_cells%N
+           if (solvent_cells%is_md(cell_idx)) then
+              do k = solvent_cells%cell_start(cell_idx), &
+                   solvent_cells%cell_start(cell_idx) + solvent_cells%cell_count(cell_idx) - 1
+                 solvent%force(:,k) = 0
+              end do
+           end if
         end do
         call so_timer%tac()
         colloids% force = 0
