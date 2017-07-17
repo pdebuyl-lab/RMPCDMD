@@ -144,6 +144,8 @@ program single_janus_pbc
   type(args_t) :: args
   character(len=144) :: data_filename
   character(len=144) :: links_file
+  character(len=144) :: data_group
+  logical :: attr_exists
 
   args = get_input_args()
   call PTparse(config, args%input_file, 11)
@@ -234,6 +236,7 @@ program single_janus_pbc
   call solvent% init(N, N_species, system_name='solvent') !there will be 2 species of solvent particles
 
   data_filename = PTread_s(config, 'data_filename', loc=params_group)
+  data_group = PTread_s(config, 'data_group', loc=params_group)
   link_treshold = PTread_d(config, 'link_treshold', loc=params_group)
   do_read_links = PTread_l(config, 'do_read_links', loc=params_group)
   if (do_read_links) links_file = PTread_s(config, 'links_file', loc=params_group)
@@ -249,14 +252,21 @@ program single_janus_pbc
 
   call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
 
-  call colloids%init_from_file(data_filename, 'janus', H5MD_FIXED)
+  call colloids%init_from_file(data_filename, data_group, H5MD_FIXED)
 
   call input_data_file%open(data_filename, H5F_ACC_RDONLY_F)
-  call h5oopen_f(input_data_file%particles, 'janus/position', pos_dset, error)
-  call h5md_read_attribute(pos_dset, 'alpha', alpha)
-  call h5md_read_attribute(pos_dset, 'beta', beta)
-  call h5md_read_attribute(pos_dset, 'z0', z0)
-  call h5oclose_f(pos_dset, error)
+
+  call h5aexists_by_name_f(input_data_file%particles, trim(data_group)//'/position', 'alpha', attr_exists, error)
+  ! If the parameters alpha,beta,gamma are present, read them
+  ! Only alpha is checked, if someone puts in alpha and not the rest, long hdf5 error log will show
+  if (attr_exists) then
+     call h5oopen_f(input_data_file%particles, trim(data_group)//'/position', pos_dset, error)
+     call h5md_read_attribute(pos_dset, 'alpha', alpha)
+     call h5md_read_attribute(pos_dset, 'beta', beta)
+     call h5md_read_attribute(pos_dset, 'z0', z0)
+     call h5oclose_f(pos_dset, error)
+  end if
+
   call input_data_file%close()
 
   colloids%image = 0
