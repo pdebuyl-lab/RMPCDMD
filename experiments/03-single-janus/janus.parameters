@@ -33,3 +33,4 @@ quaternion_treshold = 1d-13
 sigma = 3
 epsilon_N = 1.0 5.0
 epsilon_C = 1.0 1.0
+data_group = janus
