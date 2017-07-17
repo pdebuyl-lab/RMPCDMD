@@ -638,7 +638,8 @@ program single_janus_pbc
 
   call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
   call axial_cf%write(correlator_group, N_MD_steps, N_MD_steps*dt, 1, dt)
-  call write_correlator_block(correlator_group, 'omega_body_autocorrelation', omega_cf, N_MD_steps, N_MD_steps*dt)
+  if (do_quaternion) &
+       call write_correlator_block(correlator_group, 'omega_body_autocorrelation', omega_cf, N_MD_steps, N_MD_steps*dt)
   call h5gclose_f(correlator_group, error)
 
   ! write solvent coordinates for last step
