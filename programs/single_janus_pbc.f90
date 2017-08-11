@@ -410,7 +410,7 @@ program single_janus_pbc
 
   call polar%init(N_species, 64, sigma, polar_r_max, 64)
   call timer_list%append(polar%time_polar_update)
-  call neigh% init(colloids% Nmax, int(500*max(sigma,1.d0)**3))
+  call neigh% init(colloids% Nmax, int(500*max(sigma,1.15d0)**3))
 
   skin = 1.5
   n_extra_sorting = 0
