@@ -37,7 +37,8 @@ if args.directed:
     unit_z /= np.sqrt(np.sum(unit_z**2, axis=1)).reshape((-1,1))
     vz = np.sum(v_com*unit_z, axis=1)
     if args.histogram:
-        plt.hist(vz, bins=20)
+        plt.hist(vz, bins=32)
+        plt.axvline(vz.mean(), c='r')
     else:
         plt.plot(time, vz)
 else:
