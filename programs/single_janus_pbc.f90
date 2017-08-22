@@ -41,6 +41,10 @@
 !! \param sigma                 radius of the colloidal beads for colloid-solvent interactions
 !! \param sigma_colloid         radius of the colloidal beads for colloid-colloid interactions
 !! \param polar_r_max           maximal radius for the polar fields
+!! \param do_ywall              use a confining potential in the y direction, 9-3 Lennard-Jones
+!! \param wall_sigma            wall LJ sigma
+!! \param wall_epsilon          wall LJ epsilon
+!! \param wall_shift            wall shift
 
 program single_janus_pbc
   use rmpcdmd_module
@@ -58,6 +62,7 @@ program single_janus_pbc
   type(neighbor_list_t) :: neigh
   type(lj_params_t) :: solvent_colloid_lj
   type(lj_params_t) :: colloid_lj
+  type(lj_params_t) :: walls_colloid_lj
 
   integer, parameter :: N_species = 2
 
@@ -69,8 +74,9 @@ program single_janus_pbc
   double precision :: epsilon(2,2)
   double precision :: sigma, sigma_v(2,2), sigma_cut(2,2)
   double precision :: mass(2)
+  double precision :: wall_sigma(3, N_species), wall_epsilon(3, N_species), wall_shift(3)
 
-  double precision :: e1, e2, e3
+  double precision :: e1, e2, e3, e_wall
   double precision :: tau, dt , T
   double precision :: mpcd_alpha
   double precision :: prob, reaction_radius
@@ -120,6 +126,7 @@ program single_janus_pbc
   integer(HID_T) :: polar_id
 
   logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic, do_quaternion, do_solvent_io
+  logical :: do_ywall
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
   double precision :: link_treshold
@@ -222,6 +229,19 @@ program single_janus_pbc
 
   call colloid_lj% init(epsilon, sigma_v, sigma_cut)
 
+  ! no wall in x and z
+  wall_sigma = -1
+  wall_shift = 0
+
+  do_ywall = PTread_l(config, 'do_ywall', loc=params_group)
+  if (do_ywall) then
+     wall_sigma(2,:) = PTread_d(config, 'wall_sigma', loc=params_group)
+     wall_shift(2) = PTread_d(config, 'wall_shift', loc=params_group)
+     wall_epsilon = PTread_d(config, 'wall_epsilon', loc=params_group)
+     call walls_colloid_lj% init(wall_epsilon, &
+          wall_sigma, 3.d0**(1.d0/6.d0)*wall_sigma, wall_shift)
+  end if
+
   ! solvent index first, colloid index second, in solvent_colloid_lj
   sigma = PTread_d(config, 'sigma', loc=params_group)
   sigma_v = sigma
@@ -253,6 +273,12 @@ program single_janus_pbc
   call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
 
   call colloids%init_from_file(data_filename, data_group, H5MD_FIXED)
+
+  ! center colloid in simulation box
+  com_pos = sum(colloids%pos, dim=2) / size(colloids%pos, dim=2)
+  do i = 1, size(colloids%pos, dim=2)
+     colloids%pos(:,i) = colloids%pos(:,i) + (solvent_cells%edges/2 - com_pos)
+  end do
 
   call input_data_file%open(data_filename, H5F_ACC_RDONLY_F)
 
@@ -431,6 +457,12 @@ program single_janus_pbc
   else
      e3 = 0
   end if
+  if (do_ywall) then
+     e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
+  else
+     e_wall = 0
+  end if
+
   solvent% force_old = solvent% force
   colloids% force_old = colloids% force
   if (do_quaternion) call rigid_janus%compute_force_torque(colloids)
@@ -512,6 +544,7 @@ program single_janus_pbc
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         if (do_lennard_jones) e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (do_elastic) e3 = elastic_network(colloids, links, links_d, elastic_k, solvent_cells%edges)
+        if (do_ywall) e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
 
         call cell_md_vel(solvent_cells, solvent, dt, md_flag=.true.)
 
@@ -586,7 +619,7 @@ program single_janus_pbc
         v_com = v_com / tmp_mass
         kin_e = kin_e / 2
 
-        call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com)
+        call thermo_data%append(hfile, temperature, e1+e2+e3+e_wall, kin_e, e1+e2+e3+e_wall+kin_e, v_com)
         call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
         call varia%tac()
      end if
@@ -654,7 +687,7 @@ program single_janus_pbc
 
   ! write solvent coordinates for last step
 
-  call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com, add=.false., force=.true.)
+  call thermo_data%append(hfile, temperature, e1+e2+e3+e_wall, kin_e, e1+e2+e3+e_wall+kin_e, v_com, add=.false., force=.true.)
   if (do_solvent_io) then
      call solvent_io%position%append(solvent%pos)
      call solvent_io%velocity%append(solvent%vel)
