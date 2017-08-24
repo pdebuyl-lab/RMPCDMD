@@ -30,6 +30,7 @@ module md
   public :: elastic_network
   public :: rigid_body_t
   public :: cell_md_pos, cell_md_vel
+  public :: cell_md_pos_ywall
 
   type rigid_body_t
      integer :: i_start
@@ -95,6 +96,55 @@ contains
     call particles%time_md_pos%tac()
 
   end subroutine cell_md_pos
+
+  subroutine cell_md_pos_ywall(cells, particles, dt, md_flag)
+    type(cell_system_t), intent(inout) :: cells
+    type(particle_system_t), intent(inout) :: particles
+    double precision, intent(in) :: dt
+    logical, intent(in) :: md_flag
+
+    double precision :: dt_sq
+    double precision :: Ly, x(3), v(3), overtime
+    integer :: i, j, bc
+    logical :: collide
+
+    dt_sq = dt**2/2
+    Ly = cells%edges(2)
+    bc = cells%bc(2)
+
+    call particles%time_md_pos%tic()
+    !$omp parallel do private(i, j, x, v, collide, overtime)
+    do i = 1, cells%N
+       if (cells%is_md(i) .eqv. md_flag) then
+          do j = cells%cell_start(i), cells%cell_start(i) + cells%cell_count(i) - 1
+             v = particles%vel(:,j)
+             x = particles%pos(:,j) + dt * v + dt_sq * particles%force(:,j)
+             collide = .false.
+             if (x(2)<0.d0) then
+                collide = .true.
+                overtime = x(2)/v(2)
+             else if (x(2)>Ly) then
+                collide = .true.
+                overtime = (x(2)-Ly)/v(2)
+             end if
+             if (collide) then
+                if (bc==BOUNCE_BACK_BC) then
+                   v = -v
+                   x = x+2*overtime*v
+                else if (bc==SPECULAR_BC) then
+                   v(2) = -v(2)
+                   x(2) = x(2)+2*overtime*v(2)
+                end if
+                particles%vel(:,j) = v
+             end if
+             particles% pos(:,j) = x
+          end do
+       end if
+    end do
+
+    call particles%time_md_pos%tac()
+
+  end subroutine cell_md_pos_ywall
 
   subroutine apply_pbc(particles, edges)
     type(particle_system_t), intent(inout) :: particles

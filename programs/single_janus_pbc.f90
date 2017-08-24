@@ -25,6 +25,7 @@
 !! \param epsilon_C             interaction parameter of C sphere with both solvent species (2 elements)
 !! \param epsilon_N             interaction parameter of N sphere with both solvent species (2 elements)
 !! \param data_filename         filename for input Janus coordinates
+!! \param data_group            particles group in the input file
 !! \param epsilon_colloid       interaction parameter for colloid-colloid interactions
 !! \param reaction_radius       radius for the reaction around the Janus particle
 !! \param link_treshold         distance criterion for finding rigid-body links
@@ -45,6 +46,7 @@
 !! \param wall_sigma            wall LJ sigma
 !! \param wall_epsilon          wall LJ epsilon
 !! \param wall_shift            wall shift
+!! \param fluid_wall            boundary condition for the fluid
 
 program single_janus_pbc
   use rmpcdmd_module
@@ -138,6 +140,7 @@ program single_janus_pbc
   double precision :: alpha, beta, z0
   type(rigid_body_t) :: rigid_janus
   double precision :: quaternion_treshold
+  character(len=144) :: fluid_wall
 
   integer, parameter :: block_length = 8
   type(axial_correlator_t) :: axial_cf
@@ -234,12 +237,14 @@ program single_janus_pbc
   wall_shift = 0
 
   do_ywall = PTread_l(config, 'do_ywall', loc=params_group)
+  fluid_wall = 'PERIODIC'
   if (do_ywall) then
      wall_sigma(2,:) = PTread_d(config, 'wall_sigma', loc=params_group)
      wall_shift(2) = PTread_d(config, 'wall_shift', loc=params_group)
      wall_epsilon = PTread_d(config, 'wall_epsilon', loc=params_group)
      call walls_colloid_lj% init(wall_epsilon, &
           wall_sigma, 3.d0**(1.d0/6.d0)*wall_sigma, wall_shift)
+     fluid_wall = PTread_s(config, 'fluid_wall', loc=params_group)
   end if
 
   ! solvent index first, colloid index second, in solvent_colloid_lj
@@ -269,6 +274,17 @@ program single_janus_pbc
   call PTkill(config)
 
   call solvent_cells%init(L, 1.d0)
+
+  solvent_cells%bc = PERIODIC_BC
+  if (trim(fluid_wall) == 'PERIODIC') then
+     solvent_cells%bc(2) = PERIODIC_BC
+  else if (trim(fluid_wall) == 'SPECULAR') then
+     solvent_cells%bc(2) = SPECULAR_BC
+  else if (trim(fluid_wall) == 'BOUNCE_BACK') then
+     solvent_cells%bc(2) = BOUNCE_BACK_BC
+  else
+     error stop 'unknown value for parameter fluid_wall'
+  end if
 
   call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
 
@@ -474,7 +490,11 @@ program single_janus_pbc
      if (i==equilibration_loops) sampling = .true.
      if (modulo(i,32) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
-        call cell_md_pos(solvent_cells, solvent, dt, md_flag=.true.)
+        if ((do_ywall) .and. (solvent_cells%bc(2)/=PERIODIC_BC)) then
+           call cell_md_pos_ywall(solvent_cells, solvent, dt, md_flag=.true.)
+        else
+           call cell_md_pos(solvent_cells, solvent, dt, md_flag=.true.)
+        end if
 
         if (do_rattle) then
            call varia%tic()
@@ -503,8 +523,13 @@ program single_janus_pbc
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1d0) .or. (so_max >= skin*0.9d0) ) then
-           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           if ((do_ywall) .and. (solvent_cells%bc(2)/=PERIODIC_BC)) then
+              call cell_md_pos_ywall(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           else
+              call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           end if
            call cell_md_vel(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
