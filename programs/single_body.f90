@@ -1,14 +1,15 @@
 ! This file is part of RMPCDMD
-! Copyright (c) 2016 Pierre de Buyl and contributors
+! Copyright (c) 2016-2017 Pierre de Buyl and contributors
 ! License: BSD 3-clause (see file LICENSE)
 
-!> Simulate a single Janus particle
+!> Simulate a single colloidal rigid-body particle
 !!
-!! This simulations models a chemically active Janus particle in a periodic simulation box.
+!! This simulation models a chemically active colloid particle in either a periodic
+!! simulation box or with confinement in the y direction.
 !!
-!! The coordinates of the Janus particle's beads must be provided in a H5MD file, as a
-!! "fixed-in-time" dataset. The body of the particle can operate as a rigid-body (RATTLE) or
-!! an elastic network.
+!! The coordinates of the colloid particle's beads must be provided in a H5MD file, as a
+!! "fixed-in-time" dataset. The body of the particle can operate as a rigid-body (with
+!! either RATTLE or quaternion dynamics) or as an elastic network.
 !!
 !! \param L                     length of simulation box in the 3 dimensions
 !! \param rho                   fluid number density
@@ -48,7 +49,7 @@
 !! \param wall_shift            wall shift
 !! \param fluid_wall            boundary condition for the fluid
 
-program single_janus_pbc
+program single_body
   use rmpcdmd_module
   use hdf5
   use h5md_module
@@ -183,7 +184,7 @@ program single_janus_pbc
   call timer_list%append(q_timer)
 
   call h5open_f(error)
-  call hfile%create(args%output_file, 'RMPCDMD::single_janus_pbc', &
+  call hfile%create(args%output_file, 'RMPCDMD::single_body', &
        RMPCDMD_REVISION, 'Pierre de Buyl')
   call h5gcreate_f(hfile%id, 'parameters', params_group, error)
   call hdf5_util_write_dataset(params_group, 'seed', args%seed)
@@ -918,4 +919,4 @@ contains
 
   end subroutine compute_cell_wise_max_v
 
-end program single_janus_pbc
+end program single_body

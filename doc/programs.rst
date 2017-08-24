@@ -26,7 +26,7 @@ in ``experiments/`` contain configuration files for some simulations.
 
 .. doxyheader:: ../programs/chemotactic_cell.f90
 
-.. doxyheader:: ../programs/single_janus_pbc.f90
+.. doxyheader:: ../programs/single_body.f90
 
 .. doxyheader:: ../programs/poiseuille_flow.f90
 
