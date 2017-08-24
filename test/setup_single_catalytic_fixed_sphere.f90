@@ -1,5 +1,5 @@
 ! This file is part of RMPCDMD
-! Copyright (c) 2016 Pierre de Buyl and contributors
+! Copyright (c) 2015-2016 Pierre de Buyl and contributors
 ! License: BSD 3-clause (see file LICENSE)
 
 program setup_single_catalytic_fixed_sphere

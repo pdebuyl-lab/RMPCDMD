@@ -1,5 +1,5 @@
 ! This file is part of RMPCDMD
-! Copyright (c) 2016-2017 Pierre de Buyl and contributors
+! Copyright (c) 2015-2017 Pierre de Buyl and contributors
 ! License: BSD 3-clause (see file LICENSE)
 
 !> Simulate a single colloidal rigid-body particle
