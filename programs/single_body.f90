@@ -765,6 +765,7 @@ program single_body
   call h5md_write_attribute(planar_id, 'dx', planar%dx)
   call h5md_write_attribute(planar_id, 'y_min', planar%y_min)
   call h5md_write_attribute(planar_id, 'dy', planar%dy)
+  call h5md_write_attribute(planar_id, 'thickness', planar%thickness)
   call h5oclose_f(planar_id, error)
 
   call h5md_write_dataset(fields_group, 'planar_velocity', planar%v)
@@ -773,6 +774,7 @@ program single_body
   call h5md_write_attribute(planar_id, 'dx', planar%dx)
   call h5md_write_attribute(planar_id, 'y_min', planar%y_min)
   call h5md_write_attribute(planar_id, 'dy', planar%dy)
+  call h5md_write_attribute(planar_id, 'thickness', planar%thickness)
   call h5oclose_f(planar_id, error)
 
   ! Store timing data
