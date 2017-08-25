@@ -40,6 +40,7 @@ src/mpcd.f90
 src/md.f90
 src/neighbor_list.f90
 src/polar_fields.f90
+src/planar_fields.f90
 ${RMPCDMD_BINARY_DIR}/rmpcdmd_module.f90)
 target_link_libraries(RMPCDMD fortran_h5md mt19937ar_module threefry_module quaternion)
 add_dependencies(RMPCDMD RMPCDMD_REVISION_TARGET)

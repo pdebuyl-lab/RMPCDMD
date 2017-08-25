@@ -10,6 +10,7 @@ module rmpcdmd_module
   use md
   use correlator
   use polar_fields
+  use planar_fields
   use quaternion
   implicit none
 

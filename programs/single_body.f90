@@ -123,10 +123,13 @@ program single_body
   type(h5md_element_t) :: n_solvent_el
 
   type(h5md_element_t) :: q_el, omega_body_el, janus_pos_el, janus_vel_el, u_el
+  double precision, dimension(3) :: one_x, one_y, one_z
 
   double precision :: polar_r_max
   type(polar_fields_t) :: polar
+  type(planar_fields_t) :: planar
   integer(HID_T) :: polar_id
+  integer(HID_T) :: planar_id
 
   logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic, do_quaternion, do_solvent_io
   logical :: do_ywall
@@ -174,7 +177,7 @@ program single_body
   call bulk_reac_timer%init('bulk_reac')
   call q_timer%init('quaternion_vv')
 
-  call timer_list%init(25)
+  call timer_list%init(26)
   call timer_list%append(varia)
   call timer_list%append(so_timer)
   call timer_list%append(time_flag)
@@ -453,6 +456,8 @@ program single_body
 
   call polar%init(N_species, 64, sigma, polar_r_max, 64)
   call timer_list%append(polar%time_polar_update)
+  call planar%init(N_species, 64, -8.d0, 8.d0, 64, -8.d0, 8.d0, 1.d0)
+  call timer_list%append(planar%timer)
   call neigh% init(colloids% Nmax, int(500*max(sigma,1.15d0)**3))
 
   skin = 1.5
@@ -689,6 +694,10 @@ program single_body
         v_com = sum(colloids%vel, dim=2)/colloids%Nmax
         call varia%tac()
         call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
+        one_x = qrot(rigid_janus%q, [1.d0, 0.d0, 0.d0])
+        one_y = qrot(rigid_janus%q, [0.d0, 0.d0, 1.d0])
+        one_z = qrot(rigid_janus%q, [0.d0, -1.d0, 0.d0])
+        call planar%update(com_pos, v_com, one_x, one_y, one_z, solvent, solvent_cells)
 
         if (do_quaternion) call omega_cf%add(i-equilibration_loops, correlate_block_dot, xvec=rigid_janus%omega_body)
 
@@ -743,6 +752,28 @@ program single_body
   call h5md_write_attribute(polar_id, 'dr', polar%dr)
   call h5md_write_attribute(polar_id, 'dtheta', polar%dtheta)
   call h5oclose_f(polar_id, error)
+
+  ! store planar fields
+
+  where (planar%count>0)
+     planar%v(1,:,:,:) = planar%v(1,:,:,:) / planar%count
+     planar%v(2,:,:,:) = planar%v(2,:,:,:) / planar%count
+  end where
+  call h5md_write_dataset(fields_group, 'planar_concentration', dble(planar%count)/N_loop)
+  call h5oopen_f(fields_group, 'planar_concentration', planar_id, error)
+  call h5md_write_attribute(planar_id, 'x_min', planar%x_min)
+  call h5md_write_attribute(planar_id, 'dx', planar%dx)
+  call h5md_write_attribute(planar_id, 'y_min', planar%y_min)
+  call h5md_write_attribute(planar_id, 'dy', planar%dy)
+  call h5oclose_f(planar_id, error)
+
+  call h5md_write_dataset(fields_group, 'planar_velocity', planar%v)
+  call h5oopen_f(fields_group, 'planar_velocity', planar_id, error)
+  call h5md_write_attribute(planar_id, 'x_min', planar%x_min)
+  call h5md_write_attribute(planar_id, 'dx', planar%dx)
+  call h5md_write_attribute(planar_id, 'y_min', planar%y_min)
+  call h5md_write_attribute(planar_id, 'dy', planar%dy)
+  call h5oclose_f(planar_id, error)
 
   ! Store timing data
   call timer_list%append(solvent%time_stream)
