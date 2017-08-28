@@ -14,6 +14,7 @@ RMPCDMD_greeting() {
     echo "    - seeder  Return a signed 64-bit integer seed from /dev/urandom"
     echo "    - plot    Display the results of a simulation"
     echo "    - timers  Display the times of a simulation"
+    echo "    - blocks  Display the logarithmic block stored data"
 }
 
 run_usage() {
@@ -82,6 +83,10 @@ elif [ "$1" = "plot" ]
 then
     shift
     python "${RMPCDMD_HOME}/scripts/h5md_plot.py" "$@"
+elif [ "$1" = "blocks" ]
+then
+    shift
+    python "${RMPCDMD_HOME}/scripts/plot_blocks.py" "$@"
 elif [ "$1" = "timers" ]
 then
     shift
