@@ -1,54 +1,64 @@
 #!/usr/bin/env python
+"""
+Program to display the directed velocity of a self-propelled rigid-body colloid
+along its axis.
+"""
 
 import argparse
 
-parser = argparse.ArgumentParser("Program to display the velocity of the Janus nanomotor.")
+
+parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('file', type=str, help='H5MD datafile')
-parser.add_argument('--directed', action='store_true')
-parser.add_argument('--histogram', action='store_true')
+parser.add_argument('--plot', action='store_true',
+                    help='Display the result graphically')
+parser.add_argument('--no-q', action='store_true',
+                    help='Do not use quaternion data')
 args = parser.parse_args()
 
 import numpy as np
-import h5py
 import matplotlib.pyplot as plt
+from transforms3d import quaternions
+import pyh5md
 
-with h5py.File(args.file, 'r') as f:
-    r = f['particles/janus/position/value'][...]
-    r_dt = f['particles/janus/position/time'][()]
-    im = f['particles/janus/image/value'][...]
-    v = f['particles/janus/velocity/value'][...]
-    v_dt = f['particles/janus/velocity/time'][()]
-    edges = f['particles/janus/box/edges'][:].reshape((1,-1))
-
-r += edges*im
-
-assert abs(r_dt-v_dt) < 1e-12
-assert r.shape[1]==36
-assert r.shape[2]==3
-assert v.shape[1]==36
-assert v.shape[2]==3
-
-time = np.arange(r.shape[0])*r_dt
-
-v_com = v.mean(axis=1)
-
-if args.directed:
-    unit_z = r[:,:18,:].mean(axis=1)-r[:,18:,:].mean(axis=1)
-    unit_z /= np.sqrt(np.sum(unit_z**2, axis=1)).reshape((-1,1))
-    vz = np.sum(v_com*unit_z, axis=1)
-    if args.histogram:
-        plt.hist(vz, bins=32)
-        plt.axvline(vz.mean(), c='r')
+with pyh5md.File(args.file, 'r') as f:
+    obs = f['observables']
+    u = pyh5md.element(obs, 'u').value[:]
+    if 'q' in obs:
+        q = pyh5md.element(obs, 'q').value[:]
     else:
-        plt.plot(time, vz)
-else:
-    for i in range(3):
-        plt.subplot(3,1,i+1)
-        if args.histogram:
-            plt.hist(v_com[:,i]) 
-            plt.ylabel(r'$P(v_'+'xyz'[i]+')$')
-        else:
-            plt.plot(time, v_com[:,i])
-            plt.ylabel('xyz'[i])
+        q = None
+    janus_vel = pyh5md.element(obs, 'janus_vel')
+    dt = janus_vel.time
+    janus_vel = janus_vel.value[:]
 
-plt.show()
+one_z = np.array([0., 0., 1.])
+
+# Change of quaternion storage convention
+if q is not None and not args.no_q:
+    tmp_s = q[:,3].copy()
+    tmp_v = q[:,:3].copy()
+    q[:,1:4] = tmp_v
+    q[:,0] = tmp_s
+    del tmp_s, tmp_v
+
+    # Obtain u by rotation of 1_z with quaternion
+    u_q = np.array([quaternions.rotate_vector(one_z, q_var) for q_var in q])
+
+    dir_vel = np.sum(janus_vel*u_q, axis=1)
+else:
+    print('no q')
+    dir_vel = np.sum(janus_vel*u, axis=1)
+
+m = dir_vel.mean()
+
+print(args.file, m)
+if args.plot:
+    plt.subplot(121)
+    plt.title('directed velocity')
+    plt.plot(np.arange(len(janus_vel))*dt, dir_vel)
+    plt.subplot(122)
+    plt.title('histogram of directed velocity')
+    plt.hist(dir_vel, bins=32)
+    plt.axvline(m, c='red')
+
+    plt.show()
