@@ -494,7 +494,7 @@ program single_body
   sampling = .false.
   do i = 0, N_loop+equilibration_loops
      if (i==equilibration_loops) sampling = .true.
-     if (modulo(i,32) == 0) write(*,'(i05)',advance='no') i
+     if (modulo(i,32) == 0) write(*,'(i08)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         if ((do_ywall) .and. (solvent_cells%bc(2)/=PERIODIC_BC)) then
            call cell_md_pos_ywall(solvent_cells, solvent, dt, md_flag=.true.)
