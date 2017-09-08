@@ -128,7 +128,7 @@ contains
              v_x = dot_product(solvent_v, one_x)
              v_y = dot_product(solvent_v, one_y)
              this_count(s2, i_y, i_x) = this_count(s2, i_y, i_x) + 1
-             this%v(:, s2, i_y, i_x) = this_v(:,s2, i_y, i_x) + [v_x, v_y]
+             this_v(:, s2, i_y, i_x) = this_v(:,s2, i_y, i_x) + [v_x, v_y]
 
           end if
        end do
