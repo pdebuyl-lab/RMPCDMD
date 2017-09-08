@@ -49,18 +49,17 @@ if args.radius is not None:
 
 plt.subplot(122, aspect=1)
 
-ONE_R = np.zeros((N_r, N_theta, 2))
-ONE_TH = np.zeros((N_r, N_theta, 2))
+r = r_min + np.arange(N_r)*dr
+th = (np.arange(N_theta)+0.5)*dtheta
 
-th = th.flatten()[:-1]
-ONE_R[:,:,0] = np.sin(th)
-ONE_R[:,:,1] = np.cos(th)
-ONE_TH[:,:,0] = np.cos(th)
-ONE_TH[:,:,1] = -np.sin(th)
+r, th = np.meshgrid(r, th)
 
-VX = v[:,:,args.species,0]*ONE_R[:,:,0] + v[:,:,args.species,1]*ONE_TH[:,:,0]
-VZ = v[:,:,args.species,0]*ONE_R[:,:,1] + v[:,:,args.species,1]*ONE_TH[:,:,1]
+x = r*np.sin(th)
+y = r*np.cos(th)
 
-plt.quiver(X, Z, VX, VZ)
+vx = v[:,:,args.species,0].T*np.sin(th) + v[:,:,args.species,1].T*np.cos(th)
+vy = v[:,:,args.species,0].T*np.cos(th) - v[:,:,args.species,1].T*np.sin(th)
+
+plt.quiver(x, y, vx, vy)
 
 plt.show()
