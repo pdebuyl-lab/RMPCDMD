@@ -14,7 +14,11 @@ add_subdirectory(fortran_tester)
 add_subdirectory(random_module)
 add_subdirectory(fortran_quaternion)
 
-include_directories(${CMAKE_Fortran_MODULE_DIRECTORY} ${HDF5_Fortran_INCLUDE_DIR})
+find_package(Git)
+find_package(HDF5 COMPONENTS Fortran REQUIRED)
+
+include_directories(${CMAKE_Fortran_MODULE_DIRECTORY}
+${HDF5_Fortran_INCLUDE_DIR} ${HDF5_Fortran_INCLUDE_DIRS})
 
 set(RMPCDMD_PROGRAMS poiseuille_flow single_dimer_pbc single_body
 chemotactic_cell single_sphere_thermo_trap
@@ -22,8 +26,6 @@ n_colloids_pbc)
 
 configure_file(scripts/rmpcdmd.in rmpcdmd @ONLY)
 install(PROGRAMS ${CMAKE_BINARY_DIR}/rmpcdmd DESTINATION bin)
-
-find_package(Git)
 
 add_custom_target(RMPCDMD_REVISION_TARGET ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake)
 execute_process(COMMAND ${CMAKE_COMMAND} -D RMPCDMD_SOURCE_DIR=${CMAKE_CURRENT_SOURCE_DIR} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/version.cmake)
