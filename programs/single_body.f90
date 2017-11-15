@@ -927,11 +927,13 @@ contains
 
     if (do_quaternion) then
        u_r = qrot(rigid_janus%q, one_z)
-    else
+    else if (attr_exists) then
        r1 = rel_pos(colloids%pos(:,1), com_pos, solvent_cells%edges)
        r2 = rel_pos(colloids%pos(:,2), com_pos, solvent_cells%edges)
        r3 = rel_pos(colloids%pos(:,3), com_pos, solvent_cells%edges)
        u_r = (r1 + alpha*r2 + beta*r3) / z0
+    else
+       u_r = one_z
     end if
 
   end function get_unit_r
