@@ -356,7 +356,10 @@ program single_body
 
   write(*,*) 'number of links:', i_link
 
-  janus_io%force_info%store = .false.
+  janus_io%force_info%store = .true.
+  janus_io%force_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  janus_io%force_info%step = N_MD_steps
+  janus_io%force_info%time = N_MD_steps*dt
   janus_io%id_info%store = .false.
   janus_io%position_info%store = .true.
   janus_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
@@ -702,6 +705,7 @@ program single_body
         if (do_quaternion) call omega_cf%add(i-equilibration_loops, correlate_block_dot, xvec=rigid_janus%omega_body)
 
         call janus_io%position%append(colloids%pos)
+        call janus_io%force%append(colloids%force)
         call janus_io%velocity%append(colloids%vel)
         call janus_io%image%append(colloids%image)
     end if
