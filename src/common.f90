@@ -49,7 +49,7 @@ module common
      procedure, private :: profile_norm
   end type profile_t
 
-  !> Container for a profile, e.g. p(x)
+  !> Container for a histogram, e.g. p(x)
   !!
   !! The result is \f$p(x) = \frac{\sum_i \delta(x_i - x)}{N}\f$
   type histogram_t
