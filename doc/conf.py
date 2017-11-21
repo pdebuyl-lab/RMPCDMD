@@ -66,7 +66,7 @@ release = version
 
 # General information about the project.
 project = u'RMPCDMD'
-copyright = u'2016, Pierre de Buyl and contributors. RMPCDMD version %s' % version
+copyright = u'2015-2017, Pierre de Buyl and contributors. RMPCDMD version %s' % version
 author = u'Pierre de Buyl and contributors'
 
 rst_epilog = """

@@ -33,12 +33,16 @@ Highlights:
 - This code is a research code, so other features are probably *under development*. This
   should not prevent you from using it!
 - We have a :ref:`tutorial` on nanomotor simulations.
+- If you use this code, the appropriate citation is :cite:`de_buyl_rmpcdmd_2017` (the bibtex
+  data is in :download:`CITATION <../CITATION>`). Consider citing the paper *also* if you
+  use the present resources (documentation, algorithm, tutorial).
 
 Features:
 
 - MPCD collision rule for the solvent
 - Chemical activity (either catalytic at a colloid or in the bulk)
 - Rattle constrained dynamics for rigid bodies
+- Quaternion-based rigid-body Molecular Dynamics
 - Walls (specular, bounce-back, virtual particles)
 - Hilbert curve based spatial sorting of solvent particles
 - `H5MD <http://nongnu.org/h5md>`_ trajectory file output :cite:`h5md_cpc_2014`

@@ -1,7 +1,7 @@
 RMPCDMD documentation {#mainpage}
 =====================
 
-Copyright (C) 2015-2016 Pierre de Buyl and contributors
+Copyright (C) 2015-2017 Pierre de Buyl and contributors
 
 RMPCDMD is a software for the simulation of colloids via Molecular Dynamics,
 embedded in a MPCD fluid.
