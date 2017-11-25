@@ -98,6 +98,7 @@ module common
      module procedure :: switch_i2
   end interface switch
 
+  !> Container for the standard command-line arguments to RMPCDMD
   type args_t
      character(len=max_path_length) :: input_file
      character(len=max_path_length) :: output_file

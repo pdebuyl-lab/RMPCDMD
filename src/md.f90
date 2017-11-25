@@ -5,7 +5,7 @@
 !> Routines to perform Molecular Dynamics integration
 !!
 !! This module contains routines to perform velocity Verlet integration, Rattle for a dimer
-!! and for other rigid bodies.
+!! and for other rigid bodies, and quaternion-based rotational velocity Verlet.
 !!
 !! Routines to compute colloid-wall (with Lennard-Jones 9-3) and elastic network
 !! interactions.
@@ -32,6 +32,9 @@ module md
   public :: cell_md_pos, cell_md_vel
   public :: cell_md_pos_ywall
 
+  !> Container for rigid body colloid
+  !!
+  !! Stores the center-of-mass coordinates, the orientation, etc.
   type rigid_body_t
      integer :: i_start
      integer :: i_stop
@@ -555,6 +558,7 @@ contains
 
   !> Perform first velocity-Verlet step for quaternion dynamics
   !!
+  !! The algorithm is described in \cite rozmanov_rotational_2010
   !! \manual{algorithms/quaternions}
   subroutine rigid_body_vv1(this, ps, dt, treshold, edges)
     class(rigid_body_t), intent(inout) :: this
@@ -618,8 +622,9 @@ contains
 
   end subroutine rigid_body_vv1
 
-  !! Perform second velocity-Verlet step for quaternion dynamics
+  !> Perform second velocity-Verlet step for quaternion dynamics
   !!
+  !! The algorithm is described in \cite rozmanov_rotational_2010
   !! \manual{algorithms/quaternions}
   subroutine rigid_body_vv2(this, ps, dt)
     class(rigid_body_t), intent(inout) :: this
