@@ -849,22 +849,24 @@ contains
   end subroutine flag_particles
 
   subroutine change_species
-    integer :: m, thread_id
+    integer :: m, thread_id, i
     double precision :: dist
 
     !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
-    !$omp do private(m, dist)
-    change_loop: do m = 1, solvent%Nmax
-       if (solvent%species(m) /= 1) cycle change_loop
-       if ((solvent%flag(m) == 1) .and. (solvent%md_flag(m) == 0)) then
-          dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
-          if (dist > reaction_radius) then
-             if (threefry_double(state(thread_id)) < prob) solvent%species(m) = 2
-             solvent%flag(m) = 0
+    !$omp do private(i, m, dist)
+    do i = 1, solvent_cells%N
+       change_loop: do m = 1, solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
+          if (solvent%species(m) /= 1) cycle change_loop
+          if ((solvent%flag(m) == 1) .and. (solvent%md_flag(m) == 0)) then
+             dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
+             if (dist > reaction_radius) then
+                if (threefry_double(state(thread_id)) < prob) solvent%species(m) = 2
+                solvent%flag(m) = 0
+             end if
           end if
-       end if
-    end do change_loop
+       end do change_loop
+    end do
     !$omp end do
     !$omp end parallel
 
