@@ -856,7 +856,7 @@ contains
     thread_id = omp_get_thread_num() + 1
     !$omp do private(i, m, dist)
     do i = 1, solvent_cells%N
-       change_loop: do m = 1, solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
+       change_loop: do m = solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
           if (solvent%species(m) /= 1) cycle change_loop
           if ((solvent%flag(m) == 1) .and. (solvent%md_flag(m) == 0)) then
              dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
