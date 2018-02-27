@@ -1,35 +1,35 @@
 # physical parameters
-T = 1
-L = 32 32 32
+T = 1.0
+L = 32 11 32
 rho = 10
 tau = 1
 alpha = 1.57079632679
-probability = 1
+probability = 1.0
 
 # simulation parameters
 N_MD = 100
 N_loop = 1024
-colloid_sampling = 50
+colloid_sampling = 100
 do_solvent_io = F
 equilibration_loops = 50
-data_filename = lshape_5x8_step1.h5
+data_filename = lshape_thick.h5
 data_group = L
 reaction_radius = 0
-link_treshold = 1.8
+link_treshold = 1.35
 do_read_links = F
 polar_r_max = 10
-bulk_rate = 0.01
+bulk_rate = 0.02
 
 # wall parameters
-do_ywall = F
-wall_sigma = 2.0
-wall_shift = 1
+do_ywall = T
+wall_sigma = 1.5
+wall_shift = 1.25
 wall_epsilon = 1
-fluid_wall = PERIODIC
+fluid_wall = BOUNCE_BACK
 
 
 # interaction parameters
-sigma_colloid = 3.0
+sigma_colloid = 1.5
 epsilon_colloid = 2
 do_lennard_jones = F
 do_elastic = F
@@ -39,6 +39,6 @@ rattle_vel_tolerance = 1d-8
 do_quaternion = T
 quaternion_treshold = 1d-13
 
-sigma = 2.0
-epsilon_N = 1.0 4.0
-epsilon_C = 1.0 4.0
+sigma = 1.5
+epsilon_N = 1.0 5.0
+epsilon_C = 1.0 5.0
