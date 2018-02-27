@@ -20,7 +20,7 @@ def get_block_data(block, dt):
         t_data.append(t[1:])
         data.append(block[i,1:,:,:].reshape((-1,3)))
 
-    return np.concatenate(t_data), np.concatenate(data)
+    return np.concatenate(t_data)*dt, np.concatenate(data)
 
 
 def read_data(group):
