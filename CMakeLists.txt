@@ -20,7 +20,7 @@ find_package(HDF5 COMPONENTS Fortran REQUIRED)
 include_directories(${CMAKE_Fortran_MODULE_DIRECTORY}
 ${HDF5_Fortran_INCLUDE_DIR} ${HDF5_Fortran_INCLUDE_DIRS})
 
-set(RMPCDMD_PROGRAMS poiseuille_flow single_dimer_pbc single_body
+set(RMPCDMD_PROGRAMS poiseuille_flow single_dimer_pbc single_dimer single_body
 chemotactic_cell single_sphere_thermo_trap
 n_colloids_pbc)
 
