@@ -8,6 +8,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('file', help="H5MD file")
 parser.add_argument('--species', type=int, default=0)
 parser.add_argument('--radius', type=float)
+parser.add_argument('--contour', action='store_true')
 args = parser.parse_args()
 
 import h5py
@@ -42,6 +43,8 @@ with h5py.File(args.file, 'r') as f:
 plt.subplot(121, aspect=1)
 plt.pcolormesh(X, Z, c[:,:,args.species], cmap=plt.cm.viridis)
 plt.colorbar()
+if args.contour:
+    plt.contour(X[:-1,:-1], Z[:-1,:-1], c[:,:,args.species])
 plt.axhline(0)
 if args.radius is not None:
     plt.plot(args.radius*np.sin(th.flatten()),
