@@ -20,6 +20,7 @@ with h5py.File(args.file, 'r') as f:
     dx = c.attrs['dx'][()]
     y_min = c.attrs['y_min'][()]
     dy = c.attrs['dy'][()]
+    thickness = c.attrs['thickness'][()]
 
     c = c[:]
     v = v[:]
@@ -30,7 +31,7 @@ with h5py.File(args.file, 'r') as f:
     x = x_min + np.arange(N_x+1)*dx
     y = y_min + np.arange(N_y+1)*dy
 
-    c /= dx*dy
+    c /= dx*dy*thickness
 
 plt.subplot(121, aspect=1)
 plt.pcolormesh(x, y, c[:,:,args.species].T, cmap=plt.cm.viridis)
