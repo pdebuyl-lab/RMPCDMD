@@ -25,20 +25,20 @@ from mayavi import mlab
 
 with h5py.File(args.file, 'r') as f:
     edges = f['particles/dimer/box/edges'][:]
-    so_pos = f['particles/solvent/position/value'][-1]
-    so_species = f['particles/solvent/species/value'][-1]
-    mask = so_species==2
-    pos = so_pos[mask]
-    mask = so_species==1
-    other_pos = so_pos[mask]
-    del so_pos
-    del so_species
-    del mask
+    if args.show_B:
+        so_pos = f['particles/solvent/position/value'][-1]
+        so_species = f['particles/solvent/species/value'][-1]
+        mask = so_species==2
+        pos = so_pos[mask]
+        mask = so_species==1
+        other_pos = so_pos[mask]
+        del so_pos
+        del so_species
+        del mask
     dimer_pos = f['particles/dimer/position/value'][-1]
     dimer_all_pos = f['particles/dimer/position/value'][args.skip:]
     dimer_all_im = f['particles/dimer/image/value'][args.skip:]
-    sigma_C = f['parameters/sigma_C'][()]
-    sigma_N = f['parameters/sigma_N'][()]
+    sigma_C, sigma_N = f['parameters/sigma'][:]
     dimer_species = f['particles/dimer/species'][:]
 
 if args.unwrap:
