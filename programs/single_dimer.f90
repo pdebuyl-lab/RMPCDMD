@@ -179,9 +179,9 @@ program single_dimer
   mass(1) = rho * sigma(1,1)**3 * 4 * 3.14159265/3
   mass(2) = rho * sigma(1,2)**3 * 4 * 3.14159265/3
 
-  call solvent% init(N,2, system_name='solvent') !there will be 2 species of solvent particles
+  call solvent% init(N, N_species, system_name='solvent')
 
-  call colloids% init(2,2, mass, system_name='colloids') !there will be 2 species of colloids
+  call colloids% init(2, N_colloid_species, mass, system_name='colloids')
 
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
@@ -271,7 +271,12 @@ program single_dimer
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
-  e3 = compute_harmonic()
+  if (do_harmonic) then
+     e3 = compute_harmonic()
+  else
+     e3 = 0
+  end if
+
   if (do_zwall) then
      e_wall = lj93_zwall(colloids, solvent_cells% edges, walls_colloid_lj)
   else
@@ -299,13 +304,12 @@ program single_dimer
         ! Extra copy for rattle
         if (do_rattle) &
              colloids% pos_rattle = colloids% pos
-        if (do_harmonic) &
-             e3 = compute_harmonic()
         do k=1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) &
                 + dt * colloids% vel(:,k) + &
                 dt**2 * colloids% force(:,k) / (2 * colloids% mass(k))
         end do
+
         if (do_rattle) &
              call rattle_dimer_pos(colloids, d, dt, solvent_cells% edges)
 
@@ -487,15 +491,14 @@ contains
 
     double precision :: f(3), x12(3), dist
 
-    e = 0
-    f = 0
-
     x12 = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
     dist = norm2(x12)
 
     f = harmonic_k * (dist - d) * x12 / dist
     colloids%force(:,1) = colloids%force(:,1) - f
     colloids%force(:,2) = colloids%force(:,2) + f
+
+    e = harmonic_k * (dist - d)**2 / 2
 
     ! U = k/2 * (dist - d)**2
     ! f = k * (dist-d) * d dist / d x
