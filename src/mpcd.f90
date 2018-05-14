@@ -31,6 +31,7 @@ module mpcd
   public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
   public :: bulk_reaction
+  public :: bulk_reaction_endothermic
   public :: mpcd_stream_nogravity_zwall
 
 contains
@@ -604,6 +605,62 @@ contains
     !$omp end parallel
 
   end subroutine bulk_reaction
+
+  !> Apply a endothermic bulk unimolecular RMPCD reaction
+  subroutine bulk_reaction_endothermic(p, c, from, to, rate, tau, state, delta_u)
+    use omp_lib
+    type(particle_system_t), intent(inout) :: p
+    type(cell_system_t), intent(inout) :: c
+    integer, intent(in) :: from, to
+    double precision, intent(in) :: rate, tau, delta_u
+    type(threefry_rng_t), intent(inout) :: state(:)
+
+    integer :: cell_idx, start, n, i, pick, s
+    double precision :: local_rate
+    integer :: thread_id
+    double precision :: kin, com_v(3), factor
+
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(cell_idx, start, n, local_rate, i, pick, s, kin, com_v, factor)
+    cell_loop: do cell_idx = 1, c%N
+       if ( (c%cell_count(cell_idx) <= 1) .or. .not. c%is_reac(cell_idx) ) cycle
+
+       start = c%cell_start(cell_idx)
+       n = c%cell_count(cell_idx)
+
+       local_rate = 0
+       com_v = 0
+       do i = start, start + n - 1
+          s = p%species(i)
+          if (s==from) then
+             local_rate = local_rate + 1
+             pick = i
+          end if
+          com_v = com_v + p%vel(:,i)
+       end do
+       com_v = com_v / n
+
+       do i = start, start + n - 1
+          kin = kin + sum((p%vel(:,i)-com_v)**2)
+       end do
+       kin = kin / 2
+
+       if (kin > delta_u) then
+          local_rate = local_rate*rate
+          if (threefry_double(state(thread_id)) < (1 - exp(-local_rate*tau))) then
+             p%species(pick) = to
+             factor = sqrt((kin - delta_u)/kin)
+             do i = start, start + n - 1
+                p%vel(:,i) = com_v + factor*(p%vel(:,i)-com_v)
+             end do
+          end if
+       end if
+    end do cell_loop
+    !$omp end do
+    !$omp end parallel
+
+  end subroutine bulk_reaction_endothermic
 
   subroutine mpcd_stream_nogravity_zwall(particles, cells, dt)
     type(particle_system_t), intent(inout) :: particles
