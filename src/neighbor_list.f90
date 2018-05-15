@@ -165,6 +165,7 @@ contains
 
     integer :: i, j
     integer :: idx
+    integer :: MASK
     integer :: n_species1, n_species2
     double precision :: x(3), d(3), f(3), f1(3)
     integer :: s1, s2
@@ -186,7 +187,7 @@ contains
     end do
 
     call n_list%time_force%tic()
-    !$omp parallel do private(x, s1, f1, j, idx, s2, d, r_sq, f) &
+    !$omp parallel do private(x, s1, f1, j, idx, s2, d, r_sq, f, MASK) &
     !$omp& reduction(+:e)
     do i = 1, ps1% Nmax
        if (ps1% species(i) <= 0) continue
@@ -210,8 +211,10 @@ contains
              ps2%force(2, idx) = ps2% force(2,idx) - f(2)
              !$omp atomic
              ps2%force(3, idx) = ps2% force(3,idx) - f(3)
+             MASK = MD_MASK
+             if (s1 == 1) MASK = ior(MASK, CATALYZED_MASK)
              !$omp atomic
-             ps2%flags(idx) = ior(ps2%flags(idx), MD_MASK)
+             ps2%flags(idx) = ior(ps2%flags(idx), MASK)
           end if
        end do
        ps1% force(:, i) = ps1% force(:, i) + f1
