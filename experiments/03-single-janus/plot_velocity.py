@@ -56,6 +56,7 @@ if args.plot:
     plt.subplot(121)
     plt.title('directed velocity')
     plt.plot(np.arange(len(janus_vel))*dt, dir_vel)
+    plt.plot(np.arange(len(janus_vel))*dt, np.cumsum(dir_vel)/(1+np.arange(len(janus_vel))))
     plt.subplot(122)
     plt.title('histogram of directed velocity')
     plt.hist(dir_vel, bins=32)
