@@ -265,7 +265,7 @@ program single_dimer_pbc
 
   call neigh% init(colloids% Nmax, int(300*max(sigma_C,sigma_N)**3))
 
-  skin = 1.5
+  skin = 2
   n_extra_sorting = 0
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
@@ -494,7 +494,7 @@ contains
           x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
           dist_to_C_sq = dot_product(x, x)
           if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-             solvent% flag(r) = 1
+             solvent% flags(r) = ibset(solvent% flags(r), REAC_BIT)
           end if
        end if
     end do
@@ -512,7 +512,7 @@ contains
     thread_id = omp_get_thread_num() + 1
     !$omp do private(x, dist_to_C_sq, dist_to_N_sq)
     do m = 1, solvent% Nmax
-       if (solvent% flag(m) == 1) then
+       if (btest(solvent% flags(m), REAC_BIT)) then
           x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
           dist_to_C_sq = dot_product(x, x)
           x = rel_pos(colloids% pos(:,2), solvent% pos(:,m), solvent_cells% edges)
@@ -526,7 +526,7 @@ contains
              if (threefry_double(state(thread_id)) <= prob) then
                 solvent% species(m) = 2
              end if
-             solvent% flag(m) = 0
+             solvent%flags(m) = ibclr(solvent%flags(m), REAC_BIT)
           end if
        end if
     end do

@@ -25,9 +25,25 @@ module common
   public :: args_t
   public :: cross
   public :: pi
+  public :: REAC_BIT
+  public :: MD_BIT
+  public :: WALL_BIT
+  public :: PAST_MD_BIT
+  public :: REAC_MASK
+  public :: MD_MASK
+  public :: WALL_MASK
 
   integer, parameter :: max_path_length = 255
   double precision, parameter :: pi = 4*atan(1.d0)
+
+  integer, parameter :: REAC_BIT = 1
+  integer, parameter :: MD_BIT = 2
+  integer, parameter :: WALL_BIT = 3
+  integer, parameter :: PAST_MD_BIT = 4
+
+  integer, parameter :: REAC_MASK = ibset(0, REAC_BIT)
+  integer, parameter :: MD_MASK = ibset(0, MD_BIT)
+  integer, parameter :: WALL_MASK = ibset(0, WALL_BIT)
 
   !> Container for a profile, e.g. v(x)
   !!

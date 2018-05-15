@@ -459,7 +459,7 @@ contains
             ((bc(2)/=PERIODIC_BC) .and. (y_out .or. z_out)) &
             ) then
           call yzwall_collision(old_pos, old_vel, new_pos, new_vel, im, L, dt, bc, g)
-          particles%wall_flag(i) = 1
+          particles%flags(i) = ibset(particles%flags(i), WALL_BIT)
           particles%vel(:,i) = new_vel
        end if
 
@@ -697,7 +697,7 @@ contains
        if (bounce) then
           new_pos = new_pos - old_vel*2*(dt-t_c)
           new_vel = - old_vel
-          particles%wall_flag(i) = 1
+          particles%flags(i) = ibset(particles%flags(i), WALL_BIT)
        end if
 
        particles%pos(:,i) = new_pos

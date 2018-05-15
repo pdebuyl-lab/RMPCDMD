@@ -225,11 +225,11 @@ contains
     call particles%time_md_vel%tic()
     !$omp parallel do
     do k = 1, particles% Nmax
-       if (particles%wall_flag(k)==0) then
+       if (.not. btest(particles%flags(k), WALL_BIT)) then
           particles% vel(:,k) = particles% vel(:,k) + &
                dt * ( particles% force(:,k) + particles% force_old(:,k) ) / 2
        else
-          particles%wall_flag(k) = 0
+          particles%flags(k) = ibclr(particles%flags(k), WALL_BIT)
        end if
     end do
     call particles%time_md_vel%tac()
@@ -249,11 +249,11 @@ contains
     do i = 1, cells%N
        if (cells%is_md(i) .eqv. md_flag) then
           do j = cells%cell_start(i), cells%cell_start(i) + cells%cell_count(i) - 1
-             if (particles%wall_flag(j)==0) then
+             if (.not. btest(particles%flags(j), WALL_BIT)) then
                 particles% vel(:,j) = particles% vel(:,j) + &
                      dt * ( particles% force(:,j) + particles% force_old(:,j) ) / 2
              else
-                particles%wall_flag(j) = 0
+                particles%flags(j) = ibclr(particles%flags(j), WALL_BIT)
              end if
           end do
        end if

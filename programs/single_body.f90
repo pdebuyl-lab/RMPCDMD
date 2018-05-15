@@ -836,8 +836,8 @@ contains
                 x = rel_pos(colloids% pos(:,i),solvent% pos(:,r),solvent_cells% edges)
                 dist_to_C_sq = dot_product(x, x)
                 if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-                   !$omp atomic write
-                   solvent% flag(r) = 1
+                   !$omp atomic
+                   solvent%flags(r) = ior(solvent%flags(r), REAC_MASK)
                 end if
              end if
           end do
@@ -858,11 +858,11 @@ contains
     do i = 1, solvent_cells%N
        change_loop: do m = solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
           if (solvent%species(m) /= 1) cycle change_loop
-          if ((solvent%flag(m) == 1) .and. (solvent%md_flag(m) == 0)) then
+          if ((btest(solvent%flags(m), REAC_BIT)) .and. (.not. btest(solvent%flags(m), MD_BIT))) then
              dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
              if (dist > reaction_radius) then
                 if (threefry_double(state(thread_id)) < prob) solvent%species(m) = 2
-                solvent%flag(m) = 0
+                solvent%flags(m) = ibclr(solvent%flags(m), REAC_BIT)
              end if
           end if
        end do change_loop

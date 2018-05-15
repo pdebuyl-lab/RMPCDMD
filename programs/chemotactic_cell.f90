@@ -683,11 +683,11 @@ contains
     !$omp parallel do private(s, r, x, dist_to_C_sq)
     do s = 1,neigh% n(1)
        r = neigh%list(s,1)
-       if ((solvent% species(r)==1) .and. (solvent%flag(r)==0)) then
+       if ((solvent% species(r)==1) .and. (.not. btest(solvent%flags(r), REAC_BIT))) then
           x = rel_pos(colloids% pos(:,1),solvent% pos(:,r),solvent_cells% edges)
           dist_to_C_sq = dot_product(x, x)
           if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-             solvent% flag(r) = 1
+             solvent%flags(r) = ibset(solvent%flags(r), REAC_BIT)
           end if
        end if
     end do
@@ -708,7 +708,7 @@ contains
     thread_id = omp_get_thread_num() + 1
     !$omp do private(x, dist_to_C_sq, dist_to_N_sq) reduction(+:catalytic_change)
     do m = 1, solvent% Nmax
-       if (solvent% flag(m) == 1) then
+       if (btest(solvent%flags(m), REAC_BIT)) then
           if (dimer) then
              x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
              dist_to_C_sq = dot_product(x, x)
@@ -725,7 +725,7 @@ contains
                    catalytic_change(1) = catalytic_change(1) - 1
                    catalytic_change(2) = catalytic_change(2) + 1
                 end if
-                solvent% flag(m) = 0
+                solvent%flags(m) = ibclr(solvent%flags(m), REAC_BIT)
              end if
           else
              x = rel_pos(colloids% pos(:,1), solvent% pos(:,m), solvent_cells% edges)
@@ -736,7 +736,7 @@ contains
                    catalytic_change(1) = catalytic_change(1) - 1
                    catalytic_change(2) = catalytic_change(2) + 1
                 end if
-                solvent% flag(m) = 0
+                solvent%flags(m) = ibclr(solvent%flags(m), REAC_BIT)
              end if
           end if
        end if

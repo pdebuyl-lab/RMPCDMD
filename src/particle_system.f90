@@ -57,20 +57,10 @@ module particle_system
      integer, contiguous, pointer :: image(:,:)
      integer, contiguous, pointer :: image_old(:,:)
      integer, contiguous, pointer :: image_pointer(:,:)
-     integer, contiguous, pointer :: flag1(:)
-     integer, contiguous, pointer :: flag2(:)
-     integer, contiguous, pointer :: flag(:)
-     integer, contiguous, pointer :: flag_old(:)
-     integer, contiguous, pointer :: flag_pointer(:)
-     integer, contiguous, pointer :: wall_flag1(:)
-     integer, contiguous, pointer :: wall_flag2(:)
-     integer, contiguous, pointer :: wall_flag(:)
-     integer, contiguous, pointer :: wall_flag_old(:)
-     integer, contiguous, pointer :: wall_flag_pointer(:)
-     integer, contiguous, pointer :: md_flag1(:)
-     integer, contiguous, pointer :: md_flag2(:)
-     integer, contiguous, pointer :: md_flag(:)
-     integer, contiguous, pointer :: md_flag_store(:)
+     integer, contiguous, pointer :: flags1(:)
+     integer, contiguous, pointer :: flags2(:)
+     integer, contiguous, pointer :: flags(:)
+     integer, contiguous, pointer :: flags_old(:)
      type(timer_t), pointer :: time_stream, time_step, time_sort, time_count, time_ct
      type(timer_t), pointer :: time_md_pos, time_md_vel, time_self_force, time_max_disp
      type(timer_t), pointer :: time_apply_pbc
@@ -148,24 +138,12 @@ contains
 
     this% image = 0
     
-    allocate(this% flag1(Nmax))
-    allocate(this% flag2(Nmax))
-    this% flag => this% flag1
-    this% flag_old => this% flag2
+    allocate(this% flags1(Nmax))
+    allocate(this% flags2(Nmax))
+    this% flags => this% flags1
+    this% flags_old => this% flags2
     
-    this% flag = 0
-
-    allocate(this% wall_flag1(Nmax))
-    allocate(this% wall_flag2(Nmax))
-    this% wall_flag => this% wall_flag1
-    this% wall_flag_old => this% wall_flag2
-
-    this% wall_flag = 0
-
-    allocate(this%md_flag1(Nmax))
-    allocate(this%md_flag2(Nmax))
-    this%md_flag => this%md_flag1
-    this%md_flag_store => this%md_flag2
+    this% flags = 0
 
     if (present(system_name)) then
        system_name_var = system_name
@@ -360,9 +338,7 @@ contains
        this% force_old_store(:, start) = this% force_old(:, i)
        this% id_old(start) = this% id(i)
        this% species_old(start) = this% species(i)
-       this% flag_old(start) = this% flag(i)
-       this% wall_flag_old(start) = this% wall_flag(i)
-       this% md_flag_store(start) = this% md_flag(i)
+       this% flags_old(start) = this% flags(i)
     end do
 
     cells% cell_start = cells% cell_start - cells% cell_count
@@ -375,9 +351,7 @@ contains
     call switch(this% force_old, this% force_old_store)
     call switch(this% id, this% id_old)
     call switch(this% species, this% species_old)
-    call switch(this% wall_flag, this% wall_flag_old)
-    call switch(this% flag, this% flag_old)
-    call switch(this% md_flag, this% md_flag_store)
+    call switch(this% flags, this% flags_old)
 
   end subroutine sort
 

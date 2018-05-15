@@ -177,7 +177,12 @@ contains
 
     !$omp parallel do
     do i = 1, ps2%Nmax
-       ps2%md_flag(i) = 0
+       if (btest(ps2%flags(i), MD_BIT)) then
+          ps2%flags(i) = ibset(ps2%flags(i), PAST_MD_BIT)
+       else
+          ps2%flags(i) = ibclr(ps2%flags(i), PAST_MD_BIT)
+       end if
+       ps2%flags(i) = ibclr(ps2%flags(i), MD_BIT)
     end do
 
     call n_list%time_force%tic()
@@ -205,8 +210,8 @@ contains
              ps2%force(2, idx) = ps2% force(2,idx) - f(2)
              !$omp atomic
              ps2%force(3, idx) = ps2% force(3,idx) - f(3)
-             !$omp atomic write
-             ps2%md_flag(idx) = 1
+             !$omp atomic
+             ps2%flags(idx) = ior(ps2%flags(idx), MD_MASK)
           end if
        end do
        ps1% force(:, i) = ps1% force(:, i) + f1
