@@ -641,12 +641,13 @@ contains
        end do
        com_v = com_v / n
 
+       kin = 0
        do i = start, start + n - 1
           kin = kin + sum((p%vel(:,i)-com_v)**2)
        end do
        kin = kin / 2
 
-       if (kin > delta_u) then
+       if ( (local_rate > 0) .and. (kin > delta_u) ) then
           local_rate = local_rate*rate
           if (threefry_double(state(thread_id)) < (1 - exp(-local_rate*tau))) then
              p%species(pick) = to
