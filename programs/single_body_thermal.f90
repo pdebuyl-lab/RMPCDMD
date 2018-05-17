@@ -83,8 +83,7 @@ program single_body_thermal
   double precision :: e1, e2, e3, e4, e_wall
   double precision :: tau, dt , T
   double precision :: mpcd_alpha
-  double precision :: prob, reaction_radius
-  double precision :: bulk_rate
+  double precision :: reaction_radius
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
@@ -147,6 +146,8 @@ program single_body_thermal
   double precision :: quaternion_treshold
   character(len=144) :: fluid_wall
   double precision :: delta_u
+  double precision :: catalytic_probability(N_species)
+  double precision :: bulk_rate(N_species)
 
   integer, parameter :: block_length = 8
   type(axial_correlator_t) :: axial_cf
@@ -195,8 +196,8 @@ program single_body_thermal
   call hdf5_util_write_dataset(params_group, 'seed', args%seed)
 
 
-  prob = PTread_d(config,'probability', loc=params_group)
-  bulk_rate = PTread_d(config,'bulk_rate', loc=params_group)
+  catalytic_probability = PTread_dvec(config,'probability', N_species, loc=params_group)
+  bulk_rate = PTread_dvec(config,'bulk_rate', 2, loc=params_group)
 
   L = PTread_ivec(config, 'L', 3, loc=params_group)
   rho = PTread_i(config, 'rho', loc=params_group)
@@ -410,7 +411,33 @@ program single_body_thermal
   end do
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
-  solvent% species = 1
+  if ( (bulk_rate(1) > 0) .and. (bulk_rate(2) > 0) ) then
+     if (bulk_rate(1)>bulk_rate(2)) then
+        do i = 1, solvent%Nmax
+           if (threefry_double(state(1)) < bulk_rate(2)/(bulk_rate(1)+bulk_rate(2))) then
+              solvent%species(i) = 1
+           else
+              solvent%species(i) = 2
+           end if
+        end do
+     else
+        do i = 1, solvent%Nmax
+           if (threefry_double(state(1)) < bulk_rate(1)/(bulk_rate(1)+bulk_rate(2))) then
+              solvent%species(i) = 2
+           else
+              solvent%species(i) = 1
+           end if
+        end do
+     end if
+  else
+     do i = 1, solvent%Nmax
+        if (threefry_double(state(1)) < 0.5d0) then
+           solvent%species(i) = 2
+        else
+           solvent%species(i) = 1
+        end if
+     end do
+  end if
 
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, H5MD_LINEAR, step=N_MD_steps, &
@@ -580,6 +607,8 @@ program single_body_thermal
         call so_timer%tac()
         colloids% force = 0
 
+        call detect_reaction
+
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         if (do_lennard_jones) e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
         if (do_elastic) e3 = elastic_network(colloids, links, links_d, elastic_k, solvent_cells%edges)
@@ -627,13 +656,6 @@ program single_body_thermal
               call omega_body_el%append(rigid_janus%omega_body)
            end if
         end if
-
-        call time_flag%tic()
-        call flag_particles
-        call time_flag%tac()
-        call time_change%tic()
-        call change_species
-        call time_change%tac()
 
      end do md_loop
 
@@ -693,7 +715,8 @@ program single_body_thermal
      call compute_cell_wise_max_v
 
      call bulk_reac_timer%tic()
-     call bulk_reaction_endothermic(solvent, solvent_cells, 2, 1, bulk_rate, tau, state, delta_u)
+     call bulk_reaction_endothermic(solvent, solvent_cells, 2, 1, bulk_rate(2), tau, state, delta_u)
+     call bulk_reaction_endothermic(solvent, solvent_cells, 1, 2, bulk_rate(1), tau, state, -delta_u)
      call bulk_reac_timer%tac()
 
      if (sampling) then
@@ -827,116 +850,96 @@ program single_body_thermal
 
 contains
 
-  subroutine flag_particles
-    double precision :: dist_to_C_sq
-    integer :: i, r, s
-    double precision :: x(3)
-
-    !$omp parallel
-    !$omp do private(i, s, r, x, dist_to_C_sq)
-    do i = 1, colloids%Nmax
-       if (colloids%species(i)==1) then
-          do s = 1,neigh% n(i)
-             r = neigh%list(s,i)
-             if (solvent% species(r) == 1) then
-                x = rel_pos(colloids% pos(:,i),solvent% pos(:,r),solvent_cells% edges)
-                dist_to_C_sq = dot_product(x, x)
-                if (dist_to_C_sq < solvent_colloid_lj%cut_sq(1,1)) then
-                   !$omp atomic
-                   solvent%flags(r) = ior(solvent%flags(r), REAC_MASK)
-                end if
-             end if
-          end do
-       end if
-    end do
-    !$omp end do
-    !$omp end parallel
-
-  end subroutine flag_particles
-
-  !! Pick any particle index in cell solvent_cell except reacting_particle
-  function pick_other_idx(solvent_cell, reacting_particle, state) result(i)
-    integer, intent(in) :: solvent_cell
-    integer, intent(in) :: reacting_particle
-    type(threefry_rng_t), intent(inout) :: state
-    integer :: i
+  subroutine detect_reaction
 
     integer :: start, count
+    integer :: m, thread_id, i, flags, n_react, idx_react(30), j
+    integer :: non_md_particles
+    double precision :: xi
 
-    start = solvent_cells%cell_start(solvent_cell)
-    count = solvent_cells%cell_count(solvent_cell)
-
-    if (count <= 1) then
-       i = -1
-       return
-    end if
-    i = reacting_particle
-    do while (i == reacting_particle)
-       i = int(start + threefry_double(state)*count)
-    end do
-
-  end function pick_other_idx
-
-  subroutine change_species
-    integer :: m, thread_id, i, other_idx
-    double precision :: dist
-
-    double precision :: factor, com_v(3), kin_energy
+    double precision :: kin_energy, com_v(3), local_excess, factor
 
     !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
-    !$omp do private(i, m, dist, other_idx, factor, com_v, kin_energy)
+    !$omp do private(i, j, m, factor, com_v, kin_energy, local_excess, &
+    !$omp flags, n_react, idx_react, start, count, xi, non_md_particles)
     do i = 1, solvent_cells%N
-       change_loop: do m = solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
-          if (solvent%species(m) /= 1) cycle change_loop
-          if ((btest(solvent%flags(m), REAC_BIT)) .and. (.not. btest(solvent%flags(m), MD_BIT))) then
-             dist = norm2(rel_pos(modulo(rigid_janus%pos, solvent_cells%edges), solvent%pos(:,m), solvent_cells%edges))
-             if (dist > reaction_radius) then
-                if (threefry_double(state(thread_id)) < prob) then
-                   ! deposity delta u
-                   other_idx = pick_other_idx(solvent_cell=i, reacting_particle=m, state=state(thread_id))
-                   if (other_idx == -1) cycle change_loop
-                   com_v = (solvent%vel(:,m)+solvent%vel(:,other_idx))/2
-                   kin_energy = sum( &
-                        (solvent%vel(:,m)-com_v)**2 + &
-                        (solvent%vel(:,other_idx)-com_v)**2)/2
-                   factor = sqrt((kin_energy+delta_u)/kin_energy)
-                   solvent%vel(:,m) = com_v + factor*(solvent%vel(:,m)-com_v)
-                   solvent%vel(:,other_idx) = com_v + factor*(solvent%vel(:,other_idx)-com_v)
-                   solvent%species(m) = 2
+       start = solvent_cells%cell_start(i)
+       count = solvent_cells%cell_count(i)
+       if (count <= 1) cycle
+       n_react = 0
+       non_md_particles = 0
+       com_v = 0
+       kin_energy = 0
+       detect_loop: do m = start, start + count - 1
+          flags = solvent%flags(m)
+          if ( (btest(flags, MD_BIT)) .and. (btest(flags, CATALYZED_BIT)) .and. (.not. btest(flags, PAST_MD_BIT)) ) then
+             ! Solvent particle just entered the interaction region
+             ! Toss a coin to decide whether there is an inbound reaction and add particle m to a list
+             xi = threefry_double(state(thread_id))
+             if (xi > 0.5d0) then
+                ! add m
+                if (threefry_double(state(thread_id)) < catalytic_probability(solvent%species(m))) then
+                   n_react = n_react + 1
+                   idx_react(n_react) = m
                 end if
-                solvent%flags(m) = ibclr(solvent%flags(m), REAC_BIT)
+             else
+                ! flag m for outbound reaction
+                solvent%flags(m) = ibset(flags, OUTBOUND_BIT)
+             end if
+          else if (.not. (btest(flags, MD_BIT)) .and. (btest(flags, PAST_MD_BIT)) ) then
+             ! Solvent particle just left the interaction region.
+             ! If it was flagged previously for an outbound reaction, count it in.
+             if (btest(flags, OUTBOUND_BIT)) then
+                n_react = n_react + 1
+                idx_react(n_react) = m
              end if
           end if
-       end do change_loop
+          if (.not. btest(solvent%flags(m), MD_BIT)) then
+             non_md_particles = non_md_particles + 1
+             com_v = com_v + solvent%vel(:,m)
+          end if
+       end do detect_loop
+
+       if (non_md_particles <= 1) cycle
+       com_v = com_v / non_md_particles
+
+       kin_energy = 0
+       do m = start, start + count - 1
+          if (.not. btest(solvent%flags(m), MD_BIT)) then
+             kin_energy = kin_energy + sum((solvent%vel(:,m)-com_v)**2)/2
+          end if
+       end do
+
+       if (n_react > 0) then
+          local_excess = 0
+          do j = 1, n_react
+             m = idx_react(j)
+             ! species 1 brings delta_u and species 2 -delta_u
+             local_excess = local_excess + (3-2*solvent%species(m))*delta_u
+          end do
+          ! local_excess may be negative!
+          if (kin_energy + local_excess > 0) then
+             do j = 1, n_react
+                m = idx_react(j)
+                solvent%species(m) = 3 - solvent%species(m)
+             end do
+             ! apply change of kinetic energy to the cell
+             factor = sqrt((kin_energy + local_excess)/kin_energy)
+             do m = start, start + count - 1
+                if (.not. btest(solvent%flags(m), MD_BIT)) then
+                   solvent%vel(:,m) = com_v + factor*(solvent%vel(:,m)-com_v)
+                end if
+             end do
+          end if
+       end if
+
     end do
     !$omp end do
     !$omp end parallel
 
-  end subroutine change_species
-  
-  subroutine refuel
-    double precision :: dist_to_C_sq
-    double precision :: dist_to_N_sq
-    double precision :: far
-    double precision :: x(3)
-    integer :: n
+  end subroutine detect_reaction
 
-    far = (L(1)*0.45)**2
-
-    !$omp parallel do private(x, dist_to_C_sq, dist_to_N_sq)
-    do n = 1,solvent% Nmax
-       if (solvent% species(n) == 2) then
-          x = rel_pos(colloids% pos(:,1), solvent% pos(:,n), solvent_cells% edges)
-          dist_to_C_sq = dot_product(x, x)
-          x= rel_pos(colloids% pos(:,2), solvent% pos(:,n), solvent_cells% edges)
-          dist_to_N_sq = dot_product(x, x)
-          if ((dist_to_C_sq > far) .and. (dist_to_N_sq > far)) then
-             solvent% species(n) = 1
-          end if
-       end if
-    end do
-  end subroutine refuel
 
   subroutine read_links(filename, n_links, links, links_d)
     character(len=*), intent(in) :: filename
