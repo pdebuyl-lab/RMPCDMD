@@ -466,6 +466,7 @@ contains
 
     integer :: i
     double precision :: f(3), r12(3), r
+    double precision :: r32(3), d12, d32, costheta
 
     en = 0
     do i = 1, 2
@@ -477,6 +478,29 @@ contains
        colloids%force(:,i+1) = colloids%force(:,i+1) - f
     end do
 
+    r12 = colloids%pos(:,1) - colloids%pos(:,2)
+    d12 = norm2(r12)
+    r32 = colloids%pos(:,3) - colloids%pos(:,2)
+    d32 = norm2(r32)
+    costheta = dot_product(r12, r32)/(d12*d32)
+    f = -fprime(costheta) * (r32/(d32*d12) - costheta * r12/d12**2)
+    colloids%force(:,1) = colloids%force(:,1) + f
+    colloids%force(:,2) = colloids%force(:,2) - f
+    f = -fprime(costheta) * (r12/(d12*d32) - costheta * r32/d32**2)
+    colloids%force(:,3) = colloids%force(:,3) + f
+    colloids%force(:,2) = colloids%force(:,2) - f
+
+    en = en + elastic_k * (acos(costheta)-link_angle)**2 / 2
+
   end function compute_bead_force
+
+  !> derivative of the angular harmonic arccos term
+  function fprime(x) result(r)
+    double precision, intent(in) :: x
+    double precision :: r
+
+    r = - angle_k * (acos(x) - link_angle) / sqrt(1-x**2)
+
+  end function fprime
 
 end program three_bead_enzyme
