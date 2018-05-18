@@ -887,12 +887,15 @@ contains
                 ! flag m for outbound reaction
                 solvent%flags(m) = ibset(flags, OUTBOUND_BIT)
              end if
+             solvent%flags(m) = ibclr(flags, CATALYZED_BIT)
           else if (.not. (btest(flags, MD_BIT)) .and. (btest(flags, PAST_MD_BIT)) ) then
              ! Solvent particle just left the interaction region.
              ! If it was flagged previously for an outbound reaction, count it in.
              if (btest(flags, OUTBOUND_BIT)) then
-                n_react = n_react + 1
-                idx_react(n_react) = m
+                if (threefry_double(state(thread_id)) < catalytic_probability(solvent%species(m))) then
+                   n_react = n_react + 1
+                   idx_react(n_react) = m
+                end if
              end if
           end if
           if (.not. btest(solvent%flags(m), MD_BIT)) then
