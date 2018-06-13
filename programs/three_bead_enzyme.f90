@@ -490,7 +490,7 @@ contains
     colloids%force(:,3) = colloids%force(:,3) + f
     colloids%force(:,2) = colloids%force(:,2) - f
 
-    en = en + elastic_k * (acos(costheta)-link_angle)**2 / 2
+    en = en + angle_k * (acos(costheta)-link_angle)**2 / 2
 
   end function compute_bead_force
 
