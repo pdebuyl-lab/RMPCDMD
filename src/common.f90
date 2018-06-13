@@ -31,10 +31,12 @@ module common
   public :: PAST_MD_BIT
   public :: OUTBOUND_BIT
   public :: CATALYZED_BIT
+  public :: ENZYME_REGION_BIT
   public :: REAC_MASK
   public :: MD_MASK
   public :: WALL_MASK
   public :: CATALYZED_MASK
+  public :: ENZYME_REGION_MASK
 
   integer, parameter :: max_path_length = 255
   double precision, parameter :: pi = 4*atan(1.d0)
@@ -45,11 +47,13 @@ module common
   integer, parameter :: PAST_MD_BIT = 4
   integer, parameter :: OUTBOUND_BIT = 5
   integer, parameter :: CATALYZED_BIT = 6
+  integer, parameter :: ENZYME_REGION_BIT = 7
 
   integer, parameter :: REAC_MASK = ibset(0, REAC_BIT)
   integer, parameter :: MD_MASK = ibset(0, MD_BIT)
   integer, parameter :: WALL_MASK = ibset(0, WALL_BIT)
   integer, parameter :: CATALYZED_MASK = ibset(0, CATALYZED_BIT)
+  integer, parameter :: ENZYME_REGION_MASK = ibset(0, ENZYME_REGION_BIT)
 
   !> Container for a profile, e.g. v(x)
   !!
