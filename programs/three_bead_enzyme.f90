@@ -89,6 +89,12 @@ program three_bead_enzyme
   double precision :: bulk_rate(2)
   logical :: bulk_rmpcd
 
+  logical :: enzyme_bound
+  integer :: bound_molecule_idx
+  double precision :: enzyme_capture_radius
+  double precision :: proba_p, proba_s
+  double precision :: substrate_fraction
+
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
 
@@ -126,6 +132,11 @@ program three_bead_enzyme
 
   bulk_rmpcd = PTread_l(config, 'bulk_rmpcd', loc=params_group)
   bulk_rate = PTread_d(config, 'bulk_rate', loc=params_group)
+
+  proba_s = PTread_d(config, 'proba_s', loc=params_group)
+  proba_p = PTread_d(config, 'proba_p', loc=params_group)
+  enzyme_capture_radius = PTread_d(config, 'enzyme_capture_radius', loc=params_group)
+  substrate_fraction = PTread_d(config, 'substrate_fraction', loc=params_group)
 
   L = PTread_ivec(config, 'L', 3, loc=params_group)
   rho = PTread_i(config, 'rho', loc=params_group)
@@ -236,10 +247,16 @@ program three_bead_enzyme
      solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
      solvent% vel(2,k) = threefry_normal(state(1))*sqrt(T)
      solvent% vel(3,k) = threefry_normal(state(1))*sqrt(T)
+     if (threefry_double(state(1)) < substrate_fraction) then
+        ! substrate
+        solvent%species(k) = 1
+     else
+        ! neutral species
+        solvent%species(k) = 3
+     end if
   end do
   solvent% vel = solvent% vel - spread(sum(solvent% vel, dim=2)/solvent% Nmax, 2, solvent% Nmax)
   solvent% force = 0
-  solvent% species = 1
 
   call solvent_cells%init(L, 1.d0)
 
@@ -292,6 +309,8 @@ program three_bead_enzyme
   write(*,*) 'mass', mass 
   call main%tic()
   sampling = .false.
+  enzyme_bound = .false.
+
   do i = 0, N_loop+equilibration_loops
      if (i==equilibration_loops) sampling = .true.
      if (modulo(i,20) == 0) write(*,'(i05)',advance='no') i
@@ -360,6 +379,8 @@ program three_bead_enzyme
 
      end do md_loop
 
+     if (i>equilibration_loops) call select_substrate
+
      call varia%tic()
 
      if (sampling) then
@@ -368,8 +389,10 @@ program three_bead_enzyme
         v_com = 0
         !$omp parallel do private(k) reduction(+:kin_e) reduction(+:v_com)
         do k = 1, solvent%Nmax
-           kin_e = kin_e + sum(solvent%vel(:,k)**2) / 2
-           v_com = v_com + solvent%vel(:,k)
+           if (solvent%species(k)>0) then
+              kin_e = kin_e + sum(solvent%vel(:,k)**2) / 2
+              v_com = v_com + solvent%vel(:,k)
+           end if
         end do
         do k = 1, colloids%Nmax
            v_com = v_com + colloids%mass(colloids%species(k)) * colloids%vel(:,k)
@@ -502,5 +525,156 @@ contains
     r = - angle_k * (acos(x) - link_angle) / sqrt(1-x**2)
 
   end function fprime
+
+
+  !> Select substrate molecules for binding to enzyme
+  !!
+  !! All substrate molecules are tested for their distance to the enzyme active site and are
+  !! allowed to react once per stay in the enzyme region.
+  subroutine select_substrate
+
+    integer :: m, thread_id, i, s_sp
+    double precision :: dist, x_enzyme(3)
+    double precision :: total_p, xi
+
+    integer, parameter :: list_size = 256
+    integer :: n_s, n_p
+    integer :: idx
+    integer :: list_s(list_size), list_p(list_size)
+    logical :: reaction_happens
+
+    ! Do nothing if enzyme is already bound
+    if (enzyme_bound) return
+
+    n_s = 0
+    n_p = 0
+
+    x_enzyme = modulo(colloids%pos(:,2), solvent_cells%edges)
+
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(i, m, s_sp, dist)
+    do i = 1, solvent_cells%N
+       select_loop: do m = solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
+          s_sp = solvent%species(m)
+          if (s_sp == 3) cycle select_loop
+          dist = norm2(rel_pos(x_enzyme, solvent%pos(:,m), solvent_cells%edges))
+          if (.not. btest(solvent%flags(m), ENZYME_REGION_BIT)) then
+             if ( (dist <= enzyme_capture_radius) .and. (dist > solvent_colloid_lj%cut(s_sp, colloids%species(2)) ) ) then
+                ! select for current round
+                solvent%flags(m) = ibset(solvent%flags(m), ENZYME_REGION_BIT)
+                if (s_sp==1) then
+                   !$omp atomic
+                   n_s = n_s + 1
+                   if (n_s > list_size) then
+                      stop 'exceed size of list_s in select_substrate'
+                   end if
+                   list_s(n_s) = m
+                else if (s_sp==2) then
+                   !$omp atomic
+                   n_p = n_p + 1
+                   if (n_p > list_size) then
+                      stop 'exceed size of list_p in select_substrate'
+                   end if
+                   list_p(n_p) = m
+                end if
+             end if
+          else
+             if (dist > enzyme_capture_radius) then
+                solvent%flags(m) = ibclr(solvent%flags(m), ENZYME_REGION_BIT)
+             end if
+          end if
+       end do select_loop
+    end do
+    !$omp end do
+    !$omp end parallel
+
+    total_p = n_s*proba_s + n_p*proba_p
+
+    reaction_happens = (threefry_double(state(1)) < total_p)
+
+    ! Pick either a substrate or a product if a reaction happens
+
+    if (reaction_happens) then
+       xi = threefry_double(state(1))*total_p
+
+       if (xi < n_s*proba_s) then
+          ! pick in substrates
+          idx = floor(xi * n_s / total_p) + 1
+          m = list_s(idx)
+          ! use list_s(idx)
+       else
+          ! pick in products
+          idx = floor(xi * n_p / total_p) + 1
+          m = list_p(idx)
+       end if
+       call bind_molecule(m)
+    end if
+
+  end subroutine select_substrate
+
+
+  !> Bind solvent molecule idx to enzyme
+  subroutine bind_molecule(idx)
+    integer, intent(in) :: idx
+    double precision :: com_v(3), w_ab(3), excess_kinetic_energy, mu_ab
+
+    ! adjust velocity
+    ! compute excess kinetic energy
+
+    com_v = (colloids%vel(:,2)*colloids%mass(colloids%species(2)) + solvent%vel(:,idx)) &
+         / (colloids%mass(colloids%species(2)) + 1)
+    w_ab = colloids%vel(:,2) - solvent%vel(:,idx)
+
+    mu_ab = 1/(1+1/colloids%mass(colloids%species(2)))
+
+    excess_kinetic_energy = mu_ab * dot_product(w_ab, w_ab) / 2
+
+    colloids%vel(:,2) = com_v
+
+    ! todo: deposit extra energy
+
+    ! transfer mass
+    colloids%mass(1) = colloids%mass(1) + 1
+
+    bound_molecule_idx = idx
+    solvent%species(idx) = 0
+
+    enzyme_bound = .true.
+
+  end subroutine bind_molecule
+
+  !> Bind solvent molecule idx to enzyme
+  subroutine unbind_molecule(to_species)
+    integer, intent(in) :: to_species
+
+    integer :: i
+    double precision :: x_new(3), dist
+    logical :: too_close
+
+    ! transfer mass
+    colloids%mass(1) = colloids%mass(1) - 1
+
+    solvent%species(bound_molecule_idx) = to_species
+
+    ! Place the molecule outside of the interaction range of all colloids
+    too_close = .true.
+    do while (too_close)
+       x_new = colloids%pos(:,2) + rand_sphere(state(1))*solvent_colloid_lj%cut(to_species, colloids%species(2))*1.001d0
+       too_close = .false.
+       do i = 1, 3
+          dist = norm2(rel_pos(colloids%pos(:,i), x_new, solvent_cells%edges))
+          too_close = too_close .or. &
+               (dist < solvent_colloid_lj%cut(to_species, colloids%species(i)))
+       end do
+    end do
+    solvent%pos(:,bound_molecule_idx) = x_new
+
+    ! Use c.o.m. velocity so that no kinetic energy exchange must take place
+    solvent%vel(:,bound_molecule_idx) = colloids%vel(:,2)
+
+    enzyme_bound = .false.
+
+  end subroutine unbind_molecule
 
 end program three_bead_enzyme
