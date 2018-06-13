@@ -33,6 +33,7 @@ module mpcd
   public :: bulk_reaction
   public :: bulk_reaction_endothermic
   public :: mpcd_stream_nogravity_zwall
+  public :: rand_sphere
 
 contains
 
