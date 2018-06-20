@@ -73,7 +73,7 @@ contains
     double precision, intent(in), optional :: alpha
 
     integer :: i, start, n
-    integer :: cell_idx
+    integer :: cell_idx, n_effective
     double precision :: local_v(3), omega(3,3), vec(3)
     double precision :: sin_alpha, cos_alpha
     integer :: thread_id
@@ -89,18 +89,22 @@ contains
     call particles%time_step%tic()
     !$omp parallel private(thread_id)
     thread_id = omp_get_thread_num() + 1
-    !$omp do private(start, n, local_v, i, vec, omega)
+    !$omp do private(start, n, local_v, i, vec, omega, n_effective)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
        start = cells% cell_start(cell_idx)
        n = cells% cell_count(cell_idx)
 
+       n_effective = 0
        local_v = 0
        do i = start, start + n - 1
-          local_v = local_v + particles% vel(:, i)
+          if (particles%species(i) > 0) then
+             local_v = local_v + particles% vel(:, i)
+             n_effective = n_effective + 1
+          end if
        end do
-       local_v = local_v / n
+       local_v = local_v / n_effective
 
        vec = rand_sphere(state(thread_id))
        omega = &
@@ -321,7 +325,7 @@ contains
 
     double precision :: te
 
-    integer :: i, start, n
+    integer :: i, start, n, n_effective
     integer :: cell_idx, count
     integer :: cell(3)
     double precision :: local_v(3), local_kin
@@ -338,7 +342,7 @@ contains
     cell_idx = 1
     count = 0
     te = 0
-    !$omp parallel do private(start, n, local_v, local_kin, i, cell) &
+    !$omp parallel do private(start, n, local_v, local_kin, i, cell, n_effective) &
     !$omp& reduction(+:count) reduction(+:te)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
@@ -347,16 +351,22 @@ contains
        n = cells% cell_count(cell_idx)
        count = count + 1
 
+       n_effective = 0
        local_v = 0
        local_kin = 0
        do i = start, start + n - 1
-          local_v = local_v + particles% vel(:, i)
+          if (particles%species(i) > 0) then
+             local_v = local_v + particles% vel(:, i)
+             n_effective = n_effective + 1
+          end if
        end do
        local_v = local_v / n
        do i = start, start + n - 1
-          local_kin = local_kin + sum((particles% vel(:, i)-local_v)**2)
+          if (particles%species(i) > 0) then
+             local_kin = local_kin + sum((particles% vel(:, i)-local_v)**2)
+          end if
        end do
-       local_kin = local_kin / dble(3*(n-1))
+       local_kin = local_kin / dble(3*(n_effective-1))
        te = te + local_kin
 
        if (do_tz) then
