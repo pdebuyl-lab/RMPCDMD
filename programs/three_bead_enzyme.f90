@@ -59,7 +59,6 @@ program three_bead_enzyme
 
   double precision :: e1, e2, e3
   double precision :: tau, dt , T
-  double precision :: d
   double precision :: skin, co_max, so_max
   integer :: N_MD_steps, N_loop
   integer :: n_extra_sorting
@@ -268,7 +267,7 @@ program three_bead_enzyme
   colloids%pos(2,3) = colloids%pos(2,3) + link_d(2)*sin(link_angle)
   
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
-       n_solvent, H5MD_LINEAR, step=N_MD_steps, &
+       n_solvent, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
 
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
@@ -428,20 +427,24 @@ program three_bead_enzyme
         call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate(2), tau, state)
      end if
 
-     n_solvent = 0
-     do k = 1, solvent%Nmax
-        j = solvent%species(k)
-        if (j <= 0) continue
-        n_solvent(j) = n_solvent(j) + 1
-     end do
-     call n_solvent_el%append(n_solvent)
-
+     if (sampling) then
+        n_solvent = 0
+        do k = 1, solvent%Nmax
+           j = solvent%species(k)
+           if (j <= 0) continue
+           n_solvent(j) = n_solvent(j) + 1
+        end do
+        call n_solvent_el%append(n_solvent)
+     end if
 
   end do
   call main%tac()
   write(*,*) ''
 
   write(*,*) 'n extra sorting', n_extra_sorting
+
+  call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, &
+       v_com, add=.false., force=.true.)
 
   ! create a group for block correlators and write the data
 
