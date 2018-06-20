@@ -621,6 +621,7 @@ contains
   subroutine bind_molecule(idx)
     integer, intent(in) :: idx
     double precision :: com_v(3), w_ab(3), excess_kinetic_energy, mu_ab
+    integer :: p(3), cell_idx
 
     ! adjust velocity
     ! compute excess kinetic energy
@@ -637,11 +638,16 @@ contains
 
     ! todo: deposit extra energy
 
+    p = floor( (solvent%pos(:, idx) / solvent_cells%a) - solvent_cells%origin )
+    cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
+
     ! transfer mass
     colloids%mass(1) = colloids%mass(1) + 1
 
     bound_molecule_idx = idx
     solvent%species(idx) = 0
+
+    call add_energy_to_cell(cell_idx, excess_kinetic_energy)
 
     enzyme_bound = .true.
 
@@ -679,5 +685,41 @@ contains
     enzyme_bound = .false.
 
   end subroutine unbind_molecule
+
+  subroutine add_energy_to_cell(cell_idx, energy)
+    integer, intent(in) :: cell_idx
+    double precision, intent(in) :: energy
+
+    integer :: i, start, n, n_effective
+    double precision :: com_v(3), kin, factor
+
+    start = solvent_cells% cell_start(cell_idx)
+    n = solvent_cells% cell_count(cell_idx)
+
+    n_effective = 0
+    com_v = 0
+    do i = start, start + n - 1
+       if (solvent%species(i) > 0) then
+          com_v = com_v + solvent% vel(:, i)
+          n_effective = n_effective + 1
+       end if
+    end do
+    com_v = com_v / n_effective
+
+    kin = 0
+    do i = start, start + n - 1
+       if (solvent%species(i) > 0) then
+          kin = kin + sum((solvent%vel(:,i)-com_v)**2)
+       end if
+    end do
+    kin = kin / 2
+
+    factor = sqrt((kin + energy)/kin)
+    do i = start, start + n - 1
+       solvent%vel(:,i) = com_v + factor*(solvent%vel(:,i) - com_v)
+    end do
+
+  end subroutine add_energy_to_cell
+
 
 end program three_bead_enzyme
