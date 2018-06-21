@@ -61,6 +61,7 @@ module particle_system
      integer, contiguous, pointer :: flags2(:)
      integer, contiguous, pointer :: flags(:)
      integer, contiguous, pointer :: flags_old(:)
+     integer, allocatable :: id_to_idx(:)
      type(timer_t), pointer :: time_stream, time_step, time_sort, time_count, time_ct
      type(timer_t), pointer :: time_md_pos, time_md_vel, time_self_force, time_max_disp
      type(timer_t), pointer :: time_apply_pbc
@@ -144,6 +145,8 @@ contains
     this% flags_old => this% flags2
     
     this% flags = 0
+
+    allocate(this%id_to_idx(Nmax))
 
     if (present(system_name)) then
        system_name_var = system_name
@@ -337,6 +340,7 @@ contains
        this% force_store(:, start) = this% force(:, i)
        this% force_old_store(:, start) = this% force_old(:, i)
        this% id_old(start) = this% id(i)
+       this% id_to_idx(this%id(i)) = start
        this% species_old(start) = this% species(i)
        this% flags_old(start) = this% flags(i)
     end do
