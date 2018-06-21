@@ -122,6 +122,7 @@ contains
 
           do cell_i = cell_start, cell_start + cell_n - 1
              s = system2%species(cell_i)
+             if (s <= 0) cycle
              y = system2% pos(:, cell_i)
              rsq = sum(rel_pos(x, y, L)**2)
 
