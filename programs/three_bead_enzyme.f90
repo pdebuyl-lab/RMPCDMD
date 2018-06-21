@@ -66,6 +66,7 @@ program three_bead_enzyme
   type(PTo) :: config
 
   integer :: i, L(3)
+  double precision :: current_time
   integer :: j, k
   type(timer_t), target :: varia, main, time_flag, time_change
   double precision :: total_time
@@ -89,9 +90,10 @@ program three_bead_enzyme
   logical :: bulk_rmpcd
 
   logical :: enzyme_bound
-  integer :: bound_molecule_idx
+  integer :: bound_molecule_id
   double precision :: enzyme_capture_radius
   double precision :: proba_p, proba_s
+  double precision :: rate_release_p, rate_release_s, total_rate, next_reaction_time
   double precision :: substrate_fraction
 
   integer, dimension(N_species) :: n_solvent
@@ -134,6 +136,9 @@ program three_bead_enzyme
 
   proba_s = PTread_d(config, 'proba_s', loc=params_group)
   proba_p = PTread_d(config, 'proba_p', loc=params_group)
+  rate_release_s = PTread_d(config, 'rate_release_s', loc=params_group)
+  rate_release_p = PTread_d(config, 'rate_release_p', loc=params_group)
+  total_rate = rate_release_s + rate_release_p
   enzyme_capture_radius = PTread_d(config, 'enzyme_capture_radius', loc=params_group)
   substrate_fraction = PTread_d(config, 'substrate_fraction', loc=params_group)
 
@@ -309,11 +314,13 @@ program three_bead_enzyme
   call main%tic()
   sampling = .false.
   enzyme_bound = .false.
+  next_reaction_time = huge(next_reaction_time)
 
   do i = 0, N_loop+equilibration_loops
      if (i==equilibration_loops) sampling = .true.
      if (modulo(i,20) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
+        current_time = (i*N_MD_steps + (j-1))*dt
         call md_pos(solvent, dt)
         do k=1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
@@ -380,6 +387,17 @@ program three_bead_enzyme
 
      if (i>equilibration_loops) call select_substrate
 
+     if (i*N_MD_steps*dt > next_reaction_time) then
+        if (threefry_double(state(1)) < rate_release_s / total_rate) then
+           ! release substrate
+           call unbind_molecule(1)
+        else
+           ! release product
+           call unbind_molecule(2)
+        end if
+        next_reaction_time = huge(next_reaction_time)
+     end if
+
      call varia%tic()
 
      if (sampling) then
@@ -431,7 +449,7 @@ program three_bead_enzyme
         n_solvent = 0
         do k = 1, solvent%Nmax
            j = solvent%species(k)
-           if (j <= 0) continue
+           if (j <= 0) cycle
            n_solvent(j) = n_solvent(j) + 1
         end do
         call n_solvent_el%append(n_solvent)
@@ -644,12 +662,14 @@ contains
     ! transfer mass
     colloids%mass(1) = colloids%mass(1) + 1
 
-    bound_molecule_idx = idx
+    bound_molecule_id = solvent%id(idx)
     solvent%species(idx) = 0
 
     call add_energy_to_cell(cell_idx, excess_kinetic_energy)
 
     enzyme_bound = .true.
+
+    next_reaction_time = current_time - log(threefry_double(state(1)))/total_rate ! sample from Poisson process
 
   end subroutine bind_molecule
 
@@ -664,8 +684,6 @@ contains
     ! transfer mass
     colloids%mass(1) = colloids%mass(1) - 1
 
-    solvent%species(bound_molecule_idx) = to_species
-
     ! Place the molecule outside of the interaction range of all colloids
     too_close = .true.
     do while (too_close)
@@ -677,10 +695,14 @@ contains
                (dist < solvent_colloid_lj%cut(to_species, colloids%species(i)))
        end do
     end do
-    solvent%pos(:,bound_molecule_idx) = x_new
+
+    i = solvent%id_to_idx(bound_molecule_id)
+
+    solvent%species(i) = to_species
+    solvent%pos(:,i) = x_new
 
     ! Use c.o.m. velocity so that no kinetic energy exchange must take place
-    solvent%vel(:,bound_molecule_idx) = colloids%vel(:,2)
+    solvent%vel(:,i) = colloids%vel(:,2)
 
     enzyme_bound = .false.
 
