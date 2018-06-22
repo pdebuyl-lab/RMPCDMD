@@ -522,9 +522,9 @@ contains
        colloids%force(:,i+1) = colloids%force(:,i+1) - f
     end do
 
-    r12 = colloids%pos(:,1) - colloids%pos(:,2)
+    r12 = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
     d12 = norm2(r12)
-    r32 = colloids%pos(:,3) - colloids%pos(:,2)
+    r32 = rel_pos(colloids%pos(:,3), colloids%pos(:,2), solvent_cells%edges)
     d32 = norm2(r32)
     costheta = dot_product(r12, r32)/(d12*d32)
     f = -fprime(costheta) * (r32/(d32*d12) - costheta * r12/d12**2)
