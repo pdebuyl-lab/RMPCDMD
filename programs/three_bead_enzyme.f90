@@ -17,7 +17,7 @@
 !! \param sigma_E                 radius of enzymatic_site
 !! \param sigma_N                 radius of N sphere
 !! \param link_d                  length of rigid link
-!! \param link_angle              angle of the model at rest
+!! \param link_angles             angle of the model at rest
 !! \param elastic_k               stiffness of the link
 !! \param angle_k                 stiffness of the angular link
 !! \param epsilon_C               interaction parameter of C sphere with both solvent species (2 elements)
@@ -55,7 +55,7 @@ program three_bead_enzyme
   double precision :: mass(2)
 
   double precision :: elastic_k, link_d(2)
-  double precision :: angle_k, link_angle
+  double precision :: angle_k, link_angle, link_angles(2)
 
   double precision :: e1, e2, e3
   double precision :: tau, dt , T
@@ -94,7 +94,7 @@ program three_bead_enzyme
   double precision :: enzyme_capture_radius
   double precision :: proba_p, proba_s
   double precision :: rate_release_p, rate_release_s, total_rate, next_reaction_time
-  double precision :: substrate_fraction
+  double precision :: substrate_fraction, product_relative_fraction
 
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
@@ -141,6 +141,7 @@ program three_bead_enzyme
   total_rate = rate_release_s + rate_release_p
   enzyme_capture_radius = PTread_d(config, 'enzyme_capture_radius', loc=params_group)
   substrate_fraction = PTread_d(config, 'substrate_fraction', loc=params_group)
+  product_relative_fraction = PTread_d(config, 'product_relative_fraction', loc=params_group)
 
   L = PTread_ivec(config, 'L', 3, loc=params_group)
   rho = PTread_i(config, 'rho', loc=params_group)
@@ -148,7 +149,8 @@ program three_bead_enzyme
 
   T = PTread_d(config, 'T', loc=params_group)
   link_d = PTread_dvec(config, 'link_d', 2, loc=params_group)
-  link_angle = PTread_d(config, 'link_angle', loc=params_group)
+  link_angles = PTread_dvec(config, 'link_angles', 2, loc=params_group)
+  link_angle = link_angles(1)
   elastic_k = PTread_d(config, 'elastic_k', loc=params_group)
   angle_k = PTread_d(config, 'angle_k', loc=params_group)
 
@@ -253,7 +255,11 @@ program three_bead_enzyme
      solvent% vel(3,k) = threefry_normal(state(1))*sqrt(T)
      if (threefry_double(state(1)) < substrate_fraction) then
         ! substrate
-        solvent%species(k) = 1
+        if (threefry_double(state(1)) < product_relative_fraction) then
+           solvent%species(k) = 2
+        else
+           solvent%species(k) = 1
+        end if
      else
         ! neutral species
         solvent%species(k) = 3
@@ -289,7 +295,7 @@ program three_bead_enzyme
 
   call solvent% sort(solvent_cells)
 
-  call neigh% init(colloids% Nmax, int(300*max(sigma_E,sigma_N)**3))
+  call neigh% init(colloids% Nmax, int(rho*30*max(sigma_E,sigma_N)**3))
 
   skin = 2
   n_extra_sorting = 0
@@ -538,6 +544,19 @@ contains
 
   end function compute_bead_force
 
+  function compute_bead_energy() result(en)
+    double precision :: en
+
+    double precision :: r12(3), d12, r32(3), d32, costheta
+
+    r12 = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
+    d12 = norm2(r12)
+    r32 = rel_pos(colloids%pos(:,3), colloids%pos(:,2), solvent_cells%edges)
+    d32 = norm2(r32)
+    costheta = dot_product(r12, r32)/(d12*d32)
+    en = angle_k * (acos(costheta)-link_angle)**2 / 2
+  end function compute_bead_energy
+
   !> derivative of the angular harmonic arccos term
   function fprime(x) result(r)
     double precision, intent(in) :: x
@@ -639,6 +658,7 @@ contains
   subroutine bind_molecule(idx)
     integer, intent(in) :: idx
     double precision :: com_v(3), w_ab(3), excess_kinetic_energy, mu_ab
+    double precision :: en1, en2
     integer :: p(3), cell_idx
 
     ! adjust velocity
@@ -665,7 +685,15 @@ contains
     bound_molecule_id = solvent%id(idx)
     solvent%species(idx) = 0
 
-    call add_energy_to_cell(cell_idx, excess_kinetic_energy)
+    en1 = compute_bead_energy()
+
+    link_angle = link_angles(2)
+
+    en2 = compute_bead_energy()
+
+    call add_energy_to_cell(cell_idx, excess_kinetic_energy + en1 - en2)
+
+    e3 = e3 + en2 - en1
 
     enzyme_bound = .true.
 
@@ -677,8 +705,8 @@ contains
   subroutine unbind_molecule(to_species)
     integer, intent(in) :: to_species
 
-    integer :: i
-    double precision :: x_new(3), dist
+    integer :: i, p(3), cell_idx
+    double precision :: x_new(3), dist, en1, en2
     logical :: too_close
 
     ! transfer mass
@@ -704,6 +732,18 @@ contains
     ! Use c.o.m. velocity so that no kinetic energy exchange must take place
     solvent%vel(:,i) = colloids%vel(:,2)
 
+    en1 = compute_bead_energy()
+
+    link_angle = link_angles(1)
+
+    en2 = compute_bead_energy()
+
+    p = floor( (solvent%pos(:, i) / solvent_cells%a) - solvent_cells%origin )
+    cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
+    call add_energy_to_cell(cell_idx, en1 - en2)
+
+    e3 = e3 + en2 - en1
+
     enzyme_bound = .false.
 
   end subroutine unbind_molecule
@@ -726,6 +766,14 @@ contains
           n_effective = n_effective + 1
        end if
     end do
+
+    write(31,*) 'time', current_time, 'n_effective', n_effective, 'energy', energy
+    if (n_effective == 0) then
+       stop 'n_effective == 0 in add_energy_to_cell'
+    end if
+    if (n_effective == 1) then
+       stop 'n_effective == 1 in add_energy_to_cell'
+    end if
     com_v = com_v / n_effective
 
     kin = 0
@@ -736,6 +784,11 @@ contains
     end do
     kin = kin / 2
 
+    write(31,*) 'com_v', com_v, 'kin', kin
+
+    if ((kin + energy) <= 0) then
+       stop 'negative energy in add_energy_to_cell'
+    end if
     factor = sqrt((kin + energy)/kin)
     do i = start, start + n - 1
        solvent%vel(:,i) = com_v + factor*(solvent%vel(:,i) - com_v)
