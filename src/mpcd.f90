@@ -104,6 +104,7 @@ contains
              n_effective = n_effective + 1
           end if
        end do
+       if (n_effective <= 1) cycle
        local_v = local_v / n_effective
 
        vec = rand_sphere(state(thread_id))
@@ -360,6 +361,9 @@ contains
              n_effective = n_effective + 1
           end if
        end do
+
+       if (n_effective <= 1) cycle
+
        local_v = local_v / n
        do i = start, start + n - 1
           if (particles%species(i) > 0) then
