@@ -98,6 +98,7 @@ program three_bead_enzyme
 
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
+  type(h5md_element_t) :: link_angle_el
 
   integer, parameter :: block_length = 8
   type(axial_correlator_t) :: axial_cf
@@ -184,6 +185,7 @@ program three_bead_enzyme
   sigma(1,2) = sigma_E + sigma_N
   sigma(2,1) = sigma_E + sigma_N
   sigma(2,2) = 2*sigma_N
+  sigma = sigma*1.1d0
   sigma_cut = sigma*2**(1.d0/6.d0)
 
   call colloid_lj% init(epsilon(1:N_species_colloids,1:N_species_colloids), &
@@ -273,12 +275,16 @@ program three_bead_enzyme
   do i = 1, N_colloids
      colloids% pos(:,i) = solvent_cells%edges / 2
   end do
-  colloids%pos(1,2) = colloids%pos(1,2) + link_d(1)
+  colloids%pos(1,1) = colloids%pos(1,2) + link_d(1)
   colloids%pos(1,3) = colloids%pos(1,3) + link_d(2)*cos(link_angle)
   colloids%pos(2,3) = colloids%pos(2,3) + link_d(2)*sin(link_angle)
   
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
+       time=N_MD_steps*dt)
+
+  call link_angle_el%create_time(hfile%observables, 'link_angle', &
+       link_angle, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
 
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
@@ -324,7 +330,7 @@ program three_bead_enzyme
 
   do i = 0, N_loop+equilibration_loops
      if (i==equilibration_loops) sampling = .true.
-     if (modulo(i,20) == 0) write(*,'(i05)',advance='no') i
+     if (modulo(i,64) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
         current_time = (i*N_MD_steps + (j-1))*dt
         call md_pos(solvent, dt)
@@ -459,6 +465,7 @@ program three_bead_enzyme
            n_solvent(j) = n_solvent(j) + 1
         end do
         call n_solvent_el%append(n_solvent)
+        call link_angle_el%append(link_angle)
      end if
 
   end do
@@ -506,6 +513,7 @@ program three_bead_enzyme
   call dimer_io%close()
   call solvent_io%close()
   call n_solvent_el%close()
+  call link_angle_el%close()
   call hfile%close()
   call h5close_f(error)
 
@@ -753,46 +761,105 @@ contains
     double precision, intent(in) :: energy
 
     integer :: i, start, n, n_effective
+    integer :: cell(3), actual_cell(3), actual_idx, cell_shift(3)
+    integer :: counter
     double precision :: com_v(3), kin, factor
+    double precision :: remaining_energy, xi(3), change
+
+    integer, parameter :: max_counter = 20
 
     start = solvent_cells% cell_start(cell_idx)
     n = solvent_cells% cell_count(cell_idx)
 
-    n_effective = 0
-    com_v = 0
-    do i = start, start + n - 1
-       if (solvent%species(i) > 0) then
-          com_v = com_v + solvent% vel(:, i)
-          n_effective = n_effective + 1
+    remaining_energy = energy
+    cell = compact_h_to_p(cell_idx - 1, solvent_cells%M) + 1
+
+    ! If energy is positive, go for one cell.
+
+    if (energy > 0) then
+       start = solvent_cells% cell_start(cell_idx)
+       n = solvent_cells% cell_count(cell_idx)
+
+       n_effective = 0
+       com_v = 0
+       do i = start, start + n - 1
+          if (solvent%species(i) > 0) then
+             com_v = com_v + solvent% vel(:, i)
+             n_effective = n_effective + 1
+          end if
+       end do
+
+       if (n_effective == 0) then
+          stop 'n_effective == 0 in add_energy_to_cell'
        end if
-    end do
-
-    write(31,*) 'time', current_time, 'n_effective', n_effective, 'energy', energy
-    if (n_effective == 0) then
-       stop 'n_effective == 0 in add_energy_to_cell'
-    end if
-    if (n_effective == 1) then
-       stop 'n_effective == 1 in add_energy_to_cell'
-    end if
-    com_v = com_v / n_effective
-
-    kin = 0
-    do i = start, start + n - 1
-       if (solvent%species(i) > 0) then
-          kin = kin + sum((solvent%vel(:,i)-com_v)**2)
+       if (n_effective == 1) then
+          stop 'n_effective == 1 in add_energy_to_cell'
        end if
-    end do
-    kin = kin / 2
+       com_v = com_v / n_effective
 
-    write(31,*) 'com_v', com_v, 'kin', kin
+       kin = 0
+       do i = start, start + n - 1
+          if (solvent%species(i) > 0) then
+             kin = kin + sum((solvent%vel(:,i)-com_v)**2)
+          end if
+       end do
+       kin = kin / 2
 
-    if ((kin + energy) <= 0) then
-       stop 'negative energy in add_energy_to_cell'
+       factor = sqrt((kin + energy)/kin)
+       do i = start, start + n - 1
+          solvent%vel(:,i) = com_v + factor*(solvent%vel(:,i) - com_v)
+       end do
+
+    else
+
+       do counter = 1, max_counter
+          xi(1) = -1 + 3*threefry_double(state(1))
+          xi(2) = -1 + 3*threefry_double(state(1))
+          xi(3) = -1 + 3*threefry_double(state(1))
+
+          cell_shift = floor(xi)
+          actual_cell = modulo(cell + cell_shift , solvent_cells% L)
+          actual_idx = compact_p_to_h(actual_cell, solvent_cells%M) + 1
+
+          start = solvent_cells% cell_start(actual_idx)
+          n = solvent_cells% cell_count(actual_idx)
+
+          n_effective = 0
+          com_v = 0
+          do i = start, start + n - 1
+             if (solvent%species(i) > 0) then
+                com_v = com_v + solvent% vel(:, i)
+                n_effective = n_effective + 1
+             end if
+          end do
+
+          if (n_effective <= 1) cycle
+
+          com_v = com_v / n_effective
+
+          kin = 0
+          do i = start, start + n - 1
+             if (solvent%species(i) > 0) then
+                kin = kin + sum((solvent%vel(:,i)-com_v)**2)
+             end if
+          end do
+          kin = kin / 2
+
+          change = max(-kin/2, remaining_energy)
+
+          remaining_energy = remaining_energy - change
+
+          factor = sqrt((kin + change)/kin)
+          do i = start, start + n - 1
+             solvent%vel(:,i) = com_v + factor*(solvent%vel(:,i) - com_v)
+          end do
+
+          if (abs(remaining_energy) < 1d-9) exit
+       end do
+
+       if (abs(remaining_energy) > 2d-1) stop 'error in add_energy_to_cell'
+
     end if
-    factor = sqrt((kin + energy)/kin)
-    do i = start, start + n - 1
-       solvent%vel(:,i) = com_v + factor*(solvent%vel(:,i) - com_v)
-    end do
 
   end subroutine add_energy_to_cell
 
