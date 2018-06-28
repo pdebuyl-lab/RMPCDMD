@@ -59,13 +59,14 @@ contains
   end subroutine init
 
   !> Update the fields
-  subroutine update(this, x, v, one_x, one_y, one_z, solvent, cells)
+  subroutine update(this, x, v, one_x, one_y, one_z, omega, solvent, cells)
     class(planar_fields_t), intent(inout) :: this
     double precision, intent(in) :: x(3)
     double precision, intent(in) :: v(3)
     double precision, intent(in) :: one_x(3)
     double precision, intent(in) :: one_y(3)
     double precision, intent(in) :: one_z(3)
+    double precision, intent(in) :: omega(3)
     type(particle_system_t), intent(in) :: solvent
     type(cell_system_t), intent(in) :: cells
 
@@ -125,6 +126,7 @@ contains
              i_x = floor((body_x-x_min)/dx)+1
              i_y = floor((body_y-y_min)/dy)+1
              solvent_v = solvent%vel(:,idx) - v
+             solvent_v = solvent_v - cross(omega, d)
              v_x = dot_product(solvent_v, one_x)
              v_y = dot_product(solvent_v, one_y)
              this_count(s2, i_y, i_x) = this_count(s2, i_y, i_x) + 1
