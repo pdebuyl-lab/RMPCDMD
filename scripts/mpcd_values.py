@@ -37,6 +37,7 @@ def bulk_command(args):
     print("Viscosity", eta)
     D_fluid = T*tau/(2*m) * (3*gamma/((gamma - 1 + np.exp(-gamma))*(1-np.cos(alpha))) - 1)
     print("Self-diffusion D", D_fluid)
+    print("Schmidt number Sc", eta/(rho*D_fluid))
     if args.length:
         print("Diffusion time", args.length**2/D_fluid)
     if args.force and args.heigth:
