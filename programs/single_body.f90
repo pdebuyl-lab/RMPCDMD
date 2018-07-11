@@ -115,6 +115,7 @@ program single_body
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   double precision :: v_com(3), x(3)
+  double precision :: wall_v(3,2)
   double precision :: tmp_mass
   type(particle_system_io_t) :: janus_io
   type(particle_system_io_t) :: solvent_io
@@ -243,8 +244,8 @@ program single_body
   do_ywall = PTread_l(config, 'do_ywall', loc=params_group)
   fluid_wall = 'PERIODIC'
   if (do_ywall) then
-     wall_sigma(2,:) = PTread_d(config, 'wall_sigma', loc=params_group)
-     wall_shift(2) = PTread_d(config, 'wall_shift', loc=params_group)
+     wall_sigma(3,:) = PTread_d(config, 'wall_sigma', loc=params_group)
+     wall_shift(3) = PTread_d(config, 'wall_shift', loc=params_group)
      wall_epsilon = PTread_d(config, 'wall_epsilon', loc=params_group)
      call walls_colloid_lj% init(wall_epsilon, &
           wall_sigma, 3.d0**(1.d0/6.d0)*wall_sigma, wall_shift)
@@ -277,15 +278,18 @@ program single_body
   call h5gclose_f(params_group, error)
   call PTkill(config)
 
-  call solvent_cells%init(L, 1.d0)
+  call solvent_cells%init(L, 1.d0, &
+       has_walls= ( (trim(fluid_wall) == 'SPECULAR') &
+       .or. (trim(fluid_wall) == 'BOUNCE_BACK')) )
 
+  wall_v = 0
   solvent_cells%bc = PERIODIC_BC
   if (trim(fluid_wall) == 'PERIODIC') then
-     solvent_cells%bc(2) = PERIODIC_BC
+     solvent_cells%bc(3) = PERIODIC_BC
   else if (trim(fluid_wall) == 'SPECULAR') then
-     solvent_cells%bc(2) = SPECULAR_BC
+     solvent_cells%bc(3) = SPECULAR_BC
   else if (trim(fluid_wall) == 'BOUNCE_BACK') then
-     solvent_cells%bc(2) = BOUNCE_BACK_BC
+     solvent_cells%bc(3) = BOUNCE_BACK_BC
   else
      error stop 'unknown value for parameter fluid_wall'
   end if
@@ -459,7 +463,7 @@ program single_body
 
   call polar%init(N_species, 64, sigma, polar_r_max, 64)
   call timer_list%append(polar%time_polar_update)
-  call planar%init(N_species, 64, -8.d0, 8.d0, 64, -8.d0, 8.d0, 1.d0)
+  call planar%init(N_species, 64, -12.d0, 12.d0, 64, -12.d0, 12.d0, 1.d0)
   call timer_list%append(planar%timer)
   call neigh% init(colloids% Nmax, int(500*max(sigma,1.15d0)**3))
 
@@ -499,8 +503,8 @@ program single_body
      if (i==equilibration_loops) sampling = .true.
      if (modulo(i,32) == 0) write(*,'(i08)',advance='no') i
      md_loop: do j = 1, N_MD_steps
-        if ((do_ywall) .and. (solvent_cells%bc(2)/=PERIODIC_BC)) then
-           call cell_md_pos_ywall(solvent_cells, solvent, dt, md_flag=.true.)
+        if ((do_ywall) .and. (solvent_cells%bc(3)/=PERIODIC_BC)) then
+           call cell_md_pos_zwall(solvent_cells, solvent, dt, md_flag=.true.)
         else
            call cell_md_pos(solvent_cells, solvent, dt, md_flag=.true.)
         end if
@@ -532,8 +536,8 @@ program single_body
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1d0) .or. (so_max >= skin*0.9d0) ) then
-           if ((do_ywall) .and. (solvent_cells%bc(2)/=PERIODIC_BC)) then
-              call cell_md_pos_ywall(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           if ((do_ywall) .and. (solvent_cells%bc(3)/=PERIODIC_BC)) then
+              call cell_md_pos_zwall(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
            else
               call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
            end if
@@ -674,7 +678,9 @@ program single_body
      end do
      colloids% pos_old = colloids% pos
 
-     call simple_mpcd_step(solvent, solvent_cells, state, alpha=mpcd_alpha)
+     call wall_mpcd_step(solvent, solvent_cells, state, &
+          wall_temperature=[T, T], wall_v=wall_v, wall_n=[rho, rho], &
+          alpha=mpcd_alpha)
      call compute_cell_wise_max_v
 
      call bulk_reac_timer%tic()
@@ -698,8 +704,8 @@ program single_body
         call varia%tac()
         call polar%update(com_pos, v_com, unit_r/norm2(unit_r), solvent, solvent_cells)
         one_x = qrot(rigid_janus%q, [1.d0, 0.d0, 0.d0])
-        one_y = qrot(rigid_janus%q, [0.d0, 0.d0, 1.d0])
-        one_z = qrot(rigid_janus%q, [0.d0, -1.d0, 0.d0])
+        one_y = qrot(rigid_janus%q, [0.d0, 1.d0, 0.d0])
+        one_z = qrot(rigid_janus%q, [0.d0, 0.d0, 1.d0])
         call planar%update(com_pos, v_com, one_x, one_y, one_z, qrot(rigid_janus%q, rigid_janus%omega_body), &
              solvent, solvent_cells)
 
