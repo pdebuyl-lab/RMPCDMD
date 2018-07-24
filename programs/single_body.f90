@@ -153,7 +153,7 @@ program single_body
   integer(HID_T) :: correlator_group
 
   integer :: equilibration_loops
-  integer :: colloid_sampling
+  integer :: colloid_sampling, coordinates_sampling
   logical :: sampling
 
   type(args_t) :: args
@@ -207,6 +207,7 @@ program single_body
   mpcd_alpha = PTread_d(config,'alpha', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
   colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
+  coordinates_sampling = PTread_i(config, 'coordinates_sampling', loc=params_group)
   do_solvent_io = PTread_l(config, 'do_solvent_io', loc=params_group)
   if (modulo(N_MD_steps, colloid_sampling) /= 0) then
      error stop 'colloid_sampling must divide N_MD with no remainder'
@@ -362,21 +363,21 @@ program single_body
 
   janus_io%force_info%store = .true.
   janus_io%force_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%force_info%step = N_MD_steps
-  janus_io%force_info%time = N_MD_steps*dt
+  janus_io%force_info%step = N_MD_steps*coordinates_sampling
+  janus_io%force_info%time = N_MD_steps*coordinates_sampling*dt
   janus_io%id_info%store = .false.
   janus_io%position_info%store = .true.
   janus_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%position_info%step = N_MD_steps
-  janus_io%position_info%time = N_MD_steps*dt
+  janus_io%position_info%step = janus_io%force_info%step
+  janus_io%position_info%time = janus_io%force_info%time
   janus_io%image_info%store = .true.
   janus_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%image_info%step = N_MD_steps
-  janus_io%image_info%time = N_MD_steps*dt
+  janus_io%image_info%step = janus_io%force_info%step
+  janus_io%image_info%time = janus_io%force_info%time
   janus_io%velocity_info%store = .true.
   janus_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  janus_io%velocity_info%step = N_MD_steps
-  janus_io%velocity_info%time = N_MD_steps*dt
+  janus_io%velocity_info%step = janus_io%force_info%step
+  janus_io%velocity_info%time = janus_io%force_info%time
   janus_io%species_info%store = .true.
   janus_io%species_info%mode = H5MD_FIXED
   call janus_io%init(hfile, 'janus', colloids)
@@ -711,10 +712,12 @@ program single_body
 
         if (do_quaternion) call omega_cf%add(i-equilibration_loops, correlate_block_dot, xvec=rigid_janus%omega_body)
 
-        call janus_io%position%append(colloids%pos)
-        call janus_io%force%append(colloids%force)
-        call janus_io%velocity%append(colloids%vel)
-        call janus_io%image%append(colloids%image)
+        if ((i > equilibration_loops) .and. (modulo(i-equilibration_loops, coordinates_sampling)==0)) then
+           call janus_io%position%append(colloids%pos)
+           call janus_io%force%append(colloids%force)
+           call janus_io%velocity%append(colloids%vel)
+           call janus_io%image%append(colloids%image)
+        end if
     end if
 
   end do

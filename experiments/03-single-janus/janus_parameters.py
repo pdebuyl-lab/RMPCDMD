@@ -41,6 +41,8 @@ parser.add_argument('--bulk-rate', type=float, help='Rate of bulk reaction',
                     default=0.01)
 parser.add_argument('--colloid-sampling', type=int,
                     help='Interval for colloid sampling', default=50)
+parser.add_argument('--coordinates-sampling', type=int,
+                    help='Interval for coordinates sampling', default=100)
 parser.add_argument('--reaction-radius',
                     help='reaction radius around the c.o.m. of the colloid')
 parser.add_argument('--ywall', action='store_true',
@@ -88,6 +90,7 @@ probability = {prob}
 N_MD = {N_MD}
 N_loop = {N_loop}
 colloid_sampling = {colloid_sampling}
+coordinates_sampling = {coordinates_sampling}
 do_solvent_io = F
 equilibration_loops = 50
 data_filename = {datafile}
