@@ -16,7 +16,7 @@ module planar_fields
   public :: planar_fields_t
 
   type planar_fields_t
-     integer, allocatable :: count(:,:,:)
+     double precision, allocatable :: count(:,:,:)
      double precision, allocatable :: v(:,:,:,:)
      double precision :: x_min, dx
      double precision :: y_min, dy

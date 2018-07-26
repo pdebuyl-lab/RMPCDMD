@@ -775,7 +775,7 @@ program single_body
      planar%v(1,:,:,:) = planar%v(1,:,:,:) / planar%count
      planar%v(2,:,:,:) = planar%v(2,:,:,:) / planar%count
   end where
-  call h5md_write_dataset(fields_group, 'planar_concentration', dble(planar%count)/N_loop)
+  call h5md_write_dataset(fields_group, 'planar_concentration', planar%count/N_loop)
   call h5oopen_f(fields_group, 'planar_concentration', planar_id, error)
   call h5md_write_attribute(planar_id, 'x_min', planar%x_min)
   call h5md_write_attribute(planar_id, 'dx', planar%dx)
