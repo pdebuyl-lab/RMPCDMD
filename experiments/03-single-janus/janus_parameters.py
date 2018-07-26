@@ -88,6 +88,7 @@ rho = 10
 tau = {tau}
 alpha = {alpha}
 probability = {prob}
+do_hydro = {do_hydro_logical}
 
 # simulation parameters
 N_MD = {N_MD}
@@ -129,7 +130,9 @@ epsilon_C = {epsilon_C[0]} {epsilon_C[1]}"""
 
 output = output.format(r_radius=r_radius, link_treshold=link_treshold,
                        box_L=box_L,
-                       ywall_logical=ywall_logical, **args.__dict__)
+                       ywall_logical=ywall_logical,
+                       do_hydro_logical=do_hydro_logical,
+                       **args.__dict__)
 
 
 if args.out:
