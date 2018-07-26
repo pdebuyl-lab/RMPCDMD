@@ -48,6 +48,8 @@ parser.add_argument('--reaction-radius',
 parser.add_argument('--ywall', action='store_true',
                     help='enable confinement of the colloid'
                     ' in the y direction')
+parser.add_argument('--no-hydro', action='store_false',
+                    help='kill c.o.m. velocity conservation in mpcd')
 parser.add_argument('--ywall-bc', help='boundary condition for the fluid wall',
                     choices=['BOUNCE_BACK', 'SPECULAR', 'PERIODIC'],
                     default='PERIODIC')
@@ -70,6 +72,7 @@ else:
 link_treshold = 2.7*args.sigma/3
 
 ywall_logical = 'T' if args.ywall else 'F'
+do_hydro_logical = 'F' if args.no_hydro else 'T'
 
 if len(args.L)==1:
     box_L = '{L} {L} {L}'.format(L=args.L[0])

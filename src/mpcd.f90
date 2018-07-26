@@ -186,8 +186,13 @@ contains
 
   !> Collisions in partially filled cells at the walls use the rule of Lamura et al (2001)
   !> \cite lamura_mpcd_epl_2001
+  !!
+  !! If thermostatting is enabled, MPCD-AT is used.
+  !!
+  !! If keep_cell_v is disabled (the default is enabled), the center of mass velocity of the
+  !! cells is set to zero.
   subroutine wall_mpcd_step(particles, cells, state, wall_temperature, wall_v, wall_n, &
-       thermostat, bulk_temperature, alpha)
+       thermostat, bulk_temperature, alpha, keep_cell_v)
     use hilbert
     use omp_lib
     class(particle_system_t), intent(inout) :: particles
@@ -199,6 +204,7 @@ contains
     logical, intent(in), optional :: thermostat
     double precision, intent(in), optional :: bulk_temperature
     double precision, intent(in), optional :: alpha
+    logical, intent(in), optional :: keep_cell_v
 
     integer :: i, start, n
     integer :: cell_idx
@@ -209,7 +215,7 @@ contains
     integer :: wall_idx
     double precision :: virtual_v(3), t_factor
     logical :: all_present, all_absent
-    logical :: do_thermostat
+    logical :: do_thermostat, do_cell_v
     integer :: thread_id
 
     all_present = present(wall_temperature) .and. present(wall_v) .and. present(wall_n)
@@ -224,6 +230,11 @@ contains
              t_factor = sqrt(bulk_temperature)
           else
              error stop 'thermostat requested but no temperature given in wall_mpcd_step'
+          end if
+          if (present(keep_cell_v)) then
+             do_cell_v = keep_cell_v
+          else
+             do_cell_v = .true.
           end if
        end if
     else
@@ -288,10 +299,12 @@ contains
              particles% vel(:, i) = vec*t_factor
              virtual_v = virtual_v + particles% vel(:, i)
           end do
-          virtual_v = local_v - virtual_v / dble(n)
-          do i = start, start + n - 1
-             particles% vel(:, i) = particles% vel(:, i) + virtual_v
-          end do
+          if (do_cell_v) then
+             virtual_v = local_v - virtual_v / dble(n)
+             do i = start, start + n - 1
+                particles% vel(:, i) = particles% vel(:, i) + virtual_v
+             end do
+          end if
        else
           vec = rand_sphere(state(thread_id))
           omega = &
