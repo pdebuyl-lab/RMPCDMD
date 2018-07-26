@@ -17,6 +17,8 @@ parser.add_argument('--ny', type=int, default=8,
                     help='number of beads along the long arm of the L')
 parser.add_argument('--n-tiles', type=int, default=2,
                     help='number of tiles for the thickness of the bottom arm')
+parser.add_argument('--arm-width', type=int, default=2,
+                    help='width of long arm')
 args = parser.parse_args()
 
 with h5py.File(args.file, 'r') as a:
@@ -30,26 +32,27 @@ vel_com = vel.mean(axis=1)
 
 pos = pos + im*edges.reshape((1,1,-1))
 
-NHALF = args.n_tiles*args.nx + 2*(args.ny-args.n_tiles)
-print(NHALF)
+n_planar = args.nx * args.n_tiles + args.arm_width * (args.ny - args.n_tiles)
 
-one_z = pos[:,NHALF,:] - pos[:,0,:]
+print(n_planar)
+
+one_z = pos[:,n_planar,:] - pos[:,0,:]
 one_z = one_z / np.sqrt(np.sum(one_z**2, axis=1)).reshape((-1,1))
 
 
-v12 = vel[:,NHALF-2,:] - vel[:,0,:]
+v12 = vel[:,n_planar-args.arm_width,:] - vel[:,0,:]
 
 v12_inplane = v12 - np.sum(v12*one_z, axis=1).reshape((-1,1))*one_z
 
 off_in = np.sum(v12_inplane*one_z, axis=1)
 
-r12 = pos[:,NHALF-2,:] - pos[:,0,:]
-dist12 = np.sqrt(np.sum((pos[0,NHALF-2,:]-pos[0,0,:])**2))
+r12 = pos[:,n_planar-args.arm_width,:] - pos[:,0,:]
+dist12 = np.sqrt(np.sum((pos[0,n_planar-args.arm_width,:]-pos[0,0,:])**2))
 r12 /= dist12
 
 one_y = np.cross(one_z, r12)
 
-omega_z = np.sum(v12_inplane*one_y, axis=1)
+omega_z = np.sum(v12_inplane*one_y, axis=1)/dist12
 
 dir_v = np.sum(r12*vel_com, axis=1)
 
@@ -82,8 +85,8 @@ if args.plot:
 
     x, y, z = pos_com.T
 
-    plt.plot(x, z)
+    plt.plot(x, y)
     plt.xlabel('x')
-    plt.ylabel('z')
+    plt.ylabel('y')
 
     plt.show()
