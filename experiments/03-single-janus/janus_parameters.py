@@ -48,7 +48,7 @@ parser.add_argument('--reaction-radius',
 parser.add_argument('--ywall', action='store_true',
                     help='enable confinement of the colloid'
                     ' in the y direction')
-parser.add_argument('--no-hydro', action='store_false',
+parser.add_argument('--no-hydro', action='store_true',
                     help='kill c.o.m. velocity conservation in mpcd')
 parser.add_argument('--ywall-bc', help='boundary condition for the fluid wall',
                     choices=['BOUNCE_BACK', 'SPECULAR', 'PERIODIC'],
