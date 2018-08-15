@@ -683,7 +683,8 @@ program single_body
 
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=[T, T], wall_v=wall_v, wall_n=[rho, rho], &
-          alpha=mpcd_alpha, keep_cell_v=do_hydro)
+          alpha=mpcd_alpha, keep_cell_v=do_hydro, thermostat=.not.do_hydro, &
+          bulk_temperature=T)
      call compute_cell_wise_max_v
 
      call bulk_reac_timer%tic()

@@ -241,6 +241,15 @@ contains
        do_thermostat = .false.
     end if
 
+    if (present(keep_cell_v)) then
+       if (.not. present(thermostat)) then
+          stop 'requiring keep_cell_v and not setting thermostat in wall_mpcd_step'
+       end if
+       if ((.not. keep_cell_v) .and. (.not. do_thermostat)) then
+          stop 'requiring .not. keep_cell_v and .not. thermostat in wall_mpcd_step'
+       end if
+    end if
+
     if (present(alpha)) then
        sin_alpha = sin(alpha)
        cos_alpha = cos(alpha)
