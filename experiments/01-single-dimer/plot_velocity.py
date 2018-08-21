@@ -40,10 +40,12 @@ if args.directed:
     unit_z = r[:,1,:]-r[:,0,:]
     unit_z /= np.sqrt(np.sum(unit_z**2, axis=1)).reshape((-1,1))
     vz = np.sum(v_com*unit_z, axis=1)
+    print("Average directed velocity: ", vz.mean())
     if args.histogram:
         plt.hist(vz, bins=20)
     else:
         plt.plot(time, vz)
+        plt.plot(np.arange(len(vz))*r_dt, np.cumsum(vz)/(1+np.arange(len(vz))))
 else:
     for i in range(3):
         plt.subplot(3,1,i+1)
