@@ -26,7 +26,6 @@ module mpcd
 
   public :: compute_temperature, simple_mpcd_step
   public :: wall_mpcd_step
-  public :: mpcd_at_step
   public :: mpcd_stream_periodic
   public :: mpcd_stream_xforce_yzwall
   public :: compute_rho, compute_vx
@@ -65,18 +64,48 @@ contains
   !!
   !! Use the rule defined in Ref. \cite malevanets_kapral_mpcd_1999 to collide the particles
   !! cell-wise. \manual{algorithms,mpcd}
-  subroutine simple_mpcd_step(particles, cells, state, alpha)
+  !!
+  !! Optionally use MPC-AT thermostat, with the possibility of switching off the
+  !! conservation of momentum and energy.
+  subroutine simple_mpcd_step(particles, cells, state, alpha, thermostat, T, hydro)
     use omp_lib
     class(particle_system_t), intent(inout) :: particles
     class(cell_system_t), intent(in) :: cells
     type(threefry_rng_t), intent(inout) :: state(:)
     double precision, intent(in), optional :: alpha
+    logical, intent(in), optional :: thermostat
+    double precision, intent(in), optional :: T
+    logical, intent(in), optional :: hydro
 
     integer :: i, start, n
     integer :: cell_idx, n_effective
     double precision :: local_v(3), omega(3,3), vec(3)
+    double precision :: virtual_v(3)
     double precision :: sin_alpha, cos_alpha
+    double precision :: t_factor
     integer :: thread_id
+    logical :: do_thermostat, do_hydro
+
+    if (present(thermostat)) then
+       do_thermostat = thermostat
+       if (present(T)) then
+          t_factor = sqrt(T)
+       else
+          stop 'no temperature given for thermostat in simple_mpcd_step'
+       end if
+    else
+       do_thermostat = .false.
+    end if
+
+    if (present(hydro)) then
+       do_hydro = hydro
+    else
+       do_hydro = .true.
+    end if
+
+    if ((.not. do_hydro) .and. (.not. thermostat)) then
+       stop 'requiring .not.do_hydro without thermostat in simple_mpcd_step'
+    end if
 
     if (present(alpha)) then
        sin_alpha = sin(alpha)
@@ -87,9 +116,13 @@ contains
     end if
 
     call particles%time_step%tic()
-    !$omp parallel private(thread_id)
+    !$omp parallel private(thread_id, t_factor)
     thread_id = omp_get_thread_num() + 1
-    !$omp do private(start, n, local_v, i, vec, omega, n_effective)
+    if (present(T)) then
+       t_factor = sqrt(T)
+    end if
+
+    !$omp do private(start, n, local_v, i, vec, omega, n_effective, virtual_v)
     do cell_idx = 1, cells% N
        if (cells% cell_count(cell_idx) <= 1) cycle
 
@@ -107,20 +140,39 @@ contains
        if (n_effective <= 1) cycle
        local_v = local_v / n_effective
 
-       vec = rand_sphere(state(thread_id))
-       omega = &
-            reshape( (/ &
-            cos_alpha+vec(1)**2*(1-cos_alpha), vec(1)*vec(2)*(1-cos_alpha) - vec(3)*sin_alpha, &
-            vec(1)*vec(3)*(1-cos_alpha) + vec(2)*sin_alpha ,&
-            vec(2)*vec(1)*(1-cos_alpha) + vec(3)*sin_alpha , cos_alpha+vec(2)**2*(1-cos_alpha) ,&
-            vec(2)*vec(3)*(1-cos_alpha) - vec(1)*sin_alpha,&
-            vec(3)*vec(1)*(1-cos_alpha) - vec(2)*sin_alpha, vec(3)*vec(2)*(1-cos_alpha) + vec(1)*sin_alpha,&
-            cos_alpha + vec(3)**2*(1-cos_alpha) &
-            /), (/3, 3/))
+       if (do_thermostat) then
+          virtual_v = 0
+          do i = start, start + n - 1
+             if (particles%species(i) <= 0) cycle
+             vec(1) = threefry_normal(state(thread_id))*t_factor
+             vec(2) = threefry_normal(state(thread_id))*t_factor
+             vec(3) = threefry_normal(state(thread_id))*t_factor
+             particles% vel(:, i) = vec
+             virtual_v = virtual_v + particles% vel(:, i)
+          end do
+          virtual_v = local_v - virtual_v / n_effective
+          if (do_hydro) then
+             do i = start, start + n - 1
+                if (particles%species(i) <= 0) cycle
+                particles% vel(:, i) = particles% vel(:, i) + virtual_v
+             end do
+          end if
+       else
+          vec = rand_sphere(state(thread_id))
+          omega = &
+               reshape( (/ &
+               cos_alpha+vec(1)**2*(1-cos_alpha), vec(1)*vec(2)*(1-cos_alpha) - vec(3)*sin_alpha, &
+               vec(1)*vec(3)*(1-cos_alpha) + vec(2)*sin_alpha ,&
+               vec(2)*vec(1)*(1-cos_alpha) + vec(3)*sin_alpha , cos_alpha+vec(2)**2*(1-cos_alpha) ,&
+               vec(2)*vec(3)*(1-cos_alpha) - vec(1)*sin_alpha,&
+               vec(3)*vec(1)*(1-cos_alpha) - vec(2)*sin_alpha, vec(3)*vec(2)*(1-cos_alpha) + vec(1)*sin_alpha,&
+               cos_alpha + vec(3)**2*(1-cos_alpha) &
+               /), (/3, 3/))
 
-       do i = start, start + n - 1
-          particles% vel(:, i) = local_v + matmul(omega, (particles% vel(:, i)-local_v))
-       end do
+          do i = start, start + n - 1
+             particles% vel(:, i) = local_v + matmul(omega, (particles% vel(:, i)-local_v))
+          end do
+       end if
 
     end do
     !$omp end do
@@ -129,60 +181,6 @@ contains
 
   end subroutine simple_mpcd_step
 
-  !> Perform a collision.
-  !!
-  !! MPCD with Anderson thermostat defined in Ref. \cite noguchi_epl_2007 to collide the
-  !! particles cell-wise. \manual{algorithms,mpcd}
-  subroutine mpcd_at_step(particles, cells, state, temperature)
-    use omp_lib
-    class(particle_system_t), intent(inout) :: particles
-    class(cell_system_t), intent(in) :: cells
-    type(threefry_rng_t), intent(inout) :: state(:)
-    double precision, intent(in) :: temperature
-
-    integer :: i, start, n
-    integer :: cell_idx
-    double precision :: local_v(3), vec(3), virtual_v(3)
-    double precision :: t_factor
-    integer :: thread_id
-
-    t_factor = sqrt(temperature)
-
-    call particles%time_step%tic()
-    !$omp parallel private(thread_id)
-    thread_id = omp_get_thread_num() + 1
-    !$omp do private(cell_idx, start, n, local_v, virtual_v, i, vec)
-    do cell_idx = 1, cells% N
-       if (cells% cell_count(cell_idx) <= 1) cycle
-
-       start = cells% cell_start(cell_idx)
-       n = cells% cell_count(cell_idx)
-
-       local_v = 0
-       do i = start, start + n - 1
-          local_v = local_v + particles% vel(:, i)
-       end do
-       local_v = local_v / n
-
-       virtual_v = 0
-       do i = start, start + n - 1
-          vec(1) = threefry_normal(state(thread_id))*t_factor
-          vec(2) = threefry_normal(state(thread_id))*t_factor
-          vec(3) = threefry_normal(state(thread_id))*t_factor
-          particles% vel(:, i) = vec
-          virtual_v = virtual_v + particles% vel(:, i)
-       end do
-       virtual_v = local_v - virtual_v / dble(n)
-       do i = start, start + n - 1
-          particles% vel(:, i) = particles% vel(:, i) + virtual_v
-       end do
-
-    end do
-    !$omp end do
-    !$omp end parallel
-    call particles%time_step%tac()
-
-  end subroutine mpcd_at_step
 
   !> Collisions in partially filled cells at the walls use the rule of Lamura et al (2001)
   !> \cite lamura_mpcd_epl_2001

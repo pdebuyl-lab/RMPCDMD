@@ -6,13 +6,15 @@
 !!
 !! The periodic simulation box is filled with a number of spherical colloids, that interact
 !! with an attractive Lennard-Jones potential, and with solvent particles.
-!! The temperature is controlled with the MPCD Anderson thermostat.
+!! The temperature can be controlled with the MPCD Anderson thermostat.
 !!
 !! \param L                length of simulation box in the 3 dimensions
 !! \param rho              fluid number density
 !! \param T                Temperature. Used for setting initial velocities and for thermostatting.
 !! \param T_final          Target temperature. Used for thermostatting with temperature program from T to T_final.
 !! \param tau              MPCD collision time
+!! \param do_thermostat    enable MPCD-AT thermostat
+!! \param do_hydro         conserve cell-wise momentum (can be turned off only with thermostat enabled)
 !! \param N_MD             number MD steps occuring in tau
 !! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
 !! \param N_loop           number of MPCD timesteps
@@ -54,6 +56,7 @@ program n_colloids_pbc
   integer :: colloid_sampling
   integer :: n_extra_sorting
   integer :: n_threads
+  logical :: do_hydro, do_thermostat
 
   type(threefry_rng_t), allocatable :: state(:)
   type(h5md_file_t) :: hfile
@@ -107,6 +110,9 @@ program n_colloids_pbc
   sigma_cut = sigma*2.d0**(1.d0/6.d0)
 
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
+
+  do_hydro = PTread_l(config, 'do_hydro', loc=params_group)
+  do_thermostat = PTread_l(config, 'do_thermostat', loc=params_group)
 
   mass = rho * sigma**3 * 4 * 3.141/3
   call colloids%init(N_colloids, 1, [mass])
@@ -241,7 +247,8 @@ program n_colloids_pbc
      colloids% pos_old = colloids% pos
 
      T = T_init + (i-1)*(T_final-T_init)/(N_loop-1)
-     call mpcd_at_step(solvent, solvent_cells, state, T)
+     call simple_mpcd_step(solvent, solvent_cells, state, &
+          thermostat=do_thermostat, T=T, hydro=do_hydro)
 
      if (modulo(i,colloid_sampling)==0) then
         call colloids_io%position%append(colloids%pos)

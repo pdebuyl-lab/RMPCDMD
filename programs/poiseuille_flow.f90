@@ -15,6 +15,7 @@
 !! \param tau         MPCD collision time
 !! \param alpha       MPCD collision angle
 !! \param thermostat  whether to enable bulk thermostatting
+!! \param do_hydro    whether to conserve momentum cell-wise
 !! \param N_therm     number of unsampled thermalization MPCD timesteps
 !! \param N_loop      number of MPCD timesteps
 
@@ -58,6 +59,7 @@ program poiseuille_flow
   double precision :: T, set_temperature, tau
   double precision :: alpha
   logical :: thermostat
+  logical :: do_hydro
   type(args_t) :: args
 
   args = get_input_args()
@@ -75,6 +77,7 @@ program poiseuille_flow
 
   set_temperature = PTread_d(config, 'T')
   thermostat = PTread_l(config, 'thermostat')
+  do_hydro = PTread_l(config, 'do_hydro')
   
   tau = PTread_d(config, 'tau')
   alpha = PTread_d(config, 'alpha')
@@ -155,7 +158,7 @@ program poiseuille_flow
      call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
-          bulk_temperature=set_temperature, alpha=alpha)
+          bulk_temperature=set_temperature, alpha=alpha, keep_cell_v=do_hydro)
   end do
 
   do i = 1, N_loop

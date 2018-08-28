@@ -11,6 +11,8 @@
 !! \param rho         fluid number density
 !! \param T           Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
 !! \param tau         MPCD collision time
+!! \param do_thermostat    enable MPCD-AT thermostat
+!! \param do_hydro         conserve cell-wise momentum (can be turned off only with thermostat enabled)
 !! \param probability probability to change A to B upon collision
 !! \param bulk_rmpcd  use bulkd rmpcd reaction for B->A instead of resetting
 !! \param bulk_rate   rate of B->A reaction
@@ -97,6 +99,7 @@ program single_dimer_pbc
   integer :: equilibration_loops
   integer :: colloid_sampling
   logical :: sampling
+  logical :: do_hydro, do_thermostat
   type(histogram_t) :: z_hist
   type(h5md_element_t) :: z_hist_el
   double precision :: cyl_shell_rmin, cyl_shell_rmax
@@ -182,6 +185,9 @@ program single_dimer_pbc
   call colloids% init(2,2, mass, system_name='colloids') !there will be 2 species of colloids
 
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
+
+  do_hydro = PTread_l(config, 'do_hydro', loc=params_group)
+  do_thermostat = PTread_l(config, 'do_thermostat', loc=params_group)
 
   call h5gclose_f(params_group, error)
   call PTkill(config)
@@ -411,7 +417,8 @@ program single_dimer_pbc
      colloids% pos_old = colloids% pos
      call varia%tac()
 
-     call simple_mpcd_step(solvent, solvent_cells, state)
+     call simple_mpcd_step(solvent, solvent_cells, state, &
+          thermostat=do_thermostat, T=T, hydro=do_hydro)
      
      call time_refuel%tic()
      if (bulk_rmpcd) then
