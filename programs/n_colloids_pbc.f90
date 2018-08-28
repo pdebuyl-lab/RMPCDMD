@@ -119,12 +119,12 @@ program n_colloids_pbc
   colloids_io%velocity_info%store = .false.
   colloids_io%position_info%store = .true.
   colloids_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  colloids_io%position_info%step = N_MD_steps
-  colloids_io%position_info%time = N_MD_steps*dt
+  colloids_io%position_info%step = N_MD_steps*colloid_sampling
+  colloids_io%position_info%time = N_MD_steps*colloid_sampling*dt
   colloids_io%image_info%store = .true.
   colloids_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  colloids_io%image_info%step = N_MD_steps
-  colloids_io%image_info%time = N_MD_steps*dt
+  colloids_io%image_info%step = N_MD_steps*colloid_sampling
+  colloids_io%image_info%time = N_MD_steps*colloid_sampling*dt
   colloids_io%species_info%store = .true.
   colloids_io%species_info%mode = H5MD_FIXED
   call colloids_io%init(hfile, 'colloids', colloids)
