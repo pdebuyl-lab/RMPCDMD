@@ -172,7 +172,7 @@ program poiseuille_flow
      call solvent% sort(solvent_cells)
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=wall_t, wall_v=wall_v, wall_n=[rho, rho], thermostat=thermostat, &
-          bulk_temperature=set_temperature, alpha=alpha)
+          bulk_temperature=set_temperature, alpha=alpha, keep_cell_v=do_hydro)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
 
