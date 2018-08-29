@@ -122,7 +122,10 @@ program n_colloids_pbc
 
   colloids_io%force_info%store = .false.
   colloids_io%id_info%store = .false.
-  colloids_io%velocity_info%store = .false.
+  colloids_io%velocity_info%store = .true.
+  colloids_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  colloids_io%velocity_info%step = N_MD_steps*colloid_sampling
+  colloids_io%velocity_info%time = N_MD_steps*colloid_sampling*dt
   colloids_io%position_info%store = .true.
   colloids_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   colloids_io%position_info%step = N_MD_steps*colloid_sampling
@@ -251,6 +254,7 @@ program n_colloids_pbc
           thermostat=do_thermostat, T=T, hydro=do_hydro)
 
      if (modulo(i,colloid_sampling)==0) then
+        call colloids_io%velocity%append(colloids%vel)
         call colloids_io%position%append(colloids%pos)
         call colloids_io%image%append(colloids%image)
      end if
