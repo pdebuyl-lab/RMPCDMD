@@ -54,7 +54,7 @@ program n_colloids_pbc
   double precision :: tau, dt, T, T_init, T_final
   integer :: N_MD_steps, N_loop
   integer :: colloid_sampling
-  integer :: n_extra_sorting
+  integer :: n_extra_sorting, loop_i_last_sort
   integer :: n_threads
   logical :: do_hydro, do_thermostat
 
@@ -201,6 +201,7 @@ program n_colloids_pbc
   call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
 
   n_extra_sorting = 0
+  loop_i_last_sort = 0
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -217,13 +218,14 @@ program n_colloids_pbc
         do k = 1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
         end do
-        so_max = solvent% maximum_displacement()
+        so_max = cell_maximum_displacement(solvent_cells, solvent, delta_t=dt*(N_MD_steps*i+j - loop_i_last_sort))
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
+           loop_i_last_sort = N_MD_steps*i + j
            call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
@@ -245,6 +247,7 @@ program n_colloids_pbc
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
+     loop_i_last_sort = N_MD_steps*(i+1)
      call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
      solvent% pos_old = solvent% pos
      colloids% pos_old = colloids% pos
