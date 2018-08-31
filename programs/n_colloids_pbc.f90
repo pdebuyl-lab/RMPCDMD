@@ -214,7 +214,7 @@ program n_colloids_pbc
   do i = 1, N_loop
      if (modulo(i, 100)==0) write(*, '(i09)', advance='no') i
      md_loop: do j = 1, N_MD_steps
-        call md_pos(solvent, dt)
+        call cell_md_pos(solvent_cells, solvent, dt, md_flag=.true.)
         do k = 1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
         end do
@@ -222,6 +222,9 @@ program n_colloids_pbc
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
+           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           call cell_md_vel(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
@@ -239,10 +242,14 @@ program n_colloids_pbc
         e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
         e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
 
-        call md_vel(solvent, dt)
+        call cell_md_vel(solvent_cells, solvent, dt, md_flag=.true.)
         colloids% vel = colloids% vel + dt * ( colloids% force + colloids% force_old ) / (2 * mass)
 
      end do md_loop
+
+     call solvent_cells%random_shift(state(1))
+     call cell_md_pos(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+     call cell_md_vel(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
 
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
