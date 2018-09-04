@@ -66,6 +66,10 @@ program n_colloids_pbc
   integer(HID_T) :: box_group
   type(h5md_element_t) :: dummy_element
 
+  integer(HID_T) :: fields_group
+  type(histogram_t) :: radial_hist
+  type(h5md_element_t) :: radial_hist_el
+
   double precision :: skin
   double precision :: rsq
   logical :: tooclose
@@ -171,6 +175,14 @@ program n_colloids_pbc
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
+
+  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
+  call radial_hist%init(sigma/2, 4*sigma, 100)
+  call radial_hist_el%create_time(fields_group, 'radial_histogram', radial_hist%data, &
+       H5MD_LINEAR, step=N_MD_steps, time=N_MD_steps*dt)
+  call h5md_write_attribute(radial_hist_el%id, 'xmin', radial_hist%xmin)
+  call h5md_write_attribute(radial_hist_el%id, 'dx', radial_hist%dx)
+  call h5gclose_f(fields_group, error)
 
   i = 1
   place_colloids: do while (i<=N_colloids)
@@ -285,6 +297,11 @@ program n_colloids_pbc
 
      call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, v_com)
 
+     radial_hist%data = 0
+     call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
+          solvent_cells%edges, solvent)
+     call radial_hist_el%append(radial_hist%data)
+
   end do
 
   call thermo_data%append(hfile, temperature, e1+e2, kin_e, e1+e2+kin_e, &
@@ -311,6 +328,7 @@ program n_colloids_pbc
 
   call h5gclose_f(timers_group, error)
 
+  call radial_hist_el%close()
   call colloids_io%close()
   call hfile%close()
   call h5close_f(error)
