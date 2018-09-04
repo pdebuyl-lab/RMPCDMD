@@ -473,6 +473,11 @@ contains
        end if
     end do
 
+    do i = 1, hist%n
+       norm = hist%xmin + (i-0.5d0) * hist%dx
+       hist%data(:,i) = hist%data(:,i) / (4*pi*norm**2*hist%dx)
+    end do
+
   end subroutine compute_radial_histogram
 
 end module particle_system
