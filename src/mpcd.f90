@@ -33,6 +33,7 @@ module mpcd
   public :: bulk_reaction_endothermic
   public :: mpcd_stream_nogravity_zwall
   public :: rand_sphere
+  public :: rescale_cells
 
 contains
 
@@ -742,5 +743,62 @@ contains
     call particles%time_stream%tac()
 
   end subroutine mpcd_stream_nogravity_zwall
+
+  !> Rescale the kinetic energy of all cells
+  subroutine rescale_cells(particles, cells, state, T)
+    use omp_lib
+    class(particle_system_t), intent(inout) :: particles
+    class(cell_system_t), intent(in) :: cells
+    type(threefry_rng_t), intent(inout) :: state(:)
+    double precision, intent(in) :: T
+
+    integer :: i, start, n
+    integer :: cell_idx, n_effective
+    double precision :: local_v(3)
+    double precision :: t_factor, local_kin
+    integer :: thread_id
+
+
+    call particles%time_step%tic()
+    !$omp parallel private(thread_id)
+    thread_id = omp_get_thread_num() + 1
+    !$omp do private(start, n, local_v, i, n_effective, t_factor)
+    do cell_idx = 1, cells% N
+       if (cells% cell_count(cell_idx) <= 1) cycle
+
+       start = cells% cell_start(cell_idx)
+       n = cells% cell_count(cell_idx)
+
+       n_effective = 0
+       local_v = 0
+       do i = start, start + n - 1
+          if (particles%species(i) > 0) then
+             local_v = local_v + particles% vel(:, i)
+             n_effective = n_effective + 1
+          end if
+       end do
+       if (n_effective <= 1) cycle
+       local_v = local_v / n_effective
+
+       local_kin = 0
+       do i = start, start + n - 1
+          if (particles%species(i) > 0) then
+             local_kin = local_kin + sum((particles%vel(:,i) - local_v)**2)
+          end if
+       end do
+       t_factor = sqrt(3*(n_effective-1)*T/local_kin)
+
+       do i = start, start + n - 1
+          if (particles%species(i) > 0) &
+             particles% vel(:, i) = local_v + t_factor*(particles% vel(:, i)-local_v)
+       end do
+
+    end do
+    !$omp end do
+    !$omp end parallel
+    call particles%time_step%tac()
+
+  end subroutine rescale_cells
+
 
 end module mpcd
