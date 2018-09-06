@@ -18,6 +18,7 @@
 !! \param N_MD             number MD steps occuring in tau
 !! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
 !! \param N_loop           number of MPCD timesteps
+!! \param N_thermo_loop    number of initial thermostatting MPCD timesteps
 !! \param N_colloids       number of colloids
 !! \param epsilon          solvent-colloid epsilon
 !! \param sigma            radius of the colloids
@@ -52,7 +53,7 @@ program n_colloids_pbc
   double precision :: e1, e2
   double precision :: temperature, local_mass, total_mass, kin_e, v_com(3)
   double precision :: tau, dt, T, T_init, T_final
-  integer :: N_MD_steps, N_loop
+  integer :: N_MD_steps, N_loop, N_thermo_loop
   integer :: colloid_sampling
   integer :: n_extra_sorting, loop_i_last_sort
   integer :: n_threads
@@ -107,6 +108,7 @@ program n_colloids_pbc
   colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop', loc=params_group)
+  N_thermo_loop = PTread_i(config, 'N_thermo_loop', loc=params_group)
 
   N_colloids = PTread_i(config, 'N_colloids', loc=params_group)
   epsilon = PTread_d(config, 'epsilon', loc=params_group)
@@ -222,6 +224,63 @@ program n_colloids_pbc
 
   solvent% pos_old = solvent% pos
   colloids% pos_old = colloids% pos
+  write(*,*) 'Thermostatting for', N_thermo_loop, 'loops'
+  do i = 1, N_thermo_loop
+     if (modulo(i, 100)==0) write(*, '(i09)', advance='no') i
+     md_loop_thermo: do j = 1, N_MD_steps
+        call cell_md_pos(solvent_cells, solvent, dt, md_flag=.true.)
+        do k = 1, colloids% Nmax
+           colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
+        end do
+        so_max = cell_maximum_displacement(solvent_cells, solvent, delta_t=dt*(N_MD_steps*i+j - loop_i_last_sort))
+        co_max = colloids% maximum_displacement()
+
+        if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
+           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           call cell_md_vel(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+
+           call apply_pbc(solvent, solvent_cells% edges)
+           call apply_pbc(colloids, solvent_cells% edges)
+           call solvent% sort(solvent_cells)
+           loop_i_last_sort = N_MD_steps*i + j
+           call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
+           solvent% pos_old = solvent% pos
+           colloids% pos_old = colloids% pos
+           n_extra_sorting = n_extra_sorting + 1
+        end if
+
+        call switch(solvent% force, solvent% force_old)
+        call switch(colloids% force, colloids% force_old)
+        solvent% force = 0
+        colloids% force = 0
+        e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
+        e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
+
+        call cell_md_vel(solvent_cells, solvent, dt, md_flag=.true.)
+        colloids% vel = colloids% vel + dt * ( colloids% force + colloids% force_old ) / (2 * mass)
+
+     end do md_loop_thermo
+
+     call solvent_cells%random_shift(state(1))
+     call cell_md_pos(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+     call cell_md_vel(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+
+     call apply_pbc(solvent, solvent_cells% edges)
+     call apply_pbc(colloids, solvent_cells% edges)
+     call solvent% sort(solvent_cells)
+     loop_i_last_sort = N_MD_steps*(i+1)
+     call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
+     solvent% pos_old = solvent% pos
+     colloids% pos_old = colloids% pos
+
+     call simple_mpcd_step(solvent, solvent_cells, state, &
+          thermostat=.true., T=T_init, hydro=do_hydro)
+     if (modulo(i, 10) == 0) &
+          call rescale_cells(solvent, solvent_cells, state, T_init)
+
+  end do
+
+  loop_i_last_sort = 0
   write(*,*) 'Running for', N_loop, 'loops'
   do i = 1, N_loop
      if (modulo(i, 100)==0) write(*, '(i09)', advance='no') i
