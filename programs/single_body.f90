@@ -134,6 +134,7 @@ program single_body
 
   logical :: do_rattle, do_read_links, do_lennard_jones, do_elastic, do_quaternion, do_solvent_io
   logical :: do_hydro
+  logical :: do_thermostat
   logical :: do_ywall
   integer, allocatable :: links(:,:)
   double precision, allocatable :: links_d(:)
@@ -204,6 +205,7 @@ program single_body
 
   T = PTread_d(config, 'T', loc=params_group)
   do_hydro = PTread_l(config, 'do_hydro', loc=params_group)
+  do_thermostat = PTread_l(config, 'do_thermostat', loc=params_group)
   
   tau = PTread_d(config, 'tau', loc=params_group)
   mpcd_alpha = PTread_d(config,'alpha', loc=params_group)
@@ -683,7 +685,7 @@ program single_body
 
      call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=[T, T], wall_v=wall_v, wall_n=[rho, rho], &
-          alpha=mpcd_alpha, keep_cell_v=do_hydro, thermostat=.not.do_hydro, &
+          alpha=mpcd_alpha, keep_cell_v=do_hydro, thermostat=do_thermostat, &
           bulk_temperature=T)
      call compute_cell_wise_max_v
 
