@@ -210,7 +210,7 @@ program n_colloids_pbc
 
   sigma_cut = sigma*2.d0**(1.d0/6.d0) ! restore because colloid sigma_cut is larger
   skin = 0.8
-  call neigh% init(colloids% Nmax, int(200*(sigma+skin)**2))
+  call neigh% init(colloids% Nmax, int(250*(sigma_cut+skin)**2))
   call neigh% make_stencil(solvent_cells, sigma_cut+skin)
   call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
 
@@ -281,6 +281,7 @@ program n_colloids_pbc
   end do
 
   loop_i_last_sort = 0
+  write(*,*) ''
   write(*,*) 'Running for', N_loop, 'loops'
   do i = 1, N_loop
      if (modulo(i, 100)==0) write(*, '(i09)', advance='no') i
