@@ -232,17 +232,17 @@ program n_colloids_pbc
         do k = 1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
         end do
-        so_max = cell_maximum_displacement(solvent_cells, solvent, delta_t=dt*(N_MD_steps*i+j - loop_i_last_sort))
+        so_max = cell_maximum_displacement(solvent_cells, solvent, delta_t=dt*(N_MD_steps*(i-1)+j - loop_i_last_sort))
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
-           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
-           call cell_md_vel(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*(i-1)+j - loop_i_last_sort)*dt, md_flag=.false.)
+           call cell_md_vel(solvent_cells, solvent, (N_MD_steps*(i-1)+j - loop_i_last_sort)*dt, md_flag=.false.)
 
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
-           loop_i_last_sort = N_MD_steps*i + j
+           loop_i_last_sort = N_MD_steps*(i-1) + j
            call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
@@ -262,13 +262,13 @@ program n_colloids_pbc
      end do md_loop_thermo
 
      call solvent_cells%random_shift(state(1))
-     call cell_md_pos(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
-     call cell_md_vel(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+     call cell_md_pos(solvent_cells, solvent, (i*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+     call cell_md_vel(solvent_cells, solvent, (i*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
 
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
-     loop_i_last_sort = N_MD_steps*(i+1)
+     loop_i_last_sort = N_MD_steps*i
      call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
      solvent% pos_old = solvent% pos
      colloids% pos_old = colloids% pos
@@ -290,17 +290,17 @@ program n_colloids_pbc
         do k = 1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + dt**2 * colloids% force(:,k) / (2 * mass)
         end do
-        so_max = cell_maximum_displacement(solvent_cells, solvent, delta_t=dt*(N_MD_steps*i+j - loop_i_last_sort))
+        so_max = cell_maximum_displacement(solvent_cells, solvent, delta_t=dt*(N_MD_steps*(i-1)+j - loop_i_last_sort))
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1) .or. (so_max >= skin*0.9) ) then
-           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
-           call cell_md_vel(solvent_cells, solvent, (N_MD_steps*i+j - loop_i_last_sort)*dt, md_flag=.false.)
+           call cell_md_pos(solvent_cells, solvent, (N_MD_steps*(i-1)+j - loop_i_last_sort)*dt, md_flag=.false.)
+           call cell_md_vel(solvent_cells, solvent, (N_MD_steps*(i-1)+j - loop_i_last_sort)*dt, md_flag=.false.)
 
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
-           loop_i_last_sort = N_MD_steps*i + j
+           loop_i_last_sort = N_MD_steps*(i-1) + j
            call neigh% update_list(colloids, solvent, sigma_cut+skin, solvent_cells)
            solvent% pos_old = solvent% pos
            colloids% pos_old = colloids% pos
@@ -320,13 +320,13 @@ program n_colloids_pbc
      end do md_loop
 
      call solvent_cells%random_shift(state(1))
-     call cell_md_pos(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
-     call cell_md_vel(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+     call cell_md_pos(solvent_cells, solvent, (i*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
+     call cell_md_vel(solvent_cells, solvent, (i*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
 
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
-     loop_i_last_sort = N_MD_steps*(i+1)
+     loop_i_last_sort = N_MD_steps*i
      call neigh% update_list(colloids, solvent, sigma_cut + skin, solvent_cells)
      solvent% pos_old = solvent% pos
      colloids% pos_old = colloids% pos
