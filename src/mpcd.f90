@@ -298,7 +298,7 @@ contains
           local_v = local_v / n
        end if
 
-       if ( (do_thermostat) .and. (wall_idx<0) ) then
+       if (do_thermostat) then
           virtual_v = 0
           do i = start, start + n - 1
              vec(1) = threefry_normal(state(thread_id))
