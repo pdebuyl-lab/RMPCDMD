@@ -712,6 +712,7 @@ program single_body
         one_x = qrot(rigid_janus%q, [1.d0, 0.d0, 0.d0])
         one_y = qrot(rigid_janus%q, [0.d0, 1.d0, 0.d0])
         one_z = qrot(rigid_janus%q, [0.d0, 0.d0, 1.d0])
+        com_pos = modulo(com_pos, solvent_cells%edges)
         call planar%update(com_pos, v_com, one_x, one_y, one_z, qrot(rigid_janus%q, rigid_janus%omega_body), &
              solvent, solvent_cells)
 
