@@ -42,8 +42,8 @@ program three_bead_enzyme
   type(lj_params_t) :: colloid_lj
 
   integer, parameter :: N_species = 3
-  integer, parameter :: N_colloids = 3
   integer, parameter :: N_species_colloids = 2
+  integer :: N_colloids, N_enzymes
 
   integer :: rho
   integer :: N
@@ -52,10 +52,10 @@ program three_bead_enzyme
   double precision :: sigma_N, sigma_E, max_cut
   double precision :: epsilon(N_species,N_species_colloids)
   double precision :: sigma(N_species,N_species_colloids), sigma_cut(N_species,N_species_colloids)
-  double precision :: mass(2)
+  double precision, allocatable :: mass(:)
 
   double precision :: elastic_k, link_d(2)
-  double precision :: angle_k, link_angle, link_angles(2)
+  double precision :: angle_k, link_angles(2)
 
   double precision :: e1, e2, e3
   double precision :: tau, dt , T
@@ -84,17 +84,26 @@ program three_bead_enzyme
   double precision :: v_com(3)
   double precision :: com_pos(3)
   double precision :: unit_r(3)
+  double precision :: tmp_vec(3), normal_vec(3), tmp_q(4)
   type(particle_system_io_t) :: dimer_io
   type(particle_system_io_t) :: solvent_io
   double precision :: bulk_rate(2)
   logical :: bulk_rmpcd
 
-  logical :: enzyme_bound
-  integer :: bound_molecule_id
+  integer :: enzyme_i
+  integer :: enz_1, enz_2, enz_3
+  double precision :: dist
   double precision :: enzyme_capture_radius
   double precision :: proba_p, proba_s
-  double precision :: rate_release_p, rate_release_s, total_rate, next_reaction_time
+  double precision :: rate_release_p, rate_release_s, total_rate
   double precision :: substrate_fraction, product_relative_fraction
+  logical :: placement_too_close
+
+  !! State variables for the enzyme kinetics
+  integer, allocatable :: bound_molecule_id(:)
+  double precision, allocatable :: next_reaction_time(:)
+  logical, allocatable :: enzyme_bound(:)
+  double precision, allocatable :: link_angle(:)
 
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
@@ -151,7 +160,6 @@ program three_bead_enzyme
   T = PTread_d(config, 'T', loc=params_group)
   link_d = PTread_dvec(config, 'link_d', 2, loc=params_group)
   link_angles = PTread_dvec(config, 'link_angles', 2, loc=params_group)
-  link_angle = link_angles(1)
   elastic_k = PTread_d(config, 'elastic_k', loc=params_group)
   angle_k = PTread_d(config, 'angle_k', loc=params_group)
 
@@ -164,6 +172,16 @@ program three_bead_enzyme
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop', loc=params_group)
   equilibration_loops = PTread_i(config, 'equilibration_loops', loc=params_group)
+
+  N_enzymes = PTread_i(config, 'N_enzymes', loc=params_group)
+  N_colloids = 3*N_enzymes
+
+  allocate(link_angle(N_enzymes))
+  allocate(next_reaction_time(N_enzymes))
+  allocate(bound_molecule_id(N_enzymes))
+  allocate(enzyme_bound(N_enzymes))
+
+  link_angle = link_angles(1)
 
   sigma_E = PTread_d(config, 'sigma_E', loc=params_group)
   sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
@@ -192,12 +210,17 @@ program three_bead_enzyme
        sigma(1:N_species_colloids,1:N_species_colloids), &
        sigma_cut(1:N_species_colloids,1:N_species_colloids))
 
-  mass(1) = rho * sigma_E**3 * 4 * 3.14159265/3
-  mass(2) = rho * sigma_N**3 * 4 * 3.14159265/3
+  allocate(mass(3*N_enzymes))
+  do i = 1, N_enzymes
+     mass(3*(i-1)+1) = rho * sigma_N**3 * 4 * pi/3
+     mass(3*(i-1)+2) = rho * sigma_E**3 * 4 * pi/3
+     mass(3*(i-1)+3) = rho * sigma_N**3 * 4 * pi/3
+  end do
 
-  call solvent% init(N,2, system_name='solvent') !there will be 2 species of solvent particles
+  call solvent% init(N,2, system_name='solvent') ! there will be 2 species of solvent particles
 
-  call colloids% init(N_colloids, 2, mass, system_name='colloids') !there will be 2 species of colloids
+  call colloids% init(N_colloids, 2, mass, system_name='colloids') ! there will be 2 species of colloids
+  deallocate(mass)
 
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
 
@@ -206,9 +229,11 @@ program three_bead_enzyme
 
   call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
 
-  colloids% species(1) = 2
-  colloids% species(2) = 1
-  colloids% species(3) = 2
+  do enzyme_i = 1, N_enzymes
+     colloids% species(3*(enzyme_i-1)+1) = 2
+     colloids% species(3*(enzyme_i-1)+2) = 1
+     colloids% species(3*(enzyme_i-1)+3) = 2
+  end do
 
   colloids% vel = 0
   colloids% force = 0
@@ -272,12 +297,45 @@ program three_bead_enzyme
 
   call solvent_cells%init(L, 1.d0)
 
-  do i = 1, N_colloids
-     colloids% pos(:,i) = solvent_cells%edges / 2
+  do enzyme_i = 1, N_enzymes
+     enz_1 = 3*(enzyme_i-1)+1
+     enz_2 = enz_1+1
+     enz_3 = enz_1+2
+
+     placement_too_close = .true.
+     do while (placement_too_close)
+
+        colloids% pos(:,enz_2) = [ threefry_double(state(1))*solvent_cells%edges(1), &
+             threefry_double(state(1))*solvent_cells%edges(2), &
+             threefry_double(state(1))*solvent_cells%edges(3) ]
+
+        ! Pick one vector to place bead 1 and another one normal to the first
+        tmp_vec = rand_sphere(state(1))
+        normal_vec = rand_sphere(state(1))
+        normal_vec = normal_vec - tmp_vec * dot_product(normal_vec, tmp_vec)
+        ! Place normal_vec at an angle link_angles(1) w.r.t. tmp_vec
+        tmp_q = qnew(s=cos(link_angles(1)/2), v=sin(link_angles(1)/2)*normal_vec/norm2(normal_vec))
+        normal_vec = qvector(qmul(tmp_q, qmul(qnew(v=tmp_vec), qconj(tmp_q))))
+
+        colloids%pos(:,enz_1) = colloids%pos(:,enz_2) + tmp_vec*link_d(1)
+        colloids%pos(:,enz_3) = colloids%pos(:,enz_2) + normal_vec*link_d(2)
+
+        placement_too_close = .false.
+
+        do j = 1, 3*(enzyme_i-1)
+           tmp_vec = colloids%pos(:,j)
+           do i = 1, 3
+              dist = norm2(rel_pos(colloids%pos(:,(enzyme_i-1)*3+i), &
+                   tmp_vec, solvent_cells%edges))
+              if ( dist < &
+                   colloid_lj%sigma(colloids%species((enzyme_i-1)*3+i), colloids%species(j)) &
+                   ) then
+                 placement_too_close = .true.
+              end if
+           end do
+        end do
+     end do
   end do
-  colloids%pos(1,1) = colloids%pos(1,2) + link_d(1)
-  colloids%pos(1,3) = colloids%pos(1,3) + link_d(2)*cos(link_angle)
-  colloids%pos(2,3) = colloids%pos(2,3) + link_d(2)*sin(link_angle)
   
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
@@ -322,11 +380,11 @@ program three_bead_enzyme
 
   call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
   write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
-  write(*,*) 'mass', mass 
+
   call main%tic()
   sampling = .false.
   enzyme_bound = .false.
-  next_reaction_time = huge(next_reaction_time)
+  next_reaction_time = huge(next_reaction_time(1))
 
   do i = 0, N_loop+equilibration_loops
      if (i==equilibration_loops) sampling = .true.
@@ -336,7 +394,7 @@ program three_bead_enzyme
         call md_pos(solvent, dt)
         do k=1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
-                dt**2 * colloids% force(:,k) / (2 * colloids% mass(colloids%species(k)))
+                dt**2 * colloids% force(:,k) / (2 * colloids%mass(k))
         end do
         
         so_max = solvent% maximum_displacement()
@@ -378,7 +436,7 @@ program three_bead_enzyme
         call varia%tic()
         do k=1, colloids% Nmax
            colloids% vel(:,k) = colloids% vel(:,k) + &
-             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids% mass(colloids%species(k)))
+             dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids%mass(k))
         end do
         call varia%tac()
 
@@ -387,6 +445,7 @@ program three_bead_enzyme
            unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
            unit_r = unit_r / norm2(unit_r)
            call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
+           !TODO: decide what to do with this single colloid body sampling
         end if
 
         if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
@@ -397,18 +456,59 @@ program three_bead_enzyme
 
      end do md_loop
 
+     call solvent_cells%random_shift(state(1))
+     call apply_pbc(solvent, solvent_cells% edges)
+     call apply_pbc(colloids, solvent_cells% edges)
+     call solvent% sort(solvent_cells)
+     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
+     call varia%tic()
+     !$omp parallel do
+     do k = 1, solvent%Nmax
+        solvent% pos_old(:,k) = solvent% pos(:,k)
+     end do
+     colloids% pos_old = colloids% pos
+     call varia%tac()
+
+     !! TODO: add thermostat and hydro option
+     call simple_mpcd_step(solvent, solvent_cells, state)
+
+     if (bulk_rmpcd) then
+        call bulk_reaction(solvent, solvent_cells, 1, 2, bulk_rate(1), tau, state)
+        call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate(2), tau, state)
+     end if
+
+     call neigh% make_stencil(solvent_cells, enzyme_capture_radius)
+     call neigh% update_list(colloids, solvent, enzyme_capture_radius, solvent_cells)
      if (i>equilibration_loops) call select_substrate
 
-     if (i*N_MD_steps*dt > next_reaction_time) then
-        if (threefry_double(state(1)) < rate_release_s / total_rate) then
-           ! release substrate
-           call unbind_molecule(1)
-        else
-           ! release product
-           call unbind_molecule(2)
+     ! Check if unbinding should occur
+     do enzyme_i = 1, N_enzymes
+        if (i*N_MD_steps*dt > next_reaction_time(enzyme_i)) then
+           if (threefry_double(state(1)) < rate_release_s / total_rate) then
+              ! release substrate
+              call unbind_molecule(enzyme_i, 1)
+           else
+              ! release product
+              call unbind_molecule(enzyme_i, 2)
+           end if
+           next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
         end if
-        next_reaction_time = huge(next_reaction_time)
-     end if
+     end do
+
+     ! Rebuild the neighbor list after possible unbindings
+     call neigh% make_stencil(solvent_cells, max_cut+skin)
+     call apply_pbc(solvent, solvent_cells% edges)
+     call apply_pbc(colloids, solvent_cells% edges)
+     call solvent% sort(solvent_cells)
+     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
+     call varia%tic()
+     !$omp parallel do
+     do k = 1, solvent%Nmax
+        solvent% pos_old(:,k) = solvent% pos(:,k)
+     end do
+     colloids% pos_old = colloids% pos
+     call varia%tac()
+     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
      call varia%tic()
 
@@ -424,38 +524,19 @@ program three_bead_enzyme
            end if
         end do
         do k = 1, colloids%Nmax
-           v_com = v_com + colloids%mass(colloids%species(k)) * colloids%vel(:,k)
-           kin_e = kin_e + colloids%mass(colloids%species(k)) * sum(colloids%vel(:,k)**2) / 2
+           v_com = v_com + colloids%mass(k) * colloids%vel(:,k)
+           kin_e = kin_e + colloids%mass(k) * sum(colloids%vel(:,k)**2) / 2
         end do
 
         call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com)
 
+        ! todo: decide what to do with sampling
         com_pos = colloids%pos(:,2)
         call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
 
      end if
 
-     call solvent_cells%random_shift(state(1))
      call varia%tac()
-
-     call apply_pbc(solvent, solvent_cells% edges)
-     call apply_pbc(colloids, solvent_cells% edges)
-     call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
-     call varia%tic()
-     !$omp parallel do
-     do k = 1, solvent%Nmax
-        solvent% pos_old(:,k) = solvent% pos(:,k)
-     end do
-     colloids% pos_old = colloids% pos
-     call varia%tac()
-
-     call simple_mpcd_step(solvent, solvent_cells, state)
-     
-     if (bulk_rmpcd) then
-        call bulk_reaction(solvent, solvent_cells, 1, 2, bulk_rate(1), tau, state)
-        call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate(2), tau, state)
-     end if
 
      if (sampling) then
         n_solvent = 0
@@ -522,55 +603,61 @@ contains
   function compute_bead_force() result(en)
     double precision :: en
 
-    integer :: i
+    integer :: i, i_enzyme
     double precision :: f(3), r12(3), r
     double precision :: r32(3), d12, d32, costheta
 
     en = 0
-    do i = 1, 2
-       r12 = rel_pos(colloids%pos(:,i), colloids%pos(:,i+1), solvent_cells%edges)
-       r = norm2(r12)
-       en = en + elastic_k*(r-link_d(i))**2/2
-       f = -elastic_k*(r-link_d(i))*r12/r
-       colloids%force(:,i) = colloids%force(:,i) + f
-       colloids%force(:,i+1) = colloids%force(:,i+1) - f
+
+    do i_enzyme = 1, N_enzymes
+       do i = 1, 2
+          r12 = rel_pos(colloids%pos(:,(i_enzyme-1)*3+i), colloids%pos(:,(i_enzyme-1)*3+i+1), solvent_cells%edges)
+          r = norm2(r12)
+          en = en + elastic_k*(r-link_d(i))**2/2
+          f = -elastic_k*(r-link_d(i))*r12/r
+          colloids%force(:,(i_enzyme-1)*3+i) = colloids%force(:,(i_enzyme-1)*3+i) + f
+          colloids%force(:,(i_enzyme-1)*3+i+1) = colloids%force(:,(i_enzyme-1)*3+i+1) - f
+       end do
+
+       r12 = rel_pos(colloids%pos(:,(i_enzyme-1)*3+1), colloids%pos(:,(i_enzyme-1)*3+2), solvent_cells%edges)
+       d12 = norm2(r12)
+       r32 = rel_pos(colloids%pos(:,(i_enzyme-1)*3+3), colloids%pos(:,(i_enzyme-1)*3+2), solvent_cells%edges)
+       d32 = norm2(r32)
+       costheta = dot_product(r12, r32)/(d12*d32)
+       f = -fprime(costheta, link_angle(i_enzyme)) * (r32/(d32*d12) - costheta * r12/d12**2)
+       colloids%force(:,(i_enzyme-1)*3+1) = colloids%force(:,(i_enzyme-1)*3+1) + f
+       colloids%force(:,(i_enzyme-1)*3+2) = colloids%force(:,(i_enzyme-1)*3+2) - f
+       f = -fprime(costheta, link_angle(i_enzyme)) * (r12/(d12*d32) - costheta * r32/d32**2)
+       colloids%force(:,(i_enzyme-1)*3+3) = colloids%force(:,(i_enzyme-1)*3+3) + f
+       colloids%force(:,(i_enzyme-1)*3+2) = colloids%force(:,(i_enzyme-1)*3+2) - f
+
+       en = en + angle_k * (acos(costheta)-link_angle(i_enzyme))**2 / 2
     end do
-
-    r12 = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
-    d12 = norm2(r12)
-    r32 = rel_pos(colloids%pos(:,3), colloids%pos(:,2), solvent_cells%edges)
-    d32 = norm2(r32)
-    costheta = dot_product(r12, r32)/(d12*d32)
-    f = -fprime(costheta) * (r32/(d32*d12) - costheta * r12/d12**2)
-    colloids%force(:,1) = colloids%force(:,1) + f
-    colloids%force(:,2) = colloids%force(:,2) - f
-    f = -fprime(costheta) * (r12/(d12*d32) - costheta * r32/d32**2)
-    colloids%force(:,3) = colloids%force(:,3) + f
-    colloids%force(:,2) = colloids%force(:,2) - f
-
-    en = en + angle_k * (acos(costheta)-link_angle)**2 / 2
 
   end function compute_bead_force
 
-  function compute_bead_energy() result(en)
+  function compute_bead_energy(enzyme_idx) result(en)
+    integer, intent(in) :: enzyme_idx
     double precision :: en
 
     double precision :: r12(3), d12, r32(3), d32, costheta
 
-    r12 = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
+    r12 = rel_pos(colloids%pos(:,(enzyme_idx-1)*3+1), colloids%pos(:,(enzyme_idx-1)*3+2), solvent_cells%edges)
     d12 = norm2(r12)
-    r32 = rel_pos(colloids%pos(:,3), colloids%pos(:,2), solvent_cells%edges)
+    r32 = rel_pos(colloids%pos(:,(enzyme_idx-1)*3+3), colloids%pos(:,(enzyme_idx-1)*3+2), solvent_cells%edges)
     d32 = norm2(r32)
     costheta = dot_product(r12, r32)/(d12*d32)
-    en = angle_k * (acos(costheta)-link_angle)**2 / 2
+    en = angle_k * (acos(costheta)-link_angle(enzyme_idx))**2 / 2
+
   end function compute_bead_energy
 
   !> derivative of the angular harmonic arccos term
-  function fprime(x) result(r)
+  function fprime(x, theta_0) result(r)
     double precision, intent(in) :: x
+    double precision, intent(in) :: theta_0
     double precision :: r
 
-    r = - angle_k * (acos(x) - link_angle) / sqrt(1-x**2)
+    r = - angle_k * (acos(x) - theta_0) / sqrt(1-x**2)
 
   end function fprime
 
@@ -581,7 +668,7 @@ contains
   !! allowed to react once per stay in the enzyme region.
   subroutine select_substrate
 
-    integer :: m, thread_id, i, s_sp
+    integer :: i, m, s_sp
     double precision :: dist, x_enzyme(3)
     double precision :: total_p, xi
 
@@ -591,24 +678,35 @@ contains
     integer :: list_s(list_size), list_p(list_size)
     logical :: reaction_happens
 
-    ! Do nothing if enzyme is already bound
-    if (enzyme_bound) return
+    integer :: enzyme_i, enz_2
 
-    n_s = 0
-    n_p = 0
 
-    x_enzyme = modulo(colloids%pos(:,2), solvent_cells%edges)
+    select_substrate_loop: do enzyme_i = 1, N_enzymes
 
-    !$omp parallel private(thread_id)
-    thread_id = omp_get_thread_num() + 1
-    !$omp do private(i, m, s_sp, dist)
-    do i = 1, solvent_cells%N
-       select_loop: do m = solvent_cells%cell_start(i), solvent_cells%cell_start(i) + solvent_cells%cell_count(i) - 1
+       if (enzyme_bound(enzyme_i)) cycle select_substrate_loop
+
+       enz_2 = (enzyme_i-1)*3 + 2
+
+       n_s = 0
+       n_p = 0
+
+       x_enzyme = modulo(colloids%pos(:,enz_2), solvent_cells%edges)
+
+       select_loop: do i = 1, neigh%n(enz_2)
+          m = neigh%list(i, enz_2)
+
+          ! skip substrates undergoing MD
+          if (btest(solvent%flags(m), MD_BIT)) cycle select_loop
+
           s_sp = solvent%species(m)
+
+          ! skip neutral fluid particles
           if (s_sp == 3) cycle select_loop
+
           dist = norm2(rel_pos(x_enzyme, solvent%pos(:,m), solvent_cells%edges))
+
           if (.not. btest(solvent%flags(m), ENZYME_REGION_BIT)) then
-             if ( (dist <= enzyme_capture_radius) .and. (dist > solvent_colloid_lj%cut(s_sp, colloids%species(2)) ) ) then
+             if ( (dist <= enzyme_capture_radius) .and. (dist > solvent_colloid_lj%cut(s_sp, colloids%species(enz_2)) ) ) then
                 ! select for current round
                 solvent%flags(m) = ibset(solvent%flags(m), ENZYME_REGION_BIT)
                 if (s_sp==1) then
@@ -633,54 +731,58 @@ contains
              end if
           end if
        end do select_loop
-    end do
-    !$omp end do
-    !$omp end parallel
 
-    total_p = n_s*proba_s + n_p*proba_p
+       total_p = n_s*proba_s + n_p*proba_p
 
-    reaction_happens = (threefry_double(state(1)) < total_p)
+       reaction_happens = (threefry_double(state(1)) < total_p)
 
-    ! Pick either a substrate or a product if a reaction happens
+       ! Pick either a substrate or a product if a reaction happens
 
-    if (reaction_happens) then
-       xi = threefry_double(state(1))*total_p
+       if (reaction_happens) then
+          xi = threefry_double(state(1))*total_p
 
-       if (xi < n_s*proba_s) then
-          ! pick in substrates
-          idx = floor(xi * n_s / total_p) + 1
-          m = list_s(idx)
-          ! use list_s(idx)
-       else
-          ! pick in products
-          idx = floor(xi * n_p / total_p) + 1
-          m = list_p(idx)
+          if (xi < n_s*proba_s) then
+             ! pick in substrates
+             idx = floor(xi * n_s / total_p) + 1
+             m = list_s(idx)
+             ! use list_s(idx)
+          else
+             ! pick in products
+             idx = floor(xi * n_p / total_p) + 1
+             m = list_p(idx)
+          end if
+          call bind_molecule(enzyme_i, m)
        end if
-       call bind_molecule(m)
-    end if
+
+    end do select_substrate_loop
 
   end subroutine select_substrate
 
 
   !> Bind solvent molecule idx to enzyme
-  subroutine bind_molecule(idx)
+  !! TODO: add enzyme idx
+  subroutine bind_molecule(enzyme_idx, idx)
+    integer, intent(in) :: enzyme_idx
     integer, intent(in) :: idx
     double precision :: com_v(3), w_ab(3), excess_kinetic_energy, mu_ab
     double precision :: en1, en2
     integer :: p(3), cell_idx
+    integer :: enz_2
 
     ! adjust velocity
     ! compute excess kinetic energy
 
-    com_v = (colloids%vel(:,2)*colloids%mass(colloids%species(2)) + solvent%vel(:,idx)) &
-         / (colloids%mass(colloids%species(2)) + 1)
-    w_ab = colloids%vel(:,2) - solvent%vel(:,idx)
+    enz_2 = 3*(enzyme_idx-1)+2
 
-    mu_ab = 1/(1+1/colloids%mass(colloids%species(2)))
+    com_v = (colloids%vel(:,enz_2)*colloids%mass(enz_2) + solvent%vel(:,idx)) &
+         / (colloids%mass(enz_2) + 1)
+    w_ab = colloids%vel(:,enz_2) - solvent%vel(:,idx)
+
+    mu_ab = 1/(1+1/colloids%mass(enz_2))
 
     excess_kinetic_energy = mu_ab * dot_product(w_ab, w_ab) / 2
 
-    colloids%vel(:,2) = com_v
+    colloids%vel(:,enz_2) = com_v
 
     ! todo: deposit extra energy
 
@@ -688,71 +790,80 @@ contains
     cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
 
     ! transfer mass
-    colloids%mass(1) = colloids%mass(1) + 1
+    colloids%mass(enz_2) = colloids%mass(enz_2) + 1
 
-    bound_molecule_id = solvent%id(idx)
+    bound_molecule_id(enzyme_idx) = solvent%id(idx)
     solvent%species(idx) = 0
 
-    en1 = compute_bead_energy()
+    en1 = compute_bead_energy(enzyme_idx)
 
-    link_angle = link_angles(2)
+    link_angle(enzyme_idx) = link_angles(2)
 
-    en2 = compute_bead_energy()
+    en2 = compute_bead_energy(enzyme_idx)
 
     call add_energy_to_cell(cell_idx, excess_kinetic_energy + en1 - en2)
 
     e3 = e3 + en2 - en1
 
-    enzyme_bound = .true.
+    enzyme_bound(enzyme_idx) = .true.
 
-    next_reaction_time = current_time - log(threefry_double(state(1)))/total_rate ! sample from Poisson process
+    !TODO: add enzyme index
+    next_reaction_time(enzyme_idx) = current_time - log(threefry_double(state(1)))/total_rate ! sample from Poisson process
 
   end subroutine bind_molecule
 
   !> Bind solvent molecule idx to enzyme
-  subroutine unbind_molecule(to_species)
+  !! TODO: add enzyme_idx
+  subroutine unbind_molecule(enzyme_idx, to_species)
+    integer, intent(in) :: enzyme_idx
     integer, intent(in) :: to_species
 
     integer :: i, p(3), cell_idx
     double precision :: x_new(3), dist, en1, en2
     logical :: too_close
+    integer :: enz_1, enz_2, enz_3
+
+    enz_1 = 3*(enzyme_idx-1)+1
+    enz_2 = enz_1+1
+    enz_3 = enz_1+2
 
     ! transfer mass
-    colloids%mass(1) = colloids%mass(1) - 1
+    colloids%mass(enz_2) = colloids%mass(enz_2) - 1
 
     ! Place the molecule outside of the interaction range of all colloids
     too_close = .true.
     do while (too_close)
-       x_new = colloids%pos(:,2) + rand_sphere(state(1))*solvent_colloid_lj%cut(to_species, colloids%species(2))*1.001d0
+       x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*solvent_colloid_lj%cut(to_species, colloids%species(enz_2))*1.001d0
        too_close = .false.
-       do i = 1, 3
+       do i = 1, 3*N_enzymes
           dist = norm2(rel_pos(colloids%pos(:,i), x_new, solvent_cells%edges))
           too_close = too_close .or. &
                (dist < solvent_colloid_lj%cut(to_species, colloids%species(i)))
        end do
     end do
 
-    i = solvent%id_to_idx(bound_molecule_id)
+    i = solvent%id_to_idx(bound_molecule_id(enzyme_idx))
 
     solvent%species(i) = to_species
     solvent%pos(:,i) = x_new
 
     ! Use c.o.m. velocity so that no kinetic energy exchange must take place
-    solvent%vel(:,i) = colloids%vel(:,2)
+    solvent%vel(:,i) = colloids%vel(:,enz_2)
 
-    en1 = compute_bead_energy()
+    en1 = compute_bead_energy(enzyme_idx)
 
-    link_angle = link_angles(1)
+    link_angle(enzyme_idx) = link_angles(1)
 
-    en2 = compute_bead_energy()
+    en2 = compute_bead_energy(enzyme_idx)
 
-    p = floor( (solvent%pos(:, i) / solvent_cells%a) - solvent_cells%origin )
+    p = solvent_cells%cartesian_indices(solvent%pos(:, i))
+
     cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
     call add_energy_to_cell(cell_idx, en1 - en2)
 
     e3 = e3 + en2 - en1
 
-    enzyme_bound = .false.
+    enzyme_bound(enzyme_idx) = .false.
 
   end subroutine unbind_molecule
 
