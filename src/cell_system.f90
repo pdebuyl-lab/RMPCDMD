@@ -37,6 +37,7 @@ module cell_system
      procedure :: count_particles
      procedure :: sort_particles
      procedure :: random_shift
+     procedure :: cartesian_indices
   end type cell_system_t
 
   integer, parameter :: PERIODIC_BC = 1
@@ -105,7 +106,7 @@ contains
     thread_id = omp_get_thread_num() + 1
     !$omp do private(i, p, idx)
     do i=1, N_particles
-       p = floor( (position(:, i) / this% a ) - this%origin )
+       p = this%cartesian_indices(position(:,i))
        if ( p(1) == L(1) ) p(1) = 0
        if ( p(2) == L(2) ) p(2) = 0
        if (nowalls) then
@@ -143,7 +144,7 @@ contains
 
     !$omp parallel do private(p, idx, start)
     do i=1, N
-       p = floor( (position_old(:, i) / this% a) - this%origin )
+       p = this%cartesian_indices(position_old(:,i))
        idx = compact_p_to_h(p, this%M) + 1
        !$omp atomic capture
        start = this%cell_start(idx)
@@ -165,5 +166,14 @@ contains
     this%origin(3) = threefry_double(state) - 1
 
   end subroutine random_shift
+
+  function cartesian_indices(this, position) result(p)
+    class(cell_system_t), intent(in) :: this
+    double precision, intent(in) :: position(3)
+    integer :: p(3)
+
+    p = floor( (position / this%a) - this%origin )
+
+  end function cartesian_indices
 
 end module cell_system

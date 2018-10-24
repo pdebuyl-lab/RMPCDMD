@@ -108,7 +108,7 @@ contains
     do i = 1, system1% Nmax
        x = system1% pos(:, i)
        si = system1%species(i)
-       cell = floor( (x - cells% origin) / cells% a ) + 1
+       cell = cells%cartesian_indices(x) + 1
        list_idx = 0
 
        stencil: do j = 1, stencil_size

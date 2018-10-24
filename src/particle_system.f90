@@ -322,7 +322,7 @@ contains
     !$omp parallel do private(p, idx, start)
     do i=1, this% Nmax
        if (this% species(i) == 0) continue
-       p = floor( (this% pos(:, i) / cells% a ) - cells% origin )
+       p = cells%cartesian_indices(this%pos(:,i))
        if ( p(1) == L(1) ) p(1) = 0
        if ( p(2) == L(2) ) p(2) = 0
        if (nowalls) then

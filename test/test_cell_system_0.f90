@@ -63,7 +63,7 @@ program try_all
      do while (solvent_cells% cell_count(h) .eq. 0)
         h = h+1
      end do
-     c1 = floor( (pos(:, i) - solvent_cells% origin) / solvent_cells% a )
+     c1 = solvent_cells%cartesian_indices(pos(:,i))
      c2 = compact_h_to_p(h-1, solvent_cells% M)
      call test% assert_equal(c1, c2)
   end do
