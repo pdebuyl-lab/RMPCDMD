@@ -93,7 +93,6 @@ contains
     else
        this% n_species = 1
     end if
-    allocate(this% mass(this% n_species))
     if (present(mass)) then
        this% mass = mass
     end if
