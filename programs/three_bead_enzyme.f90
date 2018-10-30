@@ -857,6 +857,9 @@ contains
     en2 = compute_bead_energy(enzyme_idx)
 
     p = solvent_cells%cartesian_indices(solvent%pos(:, i))
+    if ( p(1) == L(1) ) p(1) = 0
+    if ( p(2) == L(2) ) p(2) = 0
+    if ( p(3) == L(3) ) p(3) = 0
 
     cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
     call add_energy_to_cell(cell_idx, en1 - en2)
