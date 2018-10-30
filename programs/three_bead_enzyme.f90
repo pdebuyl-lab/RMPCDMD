@@ -219,7 +219,7 @@ program three_bead_enzyme
 
   call solvent% init(N,2, system_name='solvent') ! there will be 2 species of solvent particles
 
-  call colloids% init(N_colloids, 2, mass, system_name='colloids') ! there will be 2 species of colloids
+  call colloids% init(N_colloids, N_species_colloids, mass, system_name='colloids')
   deallocate(mass)
 
   call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
