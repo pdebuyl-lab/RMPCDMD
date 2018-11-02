@@ -786,7 +786,11 @@ contains
 
     ! todo: deposit extra energy
 
-    p = floor( (solvent%pos(:, idx) / solvent_cells%a) - solvent_cells%origin )
+    p = solvent_cells%cartesian_indices(solvent%pos(:, idx))
+    if ( p(1) == L(1) ) p(1) = 0
+    if ( p(2) == L(2) ) p(2) = 0
+    if ( p(3) == L(3) ) p(3) = 0
+
     cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
 
     ! transfer mass
@@ -832,15 +836,21 @@ contains
 
     ! Place the molecule outside of the interaction range of all colloids
     too_close = .true.
-    do while (too_close)
-       x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*solvent_colloid_lj%cut(to_species, colloids%species(enz_2))*1.001d0
+    placement_loop: do while (too_close)
+       x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*(solvent_colloid_lj%cut(to_species, colloids%species(enz_2)) + 0.2d0)
+       x_new = modulo(x_new, solvent_cells%edges)
+       p = solvent_cells%cartesian_indices(x_new)
+       if ( p(1) == L(1) ) p(1) = 0
+       if ( p(2) == L(2) ) p(2) = 0
+       if ( p(3) == L(3) ) p(3) = 0
+       if (solvent_cells%cell_count(compact_p_to_h(p, solvent_cells%M)+1) < 3) cycle placement_loop
        too_close = .false.
        do i = 1, 3*N_enzymes
           dist = norm2(rel_pos(colloids%pos(:,i), x_new, solvent_cells%edges))
           too_close = too_close .or. &
                (dist < solvent_colloid_lj%cut(to_species, colloids%species(i)))
        end do
-    end do
+    end do placement_loop
 
     i = solvent%id_to_idx(bound_molecule_id(enzyme_idx))
 
@@ -889,6 +899,7 @@ contains
     cell = compact_h_to_p(cell_idx - 1, solvent_cells%M) + 1
 
     ! If energy is positive, go for one cell.
+    ! todo: always go around several cells
 
     if (energy > 0) then
        start = solvent_cells% cell_start(cell_idx)
@@ -933,7 +944,7 @@ contains
 
           cell_shift = floor(xi)
           actual_cell = modulo(cell + cell_shift , solvent_cells% L)
-          actual_idx = compact_p_to_h(actual_cell, solvent_cells%M) + 1
+          actual_idx = compact_p_to_h(actual_cell-1, solvent_cells%M) + 1
 
           start = solvent_cells% cell_start(actual_idx)
           n = solvent_cells% cell_count(actual_idx)
