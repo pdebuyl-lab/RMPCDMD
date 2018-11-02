@@ -323,11 +323,6 @@ contains
     do i=1, this% Nmax
        if (this% species(i) == 0) continue
        p = cells%cartesian_indices(this%pos(:,i))
-       if ( p(1) == L(1) ) p(1) = 0
-       if ( p(2) == L(2) ) p(2) = 0
-       if (nowalls) then
-          if ( p(3) == L(3) ) p(3) = 0
-       end if
        idx = compact_p_to_h(p, cells% M) + 1
        !$omp atomic capture
        start = cells% cell_start(idx)

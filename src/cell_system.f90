@@ -107,11 +107,6 @@ contains
     !$omp do private(i, p, idx)
     do i=1, N_particles
        p = this%cartesian_indices(position(:,i))
-       if ( p(1) == L(1) ) p(1) = 0
-       if ( p(2) == L(2) ) p(2) = 0
-       if (nowalls) then
-          if ( p(3) == L(3) ) p(3) = 0
-       end if
        idx = compact_p_to_h(p, this%M) + 1
        this%cell_count_tmp(idx, thread_id) = this%cell_count_tmp(idx, thread_id) + 1
     end do
@@ -173,6 +168,9 @@ contains
     integer :: p(3)
 
     p = floor( (position / this%a) - this%origin )
+    if (p(1) == this%L(1)) p(1) = 0
+    if (p(2) == this%L(2)) p(2) = 0
+    if ( (.not. this%has_walls) .and. (p(3) == this%L(3)) ) p(3) = 0
 
   end function cartesian_indices
 

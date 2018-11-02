@@ -787,9 +787,6 @@ contains
     ! todo: deposit extra energy
 
     p = solvent_cells%cartesian_indices(solvent%pos(:, idx))
-    if ( p(1) == L(1) ) p(1) = 0
-    if ( p(2) == L(2) ) p(2) = 0
-    if ( p(3) == L(3) ) p(3) = 0
 
     cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
 
@@ -840,9 +837,6 @@ contains
        x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*(solvent_colloid_lj%cut(to_species, colloids%species(enz_2)) + 0.2d0)
        x_new = modulo(x_new, solvent_cells%edges)
        p = solvent_cells%cartesian_indices(x_new)
-       if ( p(1) == L(1) ) p(1) = 0
-       if ( p(2) == L(2) ) p(2) = 0
-       if ( p(3) == L(3) ) p(3) = 0
        if (solvent_cells%cell_count(compact_p_to_h(p, solvent_cells%M)+1) < 3) cycle placement_loop
        too_close = .false.
        do i = 1, 3*N_enzymes
@@ -867,9 +861,6 @@ contains
     en2 = compute_bead_energy(enzyme_idx)
 
     p = solvent_cells%cartesian_indices(solvent%pos(:, i))
-    if ( p(1) == L(1) ) p(1) = 0
-    if ( p(2) == L(2) ) p(2) = 0
-    if ( p(3) == L(3) ) p(3) = 0
 
     cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
     call add_energy_to_cell(cell_idx, en1 - en2)
