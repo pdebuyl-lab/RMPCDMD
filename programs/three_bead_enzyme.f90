@@ -83,11 +83,8 @@ program three_bead_enzyme
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   double precision :: v_com(3)
-  double precision :: com_pos(3)
-  double precision :: unit_r(3)
   double precision :: tmp_vec(3), normal_vec(3), tmp_q(4)
   type(particle_system_io_t) :: dimer_io
-  type(particle_system_io_t) :: solvent_io
   double precision :: bulk_rate(2)
   logical :: bulk_rmpcd
 
@@ -113,10 +110,6 @@ program three_bead_enzyme
   !! Histogram variable
   type(histogram_t), allocatable :: radial_hist(:)
   double precision, allocatable :: dummy_hist(:,:,:)
-
-  integer, parameter :: block_length = 8
-  type(axial_correlator_t) :: axial_cf
-  integer(HID_T) :: correlator_group
 
   integer :: equilibration_loops
   integer :: colloid_sampling
@@ -238,8 +231,6 @@ program three_bead_enzyme
   call h5gclose_f(params_group, error)
   call PTkill(config)
 
-  call axial_cf%init(block_length, N_loop, N_loop*N_MD_steps)
-
   do enzyme_i = 1, N_enzymes
      colloids% species(3*(enzyme_i-1)+1) = 2
      colloids% species(3*(enzyme_i-1)+2) = 1
@@ -254,38 +245,18 @@ program three_bead_enzyme
   dimer_io%position_info%store = .true.
   dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   dimer_io%position_info%step = colloid_sampling
-  dimer_io%position_info%time = colloid_sampling*dt
+  dimer_io%position_info%time = colloid_sampling*N_MD_steps*dt
   dimer_io%image_info%store = .true.
   dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%image_info%step = colloid_sampling
-  dimer_io%image_info%time = colloid_sampling*dt
+  dimer_io%image_info%step = dimer_io%position_info%step
+  dimer_io%image_info%time = dimer_io%position_info%time
   dimer_io%velocity_info%store = .true.
   dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%velocity_info%step = colloid_sampling
-  dimer_io%velocity_info%time = colloid_sampling*dt
+  dimer_io%velocity_info%step = dimer_io%position_info%step
+  dimer_io%velocity_info%time = dimer_io%position_info%time
   dimer_io%species_info%store = .true.
   dimer_io%species_info%mode = H5MD_FIXED
   call dimer_io%init(hfile, 'dimer', colloids)
-
-  solvent_io%force_info%store = .false.
-  solvent_io%id_info%store = .false.
-  solvent_io%position_info%store = .true.
-  solvent_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%position_info%step = N_loop*N_MD_steps
-  solvent_io%position_info%time = N_loop*N_MD_steps*dt
-  solvent_io%image_info%store = .true.
-  solvent_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%image_info%step = N_loop*N_MD_steps
-  solvent_io%image_info%time = N_loop*N_MD_steps*dt
-  solvent_io%velocity_info%store = .true.
-  solvent_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%velocity_info%step = N_loop*N_MD_steps
-  solvent_io%velocity_info%time = N_loop*N_MD_steps*dt
-  solvent_io%species_info%store = .true.
-  solvent_io%species_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  solvent_io%species_info%step = N_loop*N_MD_steps
-  solvent_io%species_info%time = N_loop*N_MD_steps*dt
-  call solvent_io%init(hfile, 'solvent', solvent)
 
   do k = 1, solvent%Nmax
      solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
@@ -357,11 +328,6 @@ program three_bead_enzyme
        time=N_MD_steps*dt)
 
   call h5gcreate_f(dimer_io%group, 'box', box_group, error)
-  call h5md_write_attribute(box_group, 'dimension', 3)
-  call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
-  call h5gclose_f(box_group, error)
-
-  call h5gcreate_f(solvent_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
@@ -448,20 +414,6 @@ program three_bead_enzyme
         end do
         call varia%tac()
 
-        if (sampling) then
-           v_com = sum(colloids%vel, dim=2)/2
-           unit_r = rel_pos(colloids%pos(:,1), colloids%pos(:,2), solvent_cells%edges)
-           unit_r = unit_r / norm2(unit_r)
-           call axial_cf%add_fast((i-equilibration_loops)*N_MD_steps+j-1, v_com, unit_r)
-           !TODO: decide what to do with this single colloid body sampling
-        end if
-
-        if ((sampling) .and. (modulo(j, colloid_sampling)==0)) then
-           call dimer_io%position%append(colloids%pos)
-           call dimer_io%velocity%append(colloids%vel)
-           call dimer_io%image%append(colloids%image)
-        end if
-
      end do md_loop
 
      call solvent_cells%random_shift(state(1))
@@ -538,10 +490,6 @@ program three_bead_enzyme
 
         call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com)
 
-        ! todo: decide what to do with sampling
-        com_pos = colloids%pos(:,2)
-        call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
-
         ! update radial histogram
         do k = 1, colloids%Nmax
            call compute_radial_histogram(radial_hist(k), colloids%pos(:,k), solvent_cells%edges, solvent)
@@ -560,6 +508,12 @@ program three_bead_enzyme
         end do
         call n_solvent_el%append(n_solvent)
         call link_angle_el%append(link_angle)
+        if (modulo(i, colloid_sampling)==0) then
+           call dimer_io%position%append(colloids%pos)
+           call dimer_io%velocity%append(colloids%vel)
+           call dimer_io%image%append(colloids%image)
+        end if
+
      end if
 
   end do
@@ -571,18 +525,7 @@ program three_bead_enzyme
   call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, &
        v_com, add=.false., force=.true.)
 
-  ! create a group for block correlators and write the data
-
-  call h5gcreate_f(hfile%id, 'block_correlators', correlator_group, error)
-  call axial_cf%write(correlator_group, N_MD_steps, N_MD_steps*dt, 1, dt)
-  call h5gclose_f(correlator_group, error)
-
   ! write solvent coordinates for last step
-
-  call solvent_io%position%append(solvent%pos)
-  call solvent_io%velocity%append(solvent%vel)
-  call solvent_io%image%append(solvent%image)
-  call solvent_io%species%append(solvent%species)
 
   call h5gcreate_f(hfile%id, 'fields', fields_group, error)
 
@@ -625,7 +568,6 @@ program three_bead_enzyme
   call h5gclose_f(timers_group, error)
 
   call dimer_io%close()
-  call solvent_io%close()
   call n_solvent_el%close()
   call link_angle_el%close()
   call hfile%close()
