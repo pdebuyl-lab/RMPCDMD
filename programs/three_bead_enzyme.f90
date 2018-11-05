@@ -809,7 +809,7 @@ contains
     ! Place the molecule outside of the interaction range of all colloids
     too_close = .true.
     placement_loop: do while (too_close)
-       x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*(solvent_colloid_lj%cut(to_species, colloids%species(enz_2)) + 0.2d0)
+       x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*enzyme_capture_radius
        x_new = modulo(x_new, solvent_cells%edges)
        p = solvent_cells%cartesian_indices(x_new)
        if (solvent_cells%cell_count(compact_p_to_h(p, solvent_cells%M)+1) < 3) cycle placement_loop
