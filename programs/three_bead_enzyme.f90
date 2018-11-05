@@ -79,6 +79,7 @@ program three_bead_enzyme
   type(h5md_element_t) :: dummy_element
   integer(HID_T) :: fields_group, params_group
   integer(HID_T) :: box_group
+  integer(HID_T) :: dummy_id
   type(thermo_t) :: thermo_data
   double precision :: temperature, kin_e
   double precision :: v_com(3)
@@ -108,6 +109,10 @@ program three_bead_enzyme
   integer, dimension(N_species) :: n_solvent
   type(h5md_element_t) :: n_solvent_el
   type(h5md_element_t) :: link_angle_el
+
+  !! Histogram variable
+  type(histogram_t), allocatable :: radial_hist(:)
+  double precision, allocatable :: dummy_hist(:,:,:)
 
   integer, parameter :: block_length = 8
   type(axial_correlator_t) :: axial_cf
@@ -215,6 +220,12 @@ program three_bead_enzyme
      mass(3*(i-1)+1) = rho * sigma_N**3 * 4 * pi/3
      mass(3*(i-1)+2) = rho * sigma_E**3 * 4 * pi/3
      mass(3*(i-1)+3) = rho * sigma_N**3 * 4 * pi/3
+  end do
+
+
+  allocate(radial_hist(N_colloids))
+  do i = 1, N_colloids
+     call radial_hist(i)%init(min(sigma_E, sigma_N)/4, max(sigma_E, sigma_N)*3, 100, n_species=N_species)
   end do
 
   call solvent% init(N,2, system_name='solvent') ! there will be 2 species of solvent particles
@@ -367,9 +378,6 @@ program three_bead_enzyme
   call neigh% make_stencil(solvent_cells, max_cut+skin)
 
   call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
-
-  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
-  call h5gclose_f(fields_group, error)
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -534,6 +542,11 @@ program three_bead_enzyme
         com_pos = colloids%pos(:,2)
         call axial_cf%add(i-equilibration_loops, com_pos, unit_r)
 
+        ! update radial histogram
+        do k = 1, colloids%Nmax
+           call compute_radial_histogram(radial_hist(k), colloids%pos(:,k), solvent_cells%edges, solvent)
+        end do
+
      end if
 
      call varia%tac()
@@ -570,6 +583,26 @@ program three_bead_enzyme
   call solvent_io%velocity%append(solvent%vel)
   call solvent_io%image%append(solvent%image)
   call solvent_io%species%append(solvent%species)
+
+  call h5gcreate_f(hfile%id, 'fields', fields_group, error)
+
+  ! copy radial histogram data
+  allocate(dummy_hist(size(radial_hist(1)%data, 1), &
+       size(radial_hist(1)%data, 2), size(radial_hist)))
+  do i = 1, size(radial_hist)
+     call correct_radial_histogram(radial_hist(i))
+     dummy_hist(:,:,i) = radial_hist(i)%data / dble(N_loop)
+  end do
+
+  call dummy_element%create_fixed(fields_group, 'radial_histogram', dummy_hist)
+
+  call h5oopen_f(fields_group, 'radial_histogram', dummy_id, error)
+  call h5md_write_attribute(dummy_id, 'xmin', radial_hist(1)%xmin)
+  call h5md_write_attribute(dummy_id, 'dx', radial_hist(1)%dx)
+  call h5oclose_f(dummy_id, error)
+
+  call h5gclose_f(fields_group, error)
+
 
   ! Store timing data
   call timer_list%append(solvent%time_stream)
