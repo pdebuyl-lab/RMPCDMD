@@ -360,6 +360,7 @@ program n_colloids_pbc
      radial_hist%data = 0
      call compute_radial_histogram(radial_hist, colloids%pos(:,1), &
           solvent_cells%edges, solvent)
+     call correct_radial_histogram(radial_hist)
      call radial_hist_el%append(radial_hist%data)
 
   end do

@@ -16,6 +16,7 @@ module particle_system
   public :: particle_system_t
   public :: compute_cylindrical_shell_histogram
   public :: compute_radial_histogram
+  public :: correct_radial_histogram
   public :: cell_maximum_displacement
 
   type particle_system_t
@@ -458,6 +459,7 @@ contains
 
     do i = 1, solvent%Nmax
        s = solvent%species(i)
+       if (s <= 0) cycle
        x = solvent%pos(:,i)
        delta_x = rel_pos(x, x1, L)
        norm = dot_product(delta_x,delta_x)
@@ -467,11 +469,19 @@ contains
        end if
     end do
 
+  end subroutine compute_radial_histogram
+
+  subroutine correct_radial_histogram(hist)
+    type(histogram_t), intent(inout) :: hist
+
+    integer :: i
+    double precision :: r
+
     do i = 1, hist%n
-       norm = hist%xmin + (i-0.5d0) * hist%dx
-       hist%data(:,i) = hist%data(:,i) / (4*pi*norm**2*hist%dx)
+       r = hist%xmin + (i-0.5d0) * hist%dx
+       hist%data(:,i) = hist%data(:,i) / (4*pi*r**2*hist%dx)
     end do
 
-  end subroutine compute_radial_histogram
+  end subroutine correct_radial_histogram
 
 end module particle_system
