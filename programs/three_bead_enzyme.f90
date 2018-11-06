@@ -1,28 +1,36 @@
 ! This file is part of RMPCDMD
-! Copyright (c) 2015-2017 Pierre de Buyl and contributors
+! Copyright (c) 2018 Pierre de Buyl
 ! License: BSD 3-clause (see file LICENSE)
 
 !> Simulate a three bead enzyme model
 !!
-!! \param L                       length of simulation box in the 3 dimensions
-!! \param rho                     fluid number density
-!! \param T                       Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
-!! \param tau                     MPCD collision time
-!! \param bulk_rmpcd              use bulkd rmpcd reaction for B->A instead of resetting
-!! \param bulk_rate               rates for the A->B and B->A bulk reaction
-!! \param N_MD                    number MD steps occuring in tau
-!! \param N_loop                  number of MPCD timesteps
-!! \param colloid_sampling        interval (in MD steps) of sampling the colloid position and velocity
-!! \param equilibration_loops     number of MPCD steps for equilibration
-!! \param sigma_E                 radius of enzymatic_site
-!! \param sigma_N                 radius of N sphere
-!! \param link_d                  length of rigid link
-!! \param link_angles             angle of the model at rest
-!! \param elastic_k               stiffness of the link
-!! \param angle_k                 stiffness of the angular link
-!! \param epsilon_C               interaction parameter of C sphere with both solvent species (2 elements)
-!! \param epsilon_N               interaction parameter of N sphere with both solvent species (2 elements)
-!! \param epsilon_colloid         interaction parameter among C spheres
+!! \param L                          length of simulation box in the 3 dimensions
+!! \param rho                        fluid number density
+!! \param T                          Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
+!! \param tau                        MPCD collision time
+!! \param N_enzymes                  Number of enzyme molecules
+!! \param substrate_fraction         initial fraction of non-inert (substrate and product) fluid particles
+!! \param product_relative_fraction  inital relative fraction of product among non-inert fluid particles
+!! \param N_MD                       number MD steps occuring in tau
+!! \param N_loop                     number of MPCD timesteps
+!! \param colloid_sampling           interval (in MD steps) of sampling the colloid position and velocity
+!! \param equilibration_loops        number of MPCD steps for equilibration
+!! \param sigma_E                    radius of enzymatic_site
+!! \param sigma_N                    radius of N sphere
+!! \param link_d                     length of rigid link
+!! \param link_angles                angle of the model at rest
+!! \param elastic_k                  stiffness of the link
+!! \param angle_k                    stiffness of the angular link
+!! \param epsilon_E                  interaction parameter of E sphere with solvent species (3 elements)
+!! \param epsilon_N                  interaction parameter of N sphere with solvent species (3 elements)
+!! \param epsilon_colloid            interaction parameter among colloids
+!! \param enzyme_capture_radius      capture and release radius for substrate/product
+!! \param rate_release_s             rate of release of substrate from enzyme
+!! \param rate_release_p             rate of release of product from enzyme
+!! \param proba_s                    probability of capture of substrate
+!! \param proba_p                    probability of capture of product
+!! \param bulk_rmpcd                 use bulkd rmpcd reaction for B->A instead of resetting
+!! \param bulk_rate                  rates for the A->B and B->A bulk reaction
 
 program three_bead_enzyme
   use rmpcdmd_module
@@ -164,8 +172,8 @@ program three_bead_enzyme
   tau = PTread_d(config, 'tau', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
   colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
-  if (modulo(N_MD_steps, colloid_sampling) /= 0) then
-     error stop 'colloid_sampling must divide N_MD with no remainder'
+  if (colloid_sampling <= 0) then
+     error stop 'colloid_sampling must be positive'
   end if
   dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop', loc=params_group)
@@ -221,7 +229,7 @@ program three_bead_enzyme
      call radial_hist(i)%init(min(sigma_E, sigma_N)/4, max(sigma_E, sigma_N)*3, 100, n_species=N_species)
   end do
 
-  call solvent% init(N,2, system_name='solvent') ! there will be 2 species of solvent particles
+  call solvent% init(N, N_species, system_name='solvent')
 
   call colloids% init(N_colloids, N_species_colloids, mass, system_name='colloids')
   deallocate(mass)
@@ -279,6 +287,7 @@ program three_bead_enzyme
 
   call solvent_cells%init(L, 1.d0)
 
+  ! place enzymes without overlap
   do enzyme_i = 1, N_enzymes
      enz_1 = 3*(enzyme_i-1)+1
      enz_2 = enz_1+1
@@ -318,7 +327,7 @@ program three_bead_enzyme
         end do
      end do
   end do
-  
+
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
@@ -494,13 +503,8 @@ program three_bead_enzyme
         do k = 1, colloids%Nmax
            call compute_radial_histogram(radial_hist(k), colloids%pos(:,k), solvent_cells%edges, solvent)
         end do
-
-     end if
-
-     call varia%tac()
-
-     if (sampling) then
         n_solvent = 0
+        !$omp parallel do private(k,j) reduction(+:n_solvent)
         do k = 1, solvent%Nmax
            j = solvent%species(k)
            if (j <= 0) cycle
@@ -515,6 +519,8 @@ program three_bead_enzyme
         end if
 
      end if
+
+     call varia%tac()
 
   end do
   call main%tac()
@@ -735,7 +741,6 @@ contains
 
 
   !> Bind solvent molecule idx to enzyme
-  !! TODO: add enzyme idx
   subroutine bind_molecule(enzyme_idx, idx)
     integer, intent(in) :: enzyme_idx
     integer, intent(in) :: idx
@@ -759,8 +764,6 @@ contains
 
     colloids%vel(:,enz_2) = com_v
 
-    ! todo: deposit extra energy
-
     p = solvent_cells%cartesian_indices(solvent%pos(:, idx))
 
     cell_idx = compact_p_to_h(p, solvent_cells%M) + 1
@@ -771,10 +774,9 @@ contains
     bound_molecule_id(enzyme_idx) = solvent%id(idx)
     solvent%species(idx) = 0
 
+    ! compute conformational energy difference when changing the angle
     en1 = compute_bead_energy(enzyme_idx)
-
     link_angle(enzyme_idx) = link_angles(2)
-
     en2 = compute_bead_energy(enzyme_idx)
 
     call add_energy_to_cell(cell_idx, excess_kinetic_energy + en1 - en2)
@@ -783,13 +785,12 @@ contains
 
     enzyme_bound(enzyme_idx) = .true.
 
-    !TODO: add enzyme index
-    next_reaction_time(enzyme_idx) = current_time - log(threefry_double(state(1)))/total_rate ! sample from Poisson process
+    ! sample from Poisson process
+    next_reaction_time(enzyme_idx) = current_time - log(threefry_double(state(1)))/total_rate
 
   end subroutine bind_molecule
 
   !> Bind solvent molecule idx to enzyme
-  !! TODO: add enzyme_idx
   subroutine unbind_molecule(enzyme_idx, to_species)
     integer, intent(in) :: enzyme_idx
     integer, intent(in) :: to_species
@@ -821,6 +822,7 @@ contains
        end do
     end do placement_loop
 
+    ! Retrieve location in particle array
     i = solvent%id_to_idx(bound_molecule_id(enzyme_idx))
 
     solvent%species(i) = to_species
@@ -829,10 +831,9 @@ contains
     ! Use c.o.m. velocity so that no kinetic energy exchange must take place
     solvent%vel(:,i) = colloids%vel(:,enz_2)
 
+    ! compute conformational energy difference when changing the angle
     en1 = compute_bead_energy(enzyme_idx)
-
     link_angle(enzyme_idx) = link_angles(1)
-
     en2 = compute_bead_energy(enzyme_idx)
 
     p = solvent_cells%cartesian_indices(solvent%pos(:, i))
