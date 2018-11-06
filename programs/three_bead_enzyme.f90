@@ -136,7 +136,7 @@ program three_bead_enzyme
   call time_flag%init('flag')
   call time_change%init('change')
 
-  call timer_list%init(15)
+  call timer_list%init(17)
   call timer_list%append(varia)
   call timer_list%append(time_flag)
   call timer_list%append(time_change)
@@ -384,10 +384,8 @@ program three_bead_enzyme
         co_max = colloids% maximum_displacement()
 
         if ( (co_max >= skin*0.1d0) .or. (so_max >= skin*0.89d0) ) then
-           call varia%tic()
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
-           call varia%tac()
            call solvent% sort(solvent_cells)
            call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells, solvent_colloid_lj)
            call varia%tic()
@@ -562,7 +560,9 @@ program three_bead_enzyme
   call timer_list%append(solvent%time_md_pos)
   call timer_list%append(solvent%time_md_vel)
   call timer_list%append(solvent%time_max_disp)
+  call timer_list%append(solvent%time_apply_pbc)
   call timer_list%append(colloids%time_self_force)
+  call timer_list%append(colloids%time_apply_pbc)
   call timer_list%append(neigh%time_update)
   call timer_list%append(neigh%time_force)
   call timer_list%append(colloids%time_max_disp)
