@@ -446,7 +446,10 @@ program three_bead_enzyme
 
      call neigh% make_stencil(solvent_cells, enzyme_capture_radius)
      call neigh% update_list(colloids, solvent, enzyme_capture_radius, solvent_cells)
-     if (i>equilibration_loops) call select_substrate
+     if (i>equilibration_loops) then
+        call reset_enzyme_region_bit
+        call select_substrate
+     end if
 
      ! Check if unbinding should occur
      do enzyme_i = 1, N_enzymes
@@ -955,5 +958,25 @@ contains
 
   end subroutine add_energy_to_cell
 
+  subroutine reset_enzyme_region_bit
+
+    integer :: cell_idx
+    integer :: i, start, n
+
+    !$omp parallel do private(cell_idx, i, start, n)
+    do cell_idx = 1, solvent_cells%N
+
+       start = solvent_cells%cell_start(cell_idx)
+       n = solvent_cells%cell_count(cell_idx)
+
+       if (.not. solvent_cells%is_md(cell_idx)) then
+          do i = start, start + n - 1
+             solvent%flags(i) = ibclr(solvent%flags(i), ENZYME_REGION_BIT)
+          end do
+       end if
+
+    end do
+
+  end subroutine reset_enzyme_region_bit
 
 end program three_bead_enzyme
