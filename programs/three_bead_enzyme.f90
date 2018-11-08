@@ -270,9 +270,8 @@ program three_bead_enzyme
      solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
      solvent% vel(2,k) = threefry_normal(state(1))*sqrt(T)
      solvent% vel(3,k) = threefry_normal(state(1))*sqrt(T)
-     if (threefry_double(state(1)) < substrate_fraction) then
-        ! substrate
-        if (threefry_double(state(1)) < product_relative_fraction) then
+     if (dble(k)/dble(solvent%Nmax) <= substrate_fraction) then
+        if (dble(k)/dble(solvent%Nmax)/substrate_fraction <= product_relative_fraction) then
            solvent%species(k) = 2
         else
            solvent%species(k) = 1
