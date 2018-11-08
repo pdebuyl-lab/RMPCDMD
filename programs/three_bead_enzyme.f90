@@ -798,7 +798,7 @@ contains
     integer, intent(in) :: to_species
 
     integer :: i, p(3), cell_idx
-    double precision :: x_new(3), dist, en1, en2
+    double precision :: x_new(3), dist, en1, en2, min_r, delta_r, r
     logical :: too_close
     integer :: enz_1, enz_2, enz_3
 
@@ -806,13 +806,17 @@ contains
     enz_2 = enz_1+1
     enz_3 = enz_1+2
 
+    min_r = solvent_colloid_lj%cut(to_species, 1)
+    delta_r = enzyme_capture_radius - min_r
+
     ! transfer mass
     colloids%mass(enz_2) = colloids%mass(enz_2) - 1
 
     ! Place the molecule outside of the interaction range of all colloids
     too_close = .true.
     placement_loop: do while (too_close)
-       x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*enzyme_capture_radius
+       r = min_r + delta_r * threefry_double(state(1))
+       x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*r
        x_new = modulo(x_new, solvent_cells%edges)
        p = solvent_cells%cartesian_indices(x_new)
        if (solvent_cells%cell_count(compact_p_to_h(p, solvent_cells%M)+1) < 3) cycle placement_loop
