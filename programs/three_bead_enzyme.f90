@@ -161,7 +161,6 @@ program three_bead_enzyme
 
   L = PTread_ivec(config, 'L', 3, loc=params_group)
   rho = PTread_i(config, 'rho', loc=params_group)
-  N = rho *L(1)*L(2)*L(3)
 
   T = PTread_d(config, 'T', loc=params_group)
   link_d = PTread_dvec(config, 'link_d', 2, loc=params_group)
@@ -191,6 +190,8 @@ program three_bead_enzyme
 
   sigma_E = PTread_d(config, 'sigma_E', loc=params_group)
   sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
+
+  N = rho * ( L(1)*L(2)*L(3) - int(N_enzymes*4*pi/3*(2*sigma_N**3 + sigma_E**3)) )
 
   ! solvent index first, colloid index second, in solvent_colloid_lj
   epsilon(:,1) = PTread_dvec(config, 'epsilon_E', 3, loc=params_group)
@@ -361,6 +362,10 @@ program three_bead_enzyme
   colloids% force_old = colloids% force
 
   call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
+
+  write(*,*) 'Box size', L
+  write(*,*) N, 'fluid particles'
+
   write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
 
   call main%tic()
