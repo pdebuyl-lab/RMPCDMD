@@ -505,8 +505,9 @@ program three_bead_enzyme
         call thermo_data%append(hfile, temperature, e1+e2+e3, kin_e, e1+e2+e3+kin_e, v_com)
 
         ! update radial histogram
+        !$omp parallel do
         do k = 1, colloids%Nmax
-           call compute_radial_histogram(radial_hist(k), colloids%pos(:,k), solvent_cells%edges, solvent)
+           call compute_radial_histogram(radial_hist(k), colloids%pos(:,k), solvent_cells%edges, solvent, solvent_cells)
         end do
         n_solvent = 0
         !$omp parallel do private(k,j) reduction(+:n_solvent)
