@@ -444,29 +444,50 @@ contains
 
   end subroutine compute_cylindrical_shell_histogram
 
-  subroutine compute_radial_histogram(hist, x1, L, solvent)
+  subroutine compute_radial_histogram(hist, x1, L, solvent, cells)
+    use hilbert
+    use cell_system
+    implicit none
     type(histogram_t), intent(inout) :: hist
     double precision, intent(in), dimension(3) :: x1, L
     type(particle_system_t), intent(in) :: solvent
+    type(cell_system_t), intent(in) :: cells
 
-    integer :: i, s
+    integer :: max_i, i, j, k, cell_idx
+    integer :: i_particle, s, start, count
+    integer :: p(3), p_loop(3)
 
-    double precision :: x(3), delta_x(3), norm
-    double precision :: r_max, r_max_sq
+    double precision :: delta_x(3), norm
+    double precision :: r_max
 
     r_max = hist%xmin + hist%dx*hist%n
-    r_max_sq = r_max**2
 
-    do i = 1, solvent%Nmax
-       s = solvent%species(i)
-       if (s <= 0) cycle
-       x = solvent%pos(:,i)
-       delta_x = rel_pos(x, x1, L)
-       norm = dot_product(delta_x,delta_x)
-       if (norm < r_max_sq) then
-          norm = sqrt(norm)
-          call hist%bin(norm, s)
-       end if
+    p = cells%cartesian_indices(x1)
+
+    max_i = floor(r_max/cells%a) + 1
+    p_loop = -max_i
+
+    do i = -max_i, max_i
+       do j = -max_i, max_i
+          do k = -max_i, max_i
+             cell_idx = compact_p_to_h(modulo(p + [i, j, k], cells%L), cells%M) + 1
+             start = cells%cell_start(cell_idx)
+             count = cells%cell_count(cell_idx)
+
+             do i_particle = start, start + count - 1
+
+                s = solvent%species(i_particle)
+                if (s <= 0) cycle
+                delta_x = rel_pos(solvent%pos(:,i_particle), x1, L)
+                norm = norm2(delta_x)
+                if (norm < r_max) then
+                   call hist%bin(norm, s)
+                end if
+
+             end do
+
+          end do
+       end do
     end do
 
   end subroutine compute_radial_histogram
