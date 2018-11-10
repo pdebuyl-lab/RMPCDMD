@@ -868,7 +868,7 @@ contains
     double precision :: com_v(3), kin, factor
     double precision :: remaining_energy, xi(3), change
 
-    integer, parameter :: max_counter = 20
+    integer, parameter :: max_counter = 100
 
     start = solvent_cells% cell_start(cell_idx)
     n = solvent_cells% cell_count(cell_idx)
