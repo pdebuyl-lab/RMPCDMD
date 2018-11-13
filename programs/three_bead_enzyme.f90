@@ -115,6 +115,9 @@ program three_bead_enzyme
   type(h5md_element_t) :: n_solvent_el
   type(h5md_element_t) :: link_angle_el
 
+  integer, dimension(N_species) :: n_plus, n_minus
+  type(h5md_element_t) :: n_plus_el, n_minus_el
+
   !! Histogram variable
   type(histogram_t), allocatable :: radial_hist(:)
   double precision, allocatable :: dummy_hist(:,:,:)
@@ -332,6 +335,14 @@ program three_bead_enzyme
        n_solvent, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
 
+  call n_plus_el%create_time(hfile%observables, 'n_plus', &
+       n_plus, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
+       time=N_MD_steps*dt)
+
+  call n_minus_el%create_time(hfile%observables, 'n_minus', &
+       n_minus, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
+       time=N_MD_steps*dt)
+
   call link_angle_el%create_time(hfile%observables, 'link_angle', &
        link_angle, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
@@ -450,7 +461,9 @@ program three_bead_enzyme
 
      call neigh% make_stencil(solvent_cells, enzyme_capture_radius)
      call neigh% update_list(colloids, solvent, enzyme_capture_radius, solvent_cells)
-     if (i>equilibration_loops) then
+     if (sampling) then
+        n_plus = 0
+        n_minus = 0
         call reset_enzyme_region_bit
         call select_substrate
      end if
@@ -461,9 +474,11 @@ program three_bead_enzyme
            if (threefry_double(state(1)) < rate_release_s / total_rate) then
               ! release substrate
               call unbind_molecule(enzyme_i, 1)
+              n_plus(1) = n_plus(1) + 1
            else
               ! release product
               call unbind_molecule(enzyme_i, 2)
+              n_plus(2) = n_plus(2) + 1
            end if
            next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
         end if
@@ -517,6 +532,8 @@ program three_bead_enzyme
            n_solvent(j) = n_solvent(j) + 1
         end do
         call n_solvent_el%append(n_solvent)
+        call n_plus_el%append(n_plus)
+        call n_minus_el%append(n_minus)
         call link_angle_el%append(link_angle)
         if (modulo(i, colloid_sampling)==0) then
            call dimer_io%position%append(colloids%pos)
@@ -583,6 +600,8 @@ program three_bead_enzyme
 
   call dimer_io%close()
   call n_solvent_el%close()
+  call n_plus_el%close()
+  call n_minus_el%close()
   call link_angle_el%close()
   call hfile%close()
   call h5close_f(error)
@@ -734,11 +753,13 @@ contains
              ! pick in substrates
              idx = floor(xi * n_s / total_p) + 1
              m = list_s(idx)
+             n_minus(1) = n_minus(1) + 1
              ! use list_s(idx)
           else
              ! pick in products
              idx = floor(xi * n_p / total_p) + 1
              m = list_p(idx)
+             n_minus(2) = n_minus(2) + 1
           end if
           call bind_molecule(enzyme_i, m)
        end if
