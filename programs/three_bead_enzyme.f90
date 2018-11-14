@@ -644,17 +644,26 @@ contains
 
   end function compute_bead_force
 
-  function compute_bead_energy(enzyme_idx) result(en)
+  function compute_bead_energy(enzyme_idx, factor) result(en)
     integer, intent(in) :: enzyme_idx
+    integer, intent(in) :: factor
     double precision :: en
 
-    double precision :: r12(3), d12, r32(3), d32, costheta
+    double precision :: r12(3), d12, r32(3), d32, costheta, f(3)
 
     r12 = rel_pos(colloids%pos(:,(enzyme_idx-1)*3+1), colloids%pos(:,(enzyme_idx-1)*3+2), solvent_cells%edges)
     d12 = norm2(r12)
     r32 = rel_pos(colloids%pos(:,(enzyme_idx-1)*3+3), colloids%pos(:,(enzyme_idx-1)*3+2), solvent_cells%edges)
     d32 = norm2(r32)
     costheta = dot_product(r12, r32)/(d12*d32)
+
+    f = -factor*fprime(costheta, link_angle(enzyme_idx)) * (r32/(d32*d12) - costheta * r12/d12**2)
+    colloids%force(:,(enzyme_idx-1)*3+1) = colloids%force(:,(enzyme_idx-1)*3+1) + f
+    colloids%force(:,(enzyme_idx-1)*3+2) = colloids%force(:,(enzyme_idx-1)*3+2) - f
+    f = -factor*fprime(costheta, link_angle(enzyme_idx)) * (r12/(d12*d32) - costheta * r32/d32**2)
+    colloids%force(:,(enzyme_idx-1)*3+3) = colloids%force(:,(enzyme_idx-1)*3+3) + f
+    colloids%force(:,(enzyme_idx-1)*3+2) = colloids%force(:,(enzyme_idx-1)*3+2) - f
+
     en = angle_k * (acos(costheta)-link_angle(enzyme_idx))**2 / 2
 
   end function compute_bead_energy
@@ -804,9 +813,9 @@ contains
     solvent%species(idx) = 0
 
     ! compute conformational energy difference when changing the angle
-    en1 = compute_bead_energy(enzyme_idx)
+    en1 = compute_bead_energy(enzyme_idx, factor=-1)
     link_angle(enzyme_idx) = link_angles(2)
-    en2 = compute_bead_energy(enzyme_idx)
+    en2 = compute_bead_energy(enzyme_idx, factor=1)
 
     call add_energy_to_cell(cell_idx, excess_kinetic_energy + en1 - en2)
 
@@ -865,9 +874,9 @@ contains
     solvent%vel(:,i) = colloids%vel(:,enz_2)
 
     ! compute conformational energy difference when changing the angle
-    en1 = compute_bead_energy(enzyme_idx)
+    en1 = compute_bead_energy(enzyme_idx, factor=-1)
     link_angle(enzyme_idx) = link_angles(1)
-    en2 = compute_bead_energy(enzyme_idx)
+    en2 = compute_bead_energy(enzyme_idx, factor=1)
 
     p = solvent_cells%cartesian_indices(solvent%pos(:, i))
 
