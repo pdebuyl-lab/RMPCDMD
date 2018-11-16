@@ -92,7 +92,7 @@ program three_bead_enzyme
   double precision :: temperature, kin_e
   double precision :: v_com(3)
   double precision :: tmp_vec(3), normal_vec(3), tmp_q(4)
-  type(particle_system_io_t) :: dimer_io
+  type(particle_system_io_t) :: enzyme_io
   double precision :: bulk_rate(2)
   logical :: bulk_rmpcd
 
@@ -252,23 +252,23 @@ program three_bead_enzyme
   colloids% vel = 0
   colloids% force = 0
 
-  dimer_io%force_info%store = .false.
-  dimer_io%id_info%store = .false.
-  dimer_io%position_info%store = .true.
-  dimer_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%position_info%step = colloid_sampling
-  dimer_io%position_info%time = colloid_sampling*N_MD_steps*dt
-  dimer_io%image_info%store = .true.
-  dimer_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%image_info%step = dimer_io%position_info%step
-  dimer_io%image_info%time = dimer_io%position_info%time
-  dimer_io%velocity_info%store = .true.
-  dimer_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
-  dimer_io%velocity_info%step = dimer_io%position_info%step
-  dimer_io%velocity_info%time = dimer_io%position_info%time
-  dimer_io%species_info%store = .true.
-  dimer_io%species_info%mode = H5MD_FIXED
-  call dimer_io%init(hfile, 'dimer', colloids)
+  enzyme_io%force_info%store = .false.
+  enzyme_io%id_info%store = .false.
+  enzyme_io%position_info%store = .true.
+  enzyme_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  enzyme_io%position_info%step = colloid_sampling
+  enzyme_io%position_info%time = colloid_sampling*N_MD_steps*dt
+  enzyme_io%image_info%store = .true.
+  enzyme_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  enzyme_io%image_info%step = enzyme_io%position_info%step
+  enzyme_io%image_info%time = enzyme_io%position_info%time
+  enzyme_io%velocity_info%store = .true.
+  enzyme_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
+  enzyme_io%velocity_info%step = enzyme_io%position_info%step
+  enzyme_io%velocity_info%time = enzyme_io%position_info%time
+  enzyme_io%species_info%store = .true.
+  enzyme_io%species_info%mode = H5MD_FIXED
+  call enzyme_io%init(hfile, 'enzyme', colloids)
 
   do k = 1, solvent%Nmax
      solvent% vel(1,k) = threefry_normal(state(1))*sqrt(T)
@@ -347,7 +347,7 @@ program three_bead_enzyme
        link_angle, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
        time=N_MD_steps*dt)
 
-  call h5gcreate_f(dimer_io%group, 'box', box_group, error)
+  call h5gcreate_f(enzyme_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
@@ -536,9 +536,9 @@ program three_bead_enzyme
         call n_minus_el%append(n_minus)
         call link_angle_el%append(link_angle)
         if (modulo(i, colloid_sampling)==0) then
-           call dimer_io%position%append(colloids%pos)
-           call dimer_io%velocity%append(colloids%vel)
-           call dimer_io%image%append(colloids%image)
+           call enzyme_io%position%append(colloids%pos)
+           call enzyme_io%velocity%append(colloids%vel)
+           call enzyme_io%image%append(colloids%image)
         end if
 
      end if
@@ -598,7 +598,7 @@ program three_bead_enzyme
   call h5md_write_dataset(timers_group, main%name, main%total)
   call h5gclose_f(timers_group, error)
 
-  call dimer_io%close()
+  call enzyme_io%close()
   call n_solvent_el%close()
   call n_plus_el%close()
   call n_minus_el%close()
