@@ -1035,7 +1035,10 @@ contains
           if (abs(remaining_energy) < 1d-9) exit
        end do
 
-       if (abs(remaining_energy) > 2d-1) stop 'error in add_energy_to_cell'
+       if (abs(remaining_energy) > 1d-4) then
+          write(*,*) 'energy', energy
+          stop 'error in add_energy_to_cell'
+       end if
 
     end if
 
