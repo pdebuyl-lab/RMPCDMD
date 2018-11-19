@@ -38,7 +38,9 @@ module particle_system_io
   type particle_system_io_info_t
      integer :: mode
      integer :: step
+     integer :: step_offset = -1
      double precision :: time
+     double precision :: time_offset = -1
      logical :: store
   end type particle_system_io_info_t
 
@@ -79,10 +81,20 @@ contains
 
     if (this%position_info%store) then
        info = this%position_info
+       if ( (info%step_offset < 0) .and. (info%time_offset > 0) .or. &
+            (info%step_offset > 0) .and. (info%time_offset < 0) ) then
+          stop 'use both or neither of step_offset and time_offset in ps_init position'
+       end if
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%position%create_time(this% group, 'position', ps% pos, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%position%create_time(this% group, 'position', ps% pos, info%mode, info%step, info%time)
+          if (info%step_offset > 0) then
+             call this%position%create_time(this% group, 'position', ps% pos, info%mode, info%step, &
+                  info%time, step_offset=info%step_offset, time_offset=info%time_offset)
+          else
+             call this%position%create_time(this% group, 'position', ps% pos, info%mode, info%step, &
+                  info%time)
+          end if
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%position%create_fixed(this% group, 'position', ps% pos)
        else
@@ -92,10 +104,20 @@ contains
 
     if (this%velocity_info%store) then
        info = this%velocity_info
+       if ( (info%step_offset < 0) .and. (info%time_offset > 0) .or. &
+            (info%step_offset > 0) .and. (info%time_offset < 0) ) then
+          stop 'use both or neither of step_offset and time_offset in ps_init velocity'
+       end if
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode, info%step, info%time)
+          if (info%step_offset > 0) then
+             call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode, info%step, &
+                  info%time, step_offset=info%step_offset, time_offset=info%time_offset)
+          else
+             call this%velocity%create_time(this% group, 'velocity', ps% vel, info%mode, info%step, &
+                  info%time)
+          end if
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%velocity%create_fixed(this% group, 'velocity', ps% vel)
        else
@@ -105,10 +127,21 @@ contains
 
     if (this%force_info%store) then
        info = this%force_info
+       if ( (info%step_offset < 0) .and. (info%time_offset > 0) .or. &
+            (info%step_offset > 0) .and. (info%time_offset < 0) ) then
+          stop 'use both or neither of step_offset and time_offset in ps_init velocity'
+       end if
+
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%force%create_time(this% group, 'force', ps% vel, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%force%create_time(this% group, 'force', ps% vel, info%mode, info%step, info%time)
+          if (info%step_offset > 0) then
+             call this%force%create_time(this% group, 'force', ps% pos, info%mode, info%step, &
+                  info%time, step_offset=info%step_offset, time_offset=info%time_offset)
+          else
+             call this%force%create_time(this% group, 'force', ps% pos, info%mode, info%step, &
+                  info%time)
+          end if
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%force%create_fixed(this% group, 'force', ps% vel)
        else
@@ -118,10 +151,21 @@ contains
 
     if (this%image_info%store) then
        info = this%image_info
+       if ( (info%step_offset < 0) .and. (info%time_offset > 0) .or. &
+            (info%step_offset > 0) .and. (info%time_offset < 0) ) then
+          stop 'use both or neither of step_offset and time_offset in ps_init image'
+       end if
+
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%image%create_time(this% group, 'image', ps% image, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%image%create_time(this% group, 'image', ps% image, info%mode, info%step, info%time)
+          if (info%step_offset > 0) then
+             call this%image%create_time(this% group, 'image', ps% image, info%mode, info%step, &
+                  info%time, step_offset=info%step_offset, time_offset=info%time_offset)
+          else
+             call this%image%create_time(this% group, 'image', ps% image, info%mode, info%step, &
+                  info%time)
+          end if
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%image%create_fixed(this% group, 'image', ps% image)
        else
@@ -131,10 +175,21 @@ contains
 
     if (this%id_info%store) then
        info = this%id_info
+       if ( (info%step_offset < 0) .and. (info%time_offset > 0) .or. &
+            (info%step_offset > 0) .and. (info%time_offset < 0) ) then
+          stop 'use both or neither of step_offset and time_offset in ps_init id'
+       end if
+
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%id%create_time(this% group, 'id', ps% id, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%id%create_time(this% group, 'id', ps% id, info%mode, info%step, info%time)
+          if (info%step_offset > 0) then
+             call this%id%create_time(this% group, 'id', ps% id, info%mode, info%step, &
+                  info%time, step_offset=info%step_offset, time_offset=info%time_offset)
+          else
+             call this%id%create_time(this% group, 'id', ps% id, info%mode, info%step, &
+                  info%time)
+          end if
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%id%create_fixed(this% group, 'id', ps% id)
        else
@@ -144,10 +199,21 @@ contains
 
     if (this%species_info%store) then
        info = this%species_info
+       if ( (info%step_offset < 0) .and. (info%time_offset > 0) .or. &
+            (info%step_offset > 0) .and. (info%time_offset < 0) ) then
+          stop 'use both or neither of step_offset and time_offset in ps_init species'
+       end if
+
        if (iand(info%mode, H5MD_TIME) == H5MD_TIME) then
           call this%species%create_time(this% group, 'species', ps% species, info%mode)
        else if (iand(info%mode, H5MD_LINEAR) == H5MD_LINEAR) then
-          call this%species%create_time(this% group, 'species', ps% species, info%mode, info%step, info%time)
+          if (info%step_offset > 0) then
+             call this%species%create_time(this% group, 'species', ps% species, info%mode, info%step, &
+                  info%time, step_offset=info%step_offset, time_offset=info%time_offset)
+          else
+             call this%species%create_time(this% group, 'species', ps% species, info%mode, info%step, &
+                  info%time)
+          end if
        else if (iand(info%mode, H5MD_FIXED) == H5MD_FIXED) then
           call this%species%create_fixed(this% group, 'species', ps% species)
        else
@@ -165,18 +231,26 @@ contains
 
   end subroutine ps_close
 
-  subroutine thermo_init(this, datafile, n_buffer, step, time)
+  subroutine thermo_init(this, datafile, n_buffer, step, time, step_offset, time_offset)
     class(thermo_t), intent(out) :: this
     type(h5md_file_t), intent(inout) :: datafile
     integer, intent(in) :: n_buffer
     integer, intent(in) :: step
     double precision, intent(in) :: time
+    integer, intent(in), optional :: step_offset
+    double precision, intent(in), optional :: time_offset
 
     type(h5md_element_t) :: e
     double precision :: dummy, dummy_vec(3)
     integer :: mode
 
     if (n_buffer <= 0) error stop 'n_buffer non-positive in thermo_init'
+
+    if ( (present(step_offset) .and. .not. present(time_offset)) .or. &
+         (.not. present(step_offset) .and. present(time_offset)) ) &
+         then
+       stop 'in thermo_init, use both or neither of step_offset and time_offset'
+    end if
 
     this% n_buffer = n_buffer
     this% idx = 0
@@ -189,16 +263,34 @@ contains
     allocate(this% internal_energy(n_buffer))
     allocate(this% center_of_mass_velocity(3,n_buffer))
 
-    call e%create_time(datafile%observables, 'temperature', dummy, mode, step, time)
-    call e%close()
-    call e%create_time(datafile%observables, 'potential_energy', dummy, mode, step, time)
-    call e%close()
-    call e%create_time(datafile%observables, 'kinetic_energy', dummy, mode, step, time)
-    call e%close()
-    call e%create_time(datafile%observables, 'internal_energy', dummy, mode, step, time)
-    call e%close()
-    call e%create_time(datafile%observables, 'center_of_mass_velocity', dummy_vec, mode, step, time)
-    call e%close()
+    if (present(step_offset) .and. present(time_offset)) then
+       call e%create_time(datafile%observables, 'temperature', dummy, mode, step, time, &
+            step_offset=step_offset, time_offset=time_offset)
+       call e%close()
+       call e%create_time(datafile%observables, 'potential_energy', dummy, mode, step, time, &
+            step_offset=step_offset, time_offset=time_offset)
+       call e%close()
+       call e%create_time(datafile%observables, 'kinetic_energy', dummy, mode, step, time, &
+            step_offset=step_offset, time_offset=time_offset)
+       call e%close()
+       call e%create_time(datafile%observables, 'internal_energy', dummy, mode, step, time, &
+            step_offset=step_offset, time_offset=time_offset)
+       call e%close()
+       call e%create_time(datafile%observables, 'center_of_mass_velocity', dummy_vec, mode, step, time, &
+            step_offset=step_offset, time_offset=time_offset)
+       call e%close()
+    else
+       call e%create_time(datafile%observables, 'temperature', dummy, mode, step, time)
+       call e%close()
+       call e%create_time(datafile%observables, 'potential_energy', dummy, mode, step, time)
+       call e%close()
+       call e%create_time(datafile%observables, 'kinetic_energy', dummy, mode, step, time)
+       call e%close()
+       call e%create_time(datafile%observables, 'internal_energy', dummy, mode, step, time)
+       call e%close()
+       call e%create_time(datafile%observables, 'center_of_mass_velocity', dummy_vec, mode, step, time)
+       call e%close()
+    end if
 
   end subroutine thermo_init
 
