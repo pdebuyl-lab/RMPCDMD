@@ -86,6 +86,7 @@ program three_bead_enzyme
   type(h5md_file_t) :: hfile
   type(h5md_element_t) :: dummy_element
   integer(HID_T) :: fields_group, params_group
+  integer(HID_T) :: kinetics_group
   integer(HID_T) :: box_group
   integer(HID_T) :: dummy_id
   type(thermo_t) :: thermo_data
@@ -121,6 +122,9 @@ program three_bead_enzyme
   !! Histogram variable
   type(histogram_t), allocatable :: radial_hist(:)
   double precision, allocatable :: dummy_hist(:,:,:)
+
+  !! Kinetics data
+  type(enzyme_kinetics_t), allocatable :: kinetics_data(:)
 
   integer :: equilibration_loops
   integer :: colloid_sampling
@@ -238,10 +242,19 @@ program three_bead_enzyme
   call colloids% init(N_colloids, N_species_colloids, mass, system_name='colloids')
   deallocate(mass)
 
-  call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt)
+  call thermo_data%init(hfile, n_buffer=50, step=N_MD_steps, time=N_MD_steps*dt, &
+       step_offset=N_MD_steps, time_offset=N_MD_steps*dt)
 
   call h5gclose_f(params_group, error)
   call PTkill(config)
+
+  allocate(kinetics_data(N_enzymes))
+  do enzyme_i = 1, N_enzymes
+     call kinetics_data(enzyme_i)%bind_substrate%init(block_size=32)
+     call kinetics_data(enzyme_i)%release_substrate%init(block_size=32)
+     call kinetics_data(enzyme_i)%bind_product%init(block_size=32)
+     call kinetics_data(enzyme_i)%release_product%init(block_size=32)
+  end do
 
   do enzyme_i = 1, N_enzymes
      colloids% species(3*(enzyme_i-1)+1) = 2
@@ -257,15 +270,20 @@ program three_bead_enzyme
   enzyme_io%position_info%store = .true.
   enzyme_io%position_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   enzyme_io%position_info%step = colloid_sampling
+  enzyme_io%position_info%step_offset = colloid_sampling
   enzyme_io%position_info%time = colloid_sampling*N_MD_steps*dt
+  enzyme_io%position_info%time_offset = colloid_sampling*N_MD_steps*dt
   enzyme_io%image_info%store = .true.
   enzyme_io%image_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   enzyme_io%image_info%step = enzyme_io%position_info%step
+  enzyme_io%image_info%step_offset = enzyme_io%position_info%step_offset
   enzyme_io%image_info%time = enzyme_io%position_info%time
+  enzyme_io%image_info%time_offset = enzyme_io%position_info%time_offset
   enzyme_io%velocity_info%store = .true.
   enzyme_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   enzyme_io%velocity_info%step = enzyme_io%position_info%step
-  enzyme_io%velocity_info%time = enzyme_io%position_info%time
+  enzyme_io%velocity_info%step_offset = enzyme_io%position_info%step_offset
+  enzyme_io%velocity_info%time_offset = enzyme_io%position_info%time_offset
   enzyme_io%species_info%store = .true.
   enzyme_io%species_info%mode = H5MD_FIXED
   call enzyme_io%init(hfile, 'enzyme', colloids)
@@ -333,24 +351,26 @@ program three_bead_enzyme
 
   call n_solvent_el%create_time(hfile%observables, 'n_solvent', &
        n_solvent, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt)
+       time=N_MD_steps*dt, step_offset=N_MD_steps, time_offset=N_MD_steps*dt)
 
   call n_plus_el%create_time(hfile%observables, 'n_plus', &
        n_plus, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt)
+       time=N_MD_steps*dt, step_offset=N_MD_steps, time_offset=N_MD_steps*dt)
 
   call n_minus_el%create_time(hfile%observables, 'n_minus', &
        n_minus, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt)
+       time=N_MD_steps*dt, step_offset=N_MD_steps, time_offset=N_MD_steps*dt)
 
   call link_angle_el%create_time(hfile%observables, 'link_angle', &
        link_angle, ior(H5MD_LINEAR, H5MD_STORE_TIME), step=N_MD_steps, &
-       time=N_MD_steps*dt)
+       time=N_MD_steps*dt, step_offset=N_MD_steps, time_offset=N_MD_steps*dt)
 
   call h5gcreate_f(enzyme_io%group, 'box', box_group, error)
   call h5md_write_attribute(box_group, 'dimension', 3)
   call dummy_element%create_fixed(box_group, 'edges', solvent_cells%edges)
   call h5gclose_f(box_group, error)
+
+
 
   call solvent% random_placement(solvent_cells% edges, colloids, solvent_colloid_lj, state(1))
 
@@ -388,7 +408,6 @@ program three_bead_enzyme
      if (i==equilibration_loops) sampling = .true.
      if (modulo(i,64) == 0) write(*,'(i05)',advance='no') i
      md_loop: do j = 1, N_MD_steps
-        current_time = (i*N_MD_steps + (j-1))*dt
         call md_pos(solvent, dt)
         do k=1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
@@ -438,6 +457,8 @@ program three_bead_enzyme
 
      end do md_loop
 
+     current_time = (i+1-equilibration_loops)*tau
+
      call solvent_cells%random_shift(state(1))
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
@@ -470,15 +491,17 @@ program three_bead_enzyme
 
      ! Check if unbinding should occur
      do enzyme_i = 1, N_enzymes
-        if (i*N_MD_steps*dt > next_reaction_time(enzyme_i)) then
+        if (current_time > next_reaction_time(enzyme_i)) then
            if (threefry_double(state(1)) < rate_release_s / total_rate) then
               ! release substrate
               call unbind_molecule(enzyme_i, 1)
               n_plus(1) = n_plus(1) + 1
+              call kinetics_data(enzyme_i)%release_substrate%append(current_time)
            else
               ! release product
               call unbind_molecule(enzyme_i, 2)
               n_plus(2) = n_plus(2) + 1
+              call kinetics_data(enzyme_i)%release_product%append(current_time)
            end if
            next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
         end if
@@ -597,6 +620,21 @@ program three_bead_enzyme
   call h5md_write_dataset(timers_group, 'total', total_time)
   call h5md_write_dataset(timers_group, main%name, main%total)
   call h5gclose_f(timers_group, error)
+
+  call h5gcreate_f(hfile%id, 'kinetics', kinetics_group, error)
+  do i = 1, N_enzymes
+     call h5gcreate_f(kinetics_group, numbered_string('enzyme_', i, 4), dummy_id, error)
+     k = kinetics_data(i)%bind_substrate%current_idx
+     call h5md_write_dataset(dummy_id, 'bind_substrate', kinetics_data(i)%bind_substrate%data(1:k))
+     k = kinetics_data(i)%release_substrate%current_idx
+     call h5md_write_dataset(dummy_id, 'release_substrate', kinetics_data(i)%release_substrate%data(1:k))
+     k = kinetics_data(i)%bind_product%current_idx
+     call h5md_write_dataset(dummy_id, 'bind_product', kinetics_data(i)%bind_product%data(1:k))
+     k = kinetics_data(i)%release_product%current_idx
+     call h5md_write_dataset(dummy_id, 'release_product', kinetics_data(i)%release_product%data(1:k))
+     call h5gclose_f(dummy_id, error)
+  end do
+  call h5gclose_f(kinetics_group, error)
 
   call enzyme_io%close()
   call n_solvent_el%close()
@@ -718,7 +756,7 @@ contains
           s_sp = solvent%species(m)
 
           ! skip neutral fluid particles
-          if (s_sp == 3) cycle select_loop
+          if ((s_sp == 0) .or. (s_sp == 3)) cycle select_loop
 
           dist = norm2(rel_pos(x_enzyme, solvent%pos(:,m), solvent_cells%edges))
 
@@ -810,6 +848,12 @@ contains
     colloids%mass(enz_2) = colloids%mass(enz_2) + 1
 
     bound_molecule_id(enzyme_idx) = solvent%id(idx)
+    if (solvent%species(idx) == 1) then
+       call kinetics_data(enzyme_idx)%bind_substrate%append(current_time)
+    else
+       call kinetics_data(enzyme_idx)%bind_product%append(current_time)
+    end if
+
     solvent%species(idx) = 0
 
     ! compute conformational energy difference when changing the angle
