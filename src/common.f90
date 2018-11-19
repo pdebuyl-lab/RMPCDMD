@@ -25,6 +25,11 @@ module common
   public :: args_t
   public :: cross
   public :: pi
+  public :: alist_t
+  public :: enzyme_kinetics_t
+  public :: numbered_string
+
+  ! bitmask data
   public :: REAC_BIT
   public :: MD_BIT
   public :: WALL_BIT
@@ -130,6 +135,26 @@ module common
      character(len=max_path_length) :: output_file
      integer(c_int64_t) :: seed
   end type args_t
+
+  !> Appendable lists of double precision data
+  type alist_t
+     double precision, allocatable :: data(:)
+     integer :: current_idx
+     integer :: block_size
+   contains
+     generic, public :: init => alist_init
+     procedure, private :: alist_init
+     generic, public :: append => alist_append
+     procedure, private :: alist_append
+  end type alist_t
+
+  !> Container for the list of times for enzymatic kinetics
+  type enzyme_kinetics_t
+     type(alist_t) :: bind_substrate
+     type(alist_t) :: release_substrate
+     type(alist_t) :: bind_product
+     type(alist_t) :: release_product
+  end type enzyme_kinetics_t
 
 contains
 
@@ -385,5 +410,55 @@ contains
     r(3) = x1(1)*x2(2) - x1(2)*x2(1)
 
   end function cross
+
+  subroutine alist_init(this, block_size)
+    class(alist_t), intent(out) :: this
+    integer, intent(in) :: block_size
+
+    allocate(this%data(block_size))
+    this%current_idx = 0
+    this%block_size = block_size
+
+  end subroutine alist_init
+
+  subroutine alist_append(this, value)
+    class(alist_t), intent(inout) :: this
+    double precision, intent(in) :: value
+
+    integer :: idx, len
+    double precision, allocatable :: tmp_data(:)
+
+    idx = this%current_idx
+    len = size(this%data)
+
+    if (idx == len) then
+       call move_alloc(this%data, tmp_data)
+       allocate(this%data(len+this%block_size))
+       this%data(1:len) = tmp_data
+       deallocate(tmp_data)
+    end if
+
+    idx = idx + 1
+    this%data(idx) = value
+    this%current_idx = idx
+
+  end subroutine alist_append
+
+  function numbered_string(base_string, index, length) result(s)
+    character(len=*), intent(in) :: base_string
+    integer, intent(in) :: index
+    integer, intent(in) :: length
+    character(len=:), allocatable :: s
+
+    character(len=12) format_string
+
+    allocate(character(len=len(trim(base_string))+length) :: s)
+
+    s(1:len(trim(base_string))) = base_string
+
+    write(format_string, '(a,i3.3,a,i3.3,a)') '(a,i', length, '.', length, ')'
+    write(s, format_string) trim(base_string), index
+
+  end function numbered_string
 
 end module common
