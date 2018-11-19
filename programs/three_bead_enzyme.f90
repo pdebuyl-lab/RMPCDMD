@@ -378,7 +378,7 @@ program three_bead_enzyme
 
   call neigh% init(colloids% Nmax, int(rho*30*max(sigma_E,sigma_N)**3))
 
-  skin = 2
+  skin = 1
   n_extra_sorting = 0
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
@@ -417,7 +417,7 @@ program three_bead_enzyme
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
 
-        if ( (co_max >= skin*0.1d0) .or. (so_max >= skin*0.89d0) ) then
+        if ( co_max + so_max >= skin ) then
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
