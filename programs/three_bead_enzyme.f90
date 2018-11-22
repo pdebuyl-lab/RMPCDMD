@@ -948,15 +948,24 @@ contains
     start = solvent_cells% cell_start(cell_idx)
     n = solvent_cells% cell_count(cell_idx)
 
+    counter = 1
     remaining_energy = energy
     cell = compact_h_to_p(cell_idx - 1, solvent_cells%M) + 1
 
     ! If energy is positive, go for one cell.
     ! todo: always go around several cells
 
-    if (energy > 0) then
-       start = solvent_cells% cell_start(cell_idx)
-       n = solvent_cells% cell_count(cell_idx)
+    do counter = 1, max_counter
+       xi(1) = -1 + 3*threefry_double(state(1))
+       xi(2) = -1 + 3*threefry_double(state(1))
+       xi(3) = -1 + 3*threefry_double(state(1))
+
+       cell_shift = floor(xi)
+       actual_cell = modulo(cell + cell_shift , solvent_cells% L)
+       actual_idx = compact_p_to_h(actual_cell-1, solvent_cells%M) + 1
+
+       start = solvent_cells% cell_start(actual_idx)
+       n = solvent_cells% cell_count(actual_idx)
 
        n_effective = 0
        com_v = 0
@@ -967,12 +976,8 @@ contains
           end if
        end do
 
-       if (n_effective == 0) then
-          stop 'n_effective == 0 in add_energy_to_cell'
-       end if
-       if (n_effective == 1) then
-          stop 'n_effective == 1 in add_energy_to_cell'
-       end if
+       if (n_effective <= 1) cycle
+
        com_v = com_v / n_effective
 
        kin = 0
@@ -983,64 +988,29 @@ contains
        end do
        kin = kin / 2
 
-       factor = sqrt((kin + energy)/kin)
+       if (energy > 0) then
+          change = energy
+       else
+          change = max(-kin/2, remaining_energy)
+       end if
+
+       remaining_energy = remaining_energy - change
+
+       factor = sqrt((kin + change)/kin)
        do i = start, start + n - 1
           solvent%vel(:,i) = com_v + factor*(solvent%vel(:,i) - com_v)
        end do
 
-    else
+       if (abs(remaining_energy) < 1d-9) exit
+    end do
 
-       do counter = 1, max_counter
-          xi(1) = -1 + 3*threefry_double(state(1))
-          xi(2) = -1 + 3*threefry_double(state(1))
-          xi(3) = -1 + 3*threefry_double(state(1))
-
-          cell_shift = floor(xi)
-          actual_cell = modulo(cell + cell_shift , solvent_cells% L)
-          actual_idx = compact_p_to_h(actual_cell-1, solvent_cells%M) + 1
-
-          start = solvent_cells% cell_start(actual_idx)
-          n = solvent_cells% cell_count(actual_idx)
-
-          n_effective = 0
-          com_v = 0
-          do i = start, start + n - 1
-             if (solvent%species(i) > 0) then
-                com_v = com_v + solvent% vel(:, i)
-                n_effective = n_effective + 1
-             end if
-          end do
-
-          if (n_effective <= 1) cycle
-
-          com_v = com_v / n_effective
-
-          kin = 0
-          do i = start, start + n - 1
-             if (solvent%species(i) > 0) then
-                kin = kin + sum((solvent%vel(:,i)-com_v)**2)
-             end if
-          end do
-          kin = kin / 2
-
-          change = max(-kin/2, remaining_energy)
-
-          remaining_energy = remaining_energy - change
-
-          factor = sqrt((kin + change)/kin)
-          do i = start, start + n - 1
-             solvent%vel(:,i) = com_v + factor*(solvent%vel(:,i) - com_v)
-          end do
-
-          if (abs(remaining_energy) < 1d-9) exit
-       end do
-
-       if (abs(remaining_energy) > 1d-4) then
-          write(*,*) 'energy', energy
-          stop 'error in add_energy_to_cell'
-       end if
-
+    if (abs(remaining_energy) > 1d-4) then
+       write(*,*) ''
+       write(*,*) 'energy', energy
+       write(*,*) 'counter', counter
+       stop 'error in add_energy_to_cell'
     end if
+
 
   end subroutine add_energy_to_cell
 
