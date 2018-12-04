@@ -80,8 +80,12 @@ with h5py.File(args.file, 'r') as f:
             value = value[:,:,args.index]
         else:
             value = value[:]
+        if 'xmin' in g.attrs and 'dx' in g.attrs:
+            x = g.attrs['xmin'][()] + np.arange(value.shape[-1])*g.attrs['dx'][()]
+        else:
+            x = np.arange(value.shape[-1])
         if args.mean:
-            plt.plot(value.mean(axis=0))
+            plt.plot(x,value.mean(axis=0))
         else:
             N = value.shape[0]
             plt.plot(value[::N//4].T)
