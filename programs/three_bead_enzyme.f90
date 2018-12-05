@@ -726,6 +726,7 @@ contains
     integer :: i, m, s_sp
     double precision :: dist, x_enzyme(3)
     double precision :: total_p, xi
+    double precision :: proba_something
 
     integer, parameter :: list_size = 256
     integer :: n_s, n_p
@@ -788,8 +789,8 @@ contains
        end do select_loop
 
        total_p = n_s*proba_s + n_p*proba_p
-
-       reaction_happens = (threefry_double(state(1)) < total_p)
+       proba_something = 1 - ((1-proba_s)**n_s)*((1-proba_p)**n_p)
+       reaction_happens = (threefry_double(state(1)) < proba_something)
 
        ! Pick either a substrate or a product if a reaction happens
 
