@@ -283,6 +283,7 @@ program three_bead_enzyme
   enzyme_io%velocity_info%mode = ior(H5MD_LINEAR,H5MD_STORE_TIME)
   enzyme_io%velocity_info%step = enzyme_io%position_info%step
   enzyme_io%velocity_info%step_offset = enzyme_io%position_info%step_offset
+  enzyme_io%velocity_info%time = enzyme_io%position_info%time
   enzyme_io%velocity_info%time_offset = enzyme_io%position_info%time_offset
   enzyme_io%species_info%store = .true.
   enzyme_io%species_info%mode = H5MD_FIXED
