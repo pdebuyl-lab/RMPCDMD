@@ -471,10 +471,7 @@ program three_bead_enzyme
 
         ! select substrate for binding
         ! requires neigbor list with enzyme_capture_radius + skin
-        if (sampling) then
-           call reset_enzyme_region_bit
-           call select_substrate
-        end if
+        if (sampling) call select_substrate
 
      end do md_loop
 
@@ -508,6 +505,7 @@ program three_bead_enzyme
         solvent% pos_old(:,k) = solvent% pos(:,k)
      end do
      colloids% pos_old = colloids% pos
+     call reset_enzyme_region_bit
      call varia%tac()
 
      !! TODO: add thermostat and hydro option
