@@ -77,6 +77,7 @@ program three_bead_enzyme
   double precision :: current_time
   integer :: j, k
   type(timer_t), target :: varia, main, time_flag, time_change
+  type(timer_t), target :: time_select, time_release, time_reset
   double precision :: total_time
   type(timer_list_t) :: timer_list
   integer(HID_T) :: timers_group
@@ -142,11 +143,17 @@ program three_bead_enzyme
   call varia%init('varia')
   call time_flag%init('flag')
   call time_change%init('change')
+  call time_select%init('select_substrate')
+  call time_release%init('release_substrate')
+  call time_reset%init('reset_bit')
 
-  call timer_list%init(17)
+  call timer_list%init(20)
   call timer_list%append(varia)
   call timer_list%append(time_flag)
   call timer_list%append(time_change)
+  call timer_list%append(time_select)
+  call timer_list%append(time_release)
+  call timer_list%append(time_reset)
 
   call h5open_f(error)
   call hfile%create(args%output_file, 'RMPCDMD::three_bead_enzyme', &
@@ -476,6 +483,7 @@ program three_bead_enzyme
      end do md_loop
 
 
+     call time_release%tic()
      ! Check if unbinding should occur
      do enzyme_i = 1, N_enzymes
         if (current_time >= next_reaction_time(enzyme_i)) then
@@ -493,6 +501,7 @@ program three_bead_enzyme
            next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
         end if
      end do
+     call time_release%tac()
 
      call solvent_cells%random_shift(state(1))
      call apply_pbc(solvent, solvent_cells% edges)
@@ -739,6 +748,8 @@ contains
     integer :: enzyme_i, enz_2
     integer :: s_found, p_found
 
+    call time_select%tic()
+
     select_substrate_loop: do enzyme_i = 1, N_enzymes
 
        if (enzyme_bound(enzyme_i)) cycle select_substrate_loop
@@ -819,6 +830,8 @@ contains
        end if
 
     end do select_substrate_loop
+
+    call time_select%tac()
 
   end subroutine select_substrate
 
@@ -1026,6 +1039,8 @@ contains
     integer :: cell_idx
     integer :: i, start, n
 
+    call time_reset%tic()
+
     !$omp parallel do private(cell_idx, i, start, n)
     do cell_idx = 1, solvent_cells%N
 
@@ -1039,6 +1054,8 @@ contains
        end if
 
     end do
+
+    call time_reset%tic()
 
   end subroutine reset_enzyme_region_bit
 
