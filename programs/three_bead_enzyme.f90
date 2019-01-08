@@ -209,6 +209,11 @@ program three_bead_enzyme
   sigma_cut = sigma*2**(1.d0/6.d0)
   max_cut = maxval(sigma_cut)
 
+  if (max_cut > enzyme_capture_radius) then
+     write(*,*) 'enzyme_capture_radius must be greater than max_cut'
+     stop
+  end if
+
   call solvent_colloid_lj% init(epsilon, sigma, sigma_cut)
 
   epsilon(:,:) = PTread_d(config, 'epsilon_colloid', loc=params_group)
@@ -382,9 +387,9 @@ program three_bead_enzyme
   skin = 1
   n_extra_sorting = 0
 
-  call neigh% make_stencil(solvent_cells, max_cut+skin)
+  call neigh% make_stencil(solvent_cells, enzyme_capture_radius+skin)
 
-  call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
+  call neigh% update_list(colloids, solvent, enzyme_capture_radius+skin, solvent_cells, solvent_colloid_lj)
 
   e1 = compute_force(colloids, solvent, neigh, solvent_cells% edges, solvent_colloid_lj)
   e2 = compute_force_n2(colloids, solvent_cells% edges, colloid_lj)
@@ -408,7 +413,15 @@ program three_bead_enzyme
   do i = 0, N_loop+equilibration_loops
      if (i==equilibration_loops) sampling = .true.
      if (modulo(i,64) == 0) write(*,'(i05)',advance='no') i
+
+     ! reset substrate/product creation/destruction counters
+     n_plus = 0
+     n_minus = 0
+
      md_loop: do j = 1, N_MD_steps
+
+        current_time = (i-equilibration_loops)*tau + (j-1)*dt
+
         call md_pos(solvent, dt)
         do k=1, colloids% Nmax
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
@@ -422,7 +435,7 @@ program three_bead_enzyme
            call apply_pbc(solvent, solvent_cells% edges)
            call apply_pbc(colloids, solvent_cells% edges)
            call solvent% sort(solvent_cells)
-           call neigh% update_list(colloids, solvent, max_cut + skin, solvent_cells, solvent_colloid_lj)
+           call neigh% update_list(colloids, solvent, enzyme_capture_radius + skin, solvent_cells, solvent_colloid_lj)
            call varia%tic()
            !$omp parallel do
            do k = 1, solvent%Nmax
@@ -456,15 +469,39 @@ program three_bead_enzyme
         end do
         call varia%tac()
 
+        ! select substrate for binding
+        ! requires neigbor list with enzyme_capture_radius + skin
+        if (sampling) then
+           call reset_enzyme_region_bit
+           call select_substrate
+        end if
+
      end do md_loop
 
-     current_time = (i+1-equilibration_loops)*tau
+
+     ! Check if unbinding should occur
+     do enzyme_i = 1, N_enzymes
+        if (current_time >= next_reaction_time(enzyme_i)) then
+           if (threefry_double(state(1)) < rate_release_s / total_rate) then
+              ! release substrate
+              call unbind_molecule(enzyme_i, 1)
+              n_plus(1) = n_plus(1) + 1
+              call kinetics_data(enzyme_i)%release_substrate%append(current_time)
+           else
+              ! release product
+              call unbind_molecule(enzyme_i, 2)
+              n_plus(2) = n_plus(2) + 1
+              call kinetics_data(enzyme_i)%release_product%append(current_time)
+           end if
+           next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
+        end if
+     end do
 
      call solvent_cells%random_shift(state(1))
      call apply_pbc(solvent, solvent_cells% edges)
      call apply_pbc(colloids, solvent_cells% edges)
      call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
+     call neigh% update_list(colloids, solvent, enzyme_capture_radius+skin, solvent_cells, solvent_colloid_lj)
      call varia%tic()
      !$omp parallel do
      do k = 1, solvent%Nmax
@@ -481,39 +518,6 @@ program three_bead_enzyme
         call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate(2), tau, state)
      end if
 
-     call neigh% make_stencil(solvent_cells, enzyme_capture_radius)
-     call neigh% update_list(colloids, solvent, enzyme_capture_radius, solvent_cells)
-     if (sampling) then
-        n_plus = 0
-        n_minus = 0
-        call reset_enzyme_region_bit
-        call select_substrate
-     end if
-
-     ! Check if unbinding should occur
-     do enzyme_i = 1, N_enzymes
-        if (current_time > next_reaction_time(enzyme_i)) then
-           if (threefry_double(state(1)) < rate_release_s / total_rate) then
-              ! release substrate
-              call unbind_molecule(enzyme_i, 1)
-              n_plus(1) = n_plus(1) + 1
-              call kinetics_data(enzyme_i)%release_substrate%append(current_time)
-           else
-              ! release product
-              call unbind_molecule(enzyme_i, 2)
-              n_plus(2) = n_plus(2) + 1
-              call kinetics_data(enzyme_i)%release_product%append(current_time)
-           end if
-           next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
-        end if
-     end do
-
-     ! Rebuild the neighbor list after possible unbindings
-     call neigh% make_stencil(solvent_cells, max_cut+skin)
-     call apply_pbc(solvent, solvent_cells% edges)
-     call apply_pbc(colloids, solvent_cells% edges)
-     call solvent% sort(solvent_cells)
-     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
      call varia%tic()
      !$omp parallel do
      do k = 1, solvent%Nmax
@@ -521,7 +525,6 @@ program three_bead_enzyme
      end do
      colloids% pos_old = colloids% pos
      call varia%tac()
-     call neigh% update_list(colloids, solvent, max_cut+skin, solvent_cells, solvent_colloid_lj)
 
      call varia%tic()
 
@@ -736,7 +739,7 @@ contains
     logical :: reaction_happens
 
     integer :: enzyme_i, enz_2
-
+    integer :: s_found, p_found
 
     select_substrate_loop: do enzyme_i = 1, N_enzymes
 
@@ -746,14 +749,13 @@ contains
 
        n_s = 0
        n_p = 0
+       s_found = 0
+       p_found = 0
 
        x_enzyme = modulo(colloids%pos(:,enz_2), solvent_cells%edges)
 
        select_loop: do i = 1, neigh%n(enz_2)
           m = neigh%list(i, enz_2)
-
-          ! skip substrates undergoing MD
-          if (btest(solvent%flags(m), MD_BIT)) cycle select_loop
 
           s_sp = solvent%species(m)
 
@@ -761,6 +763,11 @@ contains
           if ((s_sp == 0) .or. (s_sp == 3)) cycle select_loop
 
           dist = norm2(rel_pos(x_enzyme, solvent%pos(:,m), solvent_cells%edges))
+
+          if ( (dist <= enzyme_capture_radius) .and. (dist > solvent_colloid_lj%cut(s_sp, colloids%species(enz_2)) ) ) then
+             if (s_sp==1) s_found = s_found + 1
+             if (s_sp==2) p_found = p_found + 1
+          end if
 
           if (.not. btest(solvent%flags(m), ENZYME_REGION_BIT)) then
              if ( (dist <= enzyme_capture_radius) .and. (dist > solvent_colloid_lj%cut(s_sp, colloids%species(enz_2)) ) ) then
@@ -781,10 +788,10 @@ contains
                    end if
                    list_p(n_p) = m
                 end if
-             end if
-          else
-             if (dist > enzyme_capture_radius) then
-                solvent%flags(m) = ibclr(solvent%flags(m), ENZYME_REGION_BIT)
+             else
+                if (dist > enzyme_capture_radius) then
+                   solvent%flags(m) = ibclr(solvent%flags(m), ENZYME_REGION_BIT)
+                end if
              end if
           end if
        end do select_loop
