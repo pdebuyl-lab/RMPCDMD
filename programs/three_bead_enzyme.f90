@@ -1055,7 +1055,7 @@ contains
 
     end do
 
-    call time_reset%tic()
+    call time_reset%tac()
 
   end subroutine reset_enzyme_region_bit
 
