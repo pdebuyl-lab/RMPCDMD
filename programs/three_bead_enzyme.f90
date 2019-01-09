@@ -162,7 +162,7 @@ program three_bead_enzyme
   call hdf5_util_write_dataset(params_group, 'seed', args%seed)
 
   bulk_rmpcd = PTread_l(config, 'bulk_rmpcd', loc=params_group)
-  bulk_rate = PTread_d(config, 'bulk_rate', loc=params_group)
+  bulk_rate = PTread_dvec(config, 'bulk_rate', 2, loc=params_group)
 
   proba_s = PTread_d(config, 'proba_s', loc=params_group)
   proba_p = PTread_d(config, 'proba_p', loc=params_group)
