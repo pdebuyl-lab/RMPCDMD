@@ -752,8 +752,6 @@ contains
 
     select_substrate_loop: do enzyme_i = 1, N_enzymes
 
-       if (enzyme_bound(enzyme_i)) cycle select_substrate_loop
-
        enz_2 = (enzyme_i-1)*3 + 2
 
        n_s = 0
@@ -804,6 +802,8 @@ contains
              end if
           end if
        end do select_loop
+
+       if (enzyme_bound(enzyme_i)) cycle select_substrate_loop
 
        total_p = n_s*proba_s + n_p*proba_p
        proba_something = 1 - ((1-proba_s)**n_s)*((1-proba_p)**n_p)
