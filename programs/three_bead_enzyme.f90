@@ -798,6 +798,8 @@ contains
              else
                 if (dist > enzyme_capture_radius) then
                    solvent%flags(m) = ibclr(solvent%flags(m), ENZYME_REGION_BIT)
+                else
+                   solvent%flags(m) = ibset(solvent%flags(m), ENZYME_REGION_BIT)
                 end if
              end if
           end if
@@ -933,6 +935,7 @@ contains
 
     solvent%species(i) = to_species
     solvent%pos(:,i) = x_new
+    solvent%flags(i) = ibset(solvent%flags(i), ENZYME_REGION_BIT)
 
     ! Use c.o.m. velocity so that no kinetic energy exchange must take place
     solvent%vel(:,i) = colloids%vel(:,enz_2)
