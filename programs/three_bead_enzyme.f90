@@ -795,12 +795,10 @@ contains
                    end if
                    list_p(n_p) = m
                 end if
-             else
-                if (dist > enzyme_capture_radius) then
-                   solvent%flags(m) = ibclr(solvent%flags(m), ENZYME_REGION_BIT)
-                else
-                   solvent%flags(m) = ibset(solvent%flags(m), ENZYME_REGION_BIT)
-                end if
+             end if
+          else
+             if (dist > enzyme_capture_radius) then
+                solvent%flags(m) = ibclr(solvent%flags(m), ENZYME_REGION_BIT)
              end if
           end if
        end do select_loop
