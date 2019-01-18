@@ -478,30 +478,35 @@ program three_bead_enzyme
 
         ! select substrate for binding
         ! requires neigbor list with enzyme_capture_radius + skin
-        if (sampling) call select_substrate
+        if (sampling) then
+           call select_substrate
+           call time_release%tic()
+           ! Check if unbinding should occur
+           do enzyme_i = 1, N_enzymes
+              if (current_time >= next_reaction_time(enzyme_i)) then
+                 if (threefry_double(state(1)) < rate_release_s / total_rate) then
+                    ! release substrate
+                    call unbind_molecule(enzyme_i, 1)
+                    call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
+                    n_plus(1) = n_plus(1) + 1
+                    call kinetics_data(enzyme_i)%release_substrate%append(current_time)
+                 else
+                    ! release product
+                    call unbind_molecule(enzyme_i, 2)
+                    call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
+                    n_plus(2) = n_plus(2) + 1
+                    call kinetics_data(enzyme_i)%release_product%append(current_time)
+                 end if
+                 next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
+              end if
+           end do
+        end if
+     call time_release%tac()
+
 
      end do md_loop
 
 
-     call time_release%tic()
-     ! Check if unbinding should occur
-     do enzyme_i = 1, N_enzymes
-        if (current_time >= next_reaction_time(enzyme_i)) then
-           if (threefry_double(state(1)) < rate_release_s / total_rate) then
-              ! release substrate
-              call unbind_molecule(enzyme_i, 1)
-              n_plus(1) = n_plus(1) + 1
-              call kinetics_data(enzyme_i)%release_substrate%append(current_time)
-           else
-              ! release product
-              call unbind_molecule(enzyme_i, 2)
-              n_plus(2) = n_plus(2) + 1
-              call kinetics_data(enzyme_i)%release_product%append(current_time)
-           end if
-           next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
-        end if
-     end do
-     call time_release%tac()
 
      call solvent_cells%random_shift(state(1))
      call apply_pbc(solvent, solvent_cells% edges)
@@ -1059,5 +1064,30 @@ contains
     call time_reset%tac()
 
   end subroutine reset_enzyme_region_bit
+
+  !> Check all colloids' neighbor lists to possibly add solvent particle idx
+  subroutine fix_neighbor_list(idx)
+    integer, intent(in) :: idx
+
+    integer :: s, colloid_i, n
+    double precision :: x(3), d
+
+    s = solvent%species(idx)
+    x = solvent%pos(:,idx)
+
+    do colloid_i = 1, 3*N_enzymes
+       d = norm2(rel_pos(x, colloids%pos(:,colloid_i), solvent_cells%edges))
+       if (d <= solvent_colloid_lj%cut(s, colloids%species(colloid_i)) + skin) then
+          ! add to nlist
+          n = neigh%n(colloid_i)
+          if ( n < neigh%Nmax ) then
+             n = n+1
+             neigh%list(n, colloid_i) = idx
+             neigh%n(colloid_i) = n
+          end if
+       end if
+    end do
+
+  end subroutine fix_neighbor_list
 
 end program three_bead_enzyme
