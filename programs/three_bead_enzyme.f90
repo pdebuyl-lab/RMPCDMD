@@ -97,6 +97,7 @@ program three_bead_enzyme
   type(particle_system_io_t) :: enzyme_io
   double precision :: bulk_rate(2)
   logical :: bulk_rmpcd
+  logical :: immediate_chemistry
 
   integer :: enzyme_i
   integer :: enz_1, enz_2, enz_3
@@ -162,6 +163,7 @@ program three_bead_enzyme
   call hdf5_util_write_dataset(params_group, 'seed', args%seed)
 
   bulk_rmpcd = PTread_l(config, 'bulk_rmpcd', loc=params_group)
+  immediate_chemistry = PTread_l(config, 'immediate_chemistry', loc=params_group)
   bulk_rate = PTread_dvec(config, 'bulk_rate', 2, loc=params_group)
 
   proba_s = PTread_d(config, 'proba_s', loc=params_group)
@@ -478,7 +480,7 @@ program three_bead_enzyme
 
         ! select substrate for binding
         ! requires neigbor list with enzyme_capture_radius + skin
-        if (sampling) then
+        if (sampling .or. immediate_chemistry) then
            call select_substrate
            call time_release%tic()
            ! Check if unbinding should occur
