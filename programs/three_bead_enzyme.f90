@@ -453,13 +453,13 @@ program three_bead_enzyme
                     call unbind_molecule(enzyme_i, 1)
                     call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
                     n_plus(1) = n_plus(1) + 1
-                    call kinetics_data(enzyme_i)%release_substrate%append(current_time)
+                    if (sampling) call kinetics_data(enzyme_i)%release_substrate%append(current_time)
                  else
                     ! release product
                     call unbind_molecule(enzyme_i, 2)
                     call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
                     n_plus(2) = n_plus(2) + 1
-                    call kinetics_data(enzyme_i)%release_product%append(current_time)
+                    if (sampling) call kinetics_data(enzyme_i)%release_product%append(current_time)
                  end if
                  next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
               end if
@@ -868,10 +868,12 @@ contains
     colloids%mass(enz_2) = colloids%mass(enz_2) + 1
 
     bound_molecule_id(enzyme_idx) = solvent%id(idx)
-    if (solvent%species(idx) == 1) then
-       call kinetics_data(enzyme_idx)%bind_substrate%append(current_time)
-    else
-       call kinetics_data(enzyme_idx)%bind_product%append(current_time)
+    if (sampling) then
+       if (solvent%species(idx) == 1) then
+          call kinetics_data(enzyme_idx)%bind_substrate%append(current_time)
+       else
+          call kinetics_data(enzyme_idx)%bind_product%append(current_time)
+       end if
     end if
 
     solvent%species(idx) = 0
