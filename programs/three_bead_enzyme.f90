@@ -436,9 +436,37 @@ program three_bead_enzyme
            colloids% pos(:,k) = colloids% pos(:,k) + dt * colloids% vel(:,k) + &
                 dt**2 * colloids% force(:,k) / (2 * colloids%mass(k))
         end do
-        
+
         so_max = solvent% maximum_displacement()
         co_max = colloids% maximum_displacement()
+
+        ! select substrate for binding
+        ! requires neigbor list with enzyme_capture_radius + skin
+        if (sampling .or. immediate_chemistry) then
+           call select_substrate
+           call time_release%tic()
+           ! Check if unbinding should occur
+           do enzyme_i = 1, N_enzymes
+              if (current_time >= next_reaction_time(enzyme_i)) then
+                 if (threefry_double(state(1)) < rate_release_s / total_rate) then
+                    ! release substrate
+                    call unbind_molecule(enzyme_i, 1)
+                    call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
+                    n_plus(1) = n_plus(1) + 1
+                    call kinetics_data(enzyme_i)%release_substrate%append(current_time)
+                 else
+                    ! release product
+                    call unbind_molecule(enzyme_i, 2)
+                    call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
+                    n_plus(2) = n_plus(2) + 1
+                    call kinetics_data(enzyme_i)%release_product%append(current_time)
+                 end if
+                 next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
+              end if
+           end do
+           call time_release%tac()
+        end if
+
 
         if ( co_max + so_max >= skin ) then
            call apply_pbc(solvent, solvent_cells% edges)
@@ -477,33 +505,6 @@ program three_bead_enzyme
              dt * ( colloids% force(:,k) + colloids% force_old(:,k) ) / (2 * colloids%mass(k))
         end do
         call varia%tac()
-
-        ! select substrate for binding
-        ! requires neigbor list with enzyme_capture_radius + skin
-        if (sampling .or. immediate_chemistry) then
-           call select_substrate
-           call time_release%tic()
-           ! Check if unbinding should occur
-           do enzyme_i = 1, N_enzymes
-              if (current_time >= next_reaction_time(enzyme_i)) then
-                 if (threefry_double(state(1)) < rate_release_s / total_rate) then
-                    ! release substrate
-                    call unbind_molecule(enzyme_i, 1)
-                    call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
-                    n_plus(1) = n_plus(1) + 1
-                    call kinetics_data(enzyme_i)%release_substrate%append(current_time)
-                 else
-                    ! release product
-                    call unbind_molecule(enzyme_i, 2)
-                    call fix_neighbor_list(solvent%id_to_idx(bound_molecule_id(enzyme_i)))
-                    n_plus(2) = n_plus(2) + 1
-                    call kinetics_data(enzyme_i)%release_product%append(current_time)
-                 end if
-                 next_reaction_time(enzyme_i) = huge(next_reaction_time(enzyme_i))
-              end if
-           end do
-        end if
-     call time_release%tac()
 
 
      end do md_loop
@@ -759,6 +760,8 @@ contains
 
     select_substrate_loop: do enzyme_i = 1, N_enzymes
 
+       if (enzyme_bound(enzyme_i)) cycle select_substrate_loop
+
        enz_2 = (enzyme_i-1)*3 + 2
 
        n_s = 0
@@ -776,41 +779,31 @@ contains
           ! skip neutral fluid particles
           if ((s_sp == 0) .or. (s_sp == 3)) cycle select_loop
 
+          ! only pick particles that are *not* doing MD but are in the range following the
+          ! position update
+          
           dist = norm2(rel_pos(x_enzyme, solvent%pos(:,m), solvent_cells%edges))
 
-          if ( (dist <= enzyme_capture_radius) .and. (dist > solvent_colloid_lj%cut(s_sp, colloids%species(enz_2)) ) ) then
-             if (s_sp==1) s_found = s_found + 1
-             if (s_sp==2) p_found = p_found + 1
-          end if
-
-          if (.not. btest(solvent%flags(m), ENZYME_REGION_BIT)) then
-             if ( (dist <= enzyme_capture_radius) .and. (dist > solvent_colloid_lj%cut(s_sp, colloids%species(enz_2)) ) ) then
-                ! select for current round
-                solvent%flags(m) = ibset(solvent%flags(m), ENZYME_REGION_BIT)
-                if (s_sp==1) then
-                   !$omp atomic
-                   n_s = n_s + 1
-                   if (n_s > list_size) then
-                      stop 'exceed size of list_s in select_substrate'
-                   end if
-                   list_s(n_s) = m
-                else if (s_sp==2) then
-                   !$omp atomic
-                   n_p = n_p + 1
-                   if (n_p > list_size) then
-                      stop 'exceed size of list_p in select_substrate'
-                   end if
-                   list_p(n_p) = m
+          if (.not. btest(solvent%flags(m), MD_BIT) .and. &
+               dist <= solvent_colloid_lj%cut(s_sp, colloids%species(enz_2)) &
+               ) then
+             ! select for current round
+             solvent%flags(m) = ibset(solvent%flags(m), ENZYME_REGION_BIT)
+             if (s_sp==1) then
+                n_s = n_s + 1
+                if (n_s > list_size) then
+                   stop 'exceed size of list_s in select_substrate'
                 end if
-             end if
-          else
-             if (dist > enzyme_capture_radius) then
-                solvent%flags(m) = ibclr(solvent%flags(m), ENZYME_REGION_BIT)
+                list_s(n_s) = m
+             else if (s_sp==2) then
+                n_p = n_p + 1
+                if (n_p > list_size) then
+                   stop 'exceed size of list_p in select_substrate'
+                end if
+                list_p(n_p) = m
              end if
           end if
        end do select_loop
-
-       if (enzyme_bound(enzyme_i)) cycle select_substrate_loop
 
        total_p = n_s*proba_s + n_p*proba_p
        proba_something = 1 - ((1-proba_s)**n_s)*((1-proba_p)**n_p)
@@ -922,7 +915,7 @@ contains
     ! Place the molecule outside of the interaction range of all colloids
     too_close = .true.
     placement_loop: do while (too_close)
-       r = min_r + delta_r * threefry_double(state(1))
+       r = min_r + 1d-3
        x_new = colloids%pos(:,enz_2) + rand_sphere(state(1))*r
        x_new = modulo(x_new, solvent_cells%edges)
        p = solvent_cells%cartesian_indices(x_new)
