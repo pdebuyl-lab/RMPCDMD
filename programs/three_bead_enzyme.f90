@@ -421,7 +421,7 @@ program three_bead_enzyme
 
   do i = 0, N_loop+equilibration_loops
      if (i==equilibration_loops) sampling = .true.
-     if (modulo(i,64) == 0) write(*,'(i05)',advance='no') i
+     if (modulo(i,256) == 0) write(*,'(i08)',advance='no') i
 
      ! reset substrate/product creation/destruction counters
      n_plus = 0
