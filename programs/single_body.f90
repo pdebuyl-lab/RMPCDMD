@@ -85,7 +85,7 @@ program single_body
   double precision :: prob, reaction_radius
   double precision :: bulk_rate
   double precision :: skin, co_max, so_max
-  integer :: N_MD_steps, N_loop
+  integer :: N_MD_steps, N_loop, collide_every
   integer :: n_extra_sorting
   double precision :: loop_i_last_sort
 
@@ -159,6 +159,7 @@ program single_body
   integer :: equilibration_loops
   integer :: colloid_sampling, coordinates_sampling
   logical :: sampling
+  logical :: collision_step
 
   type(args_t) :: args
   character(len=144) :: data_filename
@@ -209,16 +210,21 @@ program single_body
   do_hydro = PTread_l(config, 'do_hydro', loc=params_group)
   do_thermostat = PTread_l(config, 'do_thermostat', loc=params_group)
   
-  tau = PTread_d(config, 'tau', loc=params_group)
   mpcd_alpha = PTread_d(config,'alpha', loc=params_group)
+
+  dt = PTread_d(config, 'dt', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
+
+  collide_every = PTread_i(config, 'collide_every', loc=params_group)
+  tau = dt*N_MD_steps*collide_every
+  call hdf5_util_write_dataset(params_group, 'tau', tau)
+
   colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
   coordinates_sampling = PTread_i(config, 'coordinates_sampling', loc=params_group)
   do_solvent_io = PTread_l(config, 'do_solvent_io', loc=params_group)
   if (modulo(N_MD_steps, colloid_sampling) /= 0) then
      error stop 'colloid_sampling must divide N_MD with no remainder'
   end if
-  dt = tau / N_MD_steps
   N_loop = PTread_i(config, 'N_loop', loc=params_group)
   equilibration_loops = PTread_i(config, 'equilibration_loops', loc=params_group)
 
@@ -506,6 +512,10 @@ program single_body
   colloids% force_old = colloids% force
   if (do_quaternion) call rigid_janus%compute_force_torque(colloids)
 
+  write(*,*) 'Box size', L
+  write(*,*) 'Fluid particles', N
+  write(*,*) 'MPCD tau', tau
+
   write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
   call main%tic()
   sampling = .false.
@@ -646,6 +656,8 @@ program single_body
 
      end do md_loop
 
+     collision_step = (modulo(i, collide_every) == 0)
+
      if (sampling) then
         temperature = compute_temperature(solvent, solvent_cells)
         kin_e = 0
@@ -672,7 +684,7 @@ program single_body
         call varia%tac()
      end if
 
-     call solvent_cells%random_shift(state(1))
+     if (collision_step) call solvent_cells%random_shift(state(1))
 
      call cell_md_pos(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
      call cell_md_vel(solvent_cells, solvent, ((i+1)*N_MD_steps - loop_i_last_sort)*dt, md_flag=.false.)
@@ -688,7 +700,7 @@ program single_body
      end do
      colloids% pos_old = colloids% pos
 
-     call wall_mpcd_step(solvent, solvent_cells, state, &
+     if (collision_step) call wall_mpcd_step(solvent, solvent_cells, state, &
           wall_temperature=[T, T], wall_v=wall_v, wall_n=[rho, rho], &
           alpha=mpcd_alpha, keep_cell_v=do_hydro, thermostat=do_thermostat, &
           bulk_temperature=T)
