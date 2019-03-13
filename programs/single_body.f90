@@ -129,6 +129,8 @@ program single_body
   double precision :: polar_r_max
   type(polar_fields_t) :: polar
   type(planar_fields_t) :: planar
+  integer :: planar_n(2)
+  double precision :: planar_size(2)
   integer(HID_T) :: polar_id
   integer(HID_T) :: planar_id
 
@@ -279,6 +281,10 @@ program single_body
   polar_r_max = PTread_d(config, 'polar_r_max', loc=params_group)
 
   reaction_radius = PTread_d(config, 'reaction_radius', loc=params_group)
+
+  planar_n = PTread_ivec(config, 'planar_n', 2, loc=params_group)
+  planar_size = PTread_dvec(config, 'planar_size', 2, loc=params_group)
+  call planar%init(N_species, planar_n(1), -planar_size(1), planar_size(1), planar_n(2), -planar_size(2), planar_size(2), 1.d0)
 
   call h5gclose_f(params_group, error)
   call PTkill(config)
@@ -468,7 +474,6 @@ program single_body
 
   call polar%init(N_species, 64, sigma, polar_r_max, 64)
   call timer_list%append(polar%time_polar_update)
-  call planar%init(N_species, 64, -12.d0, 12.d0, 64, -12.d0, 12.d0, 1.d0)
   call timer_list%append(planar%timer)
   call neigh% init(colloids% Nmax, int(500*max(sigma,1.15d0)**3))
 
