@@ -10,6 +10,7 @@ parser.add_argument('file', type=str, help='H5MD datafile', nargs='+')
 parser.add_argument('--dimer', action='store_true')
 parser.add_argument('--slicer', type=int, nargs=2)
 parser.add_argument('--group')
+parser.add_argument('--vacf', action='store_true')
 args = parser.parse_args()
 print(args)
 
@@ -17,9 +18,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 import h5py
 import tidynamics
+from scipy.integrate import cumtrapz
 
 msd_data = []
-vz_data = []
+vacf_data = []
 
 if args.slicer:
     slicer = slice(args.slicer[0], None, args.slicer[1])
@@ -48,15 +50,20 @@ for filename in args.file:
             assert r.shape[1]==2
             assert r.shape[2]==3
             r = r.mean(axis=1)
-            v_com = v.mean(axis=1)
+            v = v.mean(axis=1)
 
         if r.ndim == 3:
             for i in range(r.shape[1]):
                 msd_data.append(tidynamics.msd(r[:,i,:]))
+                if args.vacf:
+                    vacf_data.append(tidynamics.acf(v[:,i,:]))
         else:
             msd_data.append(tidynamics.msd(r))
+            if args.vacf:
+                vacf_data.append(tidynamics.acf(v))
 
 msd_data = np.array(msd_data)
+vacf_data = np.array(vacf_data)
 m = msd_data.mean(axis=0)
 s = msd_data.std(axis=0)
 time = np.arange(r.shape[0])*r_dt
@@ -70,5 +77,11 @@ D = fit[0] / 6
 plt.plot(time, 6*D*time, 'k:')
 
 print("Estimated D_eff", D)
+
+if args.vacf:
+    plt.figure()
+    plt.plot(time, vacf_data.mean(axis=0))
+    plt.plot(time, cumtrapz(vacf_data.mean(axis=0), initial=0))
+    plt.axhline(3*D)
 
 plt.show()
