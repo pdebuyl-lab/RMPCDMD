@@ -14,12 +14,15 @@
 !! \param L                     length of simulation box in the 3 dimensions
 !! \param rho                   fluid number density
 !! \param T                     Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
-!! \param tau                   MPCD collision time
 !! \param alpha                 angle of collision
+!! \param do_hydro              set to T for usual MPCD
+!! \param do_thermostat         enable thermostatting. mandatory if do_hydro=F
 !! \param probability           probability to change A to B upon collision
 !! \param bulk_rate             rate of B->A reaction
+!! \param dt                    MD collision time
 !! \param N_MD                  number MD steps occuring in tau
 !! \param N_loop                number of MPCD timesteps
+!! \param collide_every         interval for collision. the MPCD time tau is collide_every*n_MD*dt
 !! \param colloid_sampling      interval (in MD steps) of sampling the colloid position and velocity
 !! \param do_solvent_io         if true (T), a snapshot of the solvent in the final step is dump to the datafile
 !! \param equilibration_loops   number of MPCD steps for equilibration
@@ -48,6 +51,9 @@
 !! \param wall_epsilon          wall LJ epsilon
 !! \param wall_shift            wall shift
 !! \param fluid_wall            boundary condition for the fluid
+!! \param planar_size           Size of planar field sampling region (length 2)
+!! \param planar_n              number of grid points for the planar field sampling (length 2)
+!! \param coordinates_sampling  outer-loop interval for storing the body's coordinates
 
 program single_body
   use rmpcdmd_module
@@ -962,17 +968,17 @@ contains
   function get_unit_r() result(u_r)
     double precision :: u_r(3)
     double precision :: r1(3), r2(3), r3(3)
-    double precision, parameter :: one_z(3) = [0.d0, 0.d0, 1.d0]
+    double precision, parameter :: one_y(3) = [0.d0, 1.d0, 0.d0]
 
     if (do_quaternion) then
-       u_r = qrot(rigid_janus%q, one_z)
+       u_r = qrot(rigid_janus%q, one_y)
     else if (attr_exists) then
        r1 = rel_pos(colloids%pos(:,1), com_pos, solvent_cells%edges)
        r2 = rel_pos(colloids%pos(:,2), com_pos, solvent_cells%edges)
        r3 = rel_pos(colloids%pos(:,3), com_pos, solvent_cells%edges)
        u_r = (r1 + alpha*r2 + beta*r3) / z0
     else
-       u_r = one_z
+       u_r = one_y
     end if
 
   end function get_unit_r
