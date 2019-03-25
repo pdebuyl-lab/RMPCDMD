@@ -713,7 +713,7 @@ program single_body
      call compute_cell_wise_max_v
 
      call bulk_reac_timer%tic()
-     call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, tau, state)
+     call bulk_reaction(solvent, solvent_cells, 2, 1, bulk_rate, N_MD_steps*dt, state)
      call bulk_reac_timer%tac()
 
      if (sampling) then
