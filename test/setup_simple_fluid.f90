@@ -29,11 +29,12 @@ program setup_fluid
   type(h5md_element_t) :: e_solvent_image
   integer(HID_T) :: box_group, solvent_group
 
-  integer, parameter :: N = 2000
+  integer, parameter :: N = 10240
 
   integer :: i, L(3), error, clock, n_threads
 
   double precision, parameter :: tau=0.1d0
+  double precision, parameter :: T = 1
   double precision :: v_com(3), wall_v(3,2)
 
   n_threads = omp_get_max_threads()
@@ -42,14 +43,14 @@ program setup_fluid
 
   call h5open_f(error)
 
-  L = [8, 5, 5]
+  L = [8, 8, 16]
 
   call solvent% init(N)
 
   do i=1, solvent% Nmax
-     solvent% vel(1,i) = threefry_normal(state(1))
-     solvent% vel(2,i) = threefry_normal(state(1))
-     solvent% vel(3,i) = threefry_normal(state(1))
+     solvent% vel(1,i) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(2,i) = threefry_normal(state(1))*sqrt(T)
+     solvent% vel(3,i) = threefry_normal(state(1))*sqrt(T)
   end do
   v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
   solvent% vel = solvent% vel - spread(v_com, dim=2, ncopies=size(solvent% vel, dim=2))
@@ -106,7 +107,8 @@ program setup_fluid
   solvent% image = 0
 
   do i = 1, 200
-     call simple_mpcd_step(solvent, solvent_cells, state)
+     !call simple_mpcd_step(solvent, solvent_cells, state)
+     call wall_mpcd_step(solvent, solvent_cells, state)
      v_com = sum(solvent% vel, dim=2) / size(solvent% vel, dim=2)
 
      call mpcd_stream_periodic(solvent, solvent_cells, tau)
@@ -121,8 +123,6 @@ program setup_fluid
      call e_solvent_v% append(solvent% vel, i, i*tau)
      call e_solvent_spec% append(solvent% species, i, i*tau)
      call e_solvent_id% append(solvent% id, i, i*tau)
-
-     write(13,*) compute_temperature(solvent, solvent_cells, tz), sum(solvent% vel**2)/(3*solvent% Nmax), v_com
 
   end do
 
