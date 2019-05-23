@@ -43,6 +43,7 @@ if args.directed:
     print("Average directed velocity: ", vz.mean())
     if args.histogram:
         plt.hist(vz, bins=20)
+        plt.axvline(vz.mean(), color='r')
     else:
         plt.plot(time, vz)
         plt.plot(np.arange(len(vz))*r_dt, np.cumsum(vz)/(1+np.arange(len(vz))))
