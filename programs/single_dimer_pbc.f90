@@ -10,14 +10,15 @@
 !! \param L           length of simulation box in the 3 dimensions
 !! \param rho         fluid number density
 !! \param T           Temperature. Used for setting initial velocities and (if enabled) bulk thermostatting.
-!! \param tau         MPCD collision time
 !! \param do_thermostat    enable MPCD-AT thermostat
 !! \param do_hydro         conserve cell-wise momentum (can be turned off only with thermostat enabled)
 !! \param probability probability to change A to B upon collision
 !! \param bulk_rmpcd  use bulkd rmpcd reaction for B->A instead of resetting
 !! \param bulk_rate   rate of B->A reaction
+!! \param dt                    MD collision time
 !! \param N_MD        number MD steps occuring in tau
 !! \param N_loop      number of MPCD timesteps
+!! \param collide_every         interval for collision. the MPCD time tau is collide_every*n_MD*dt
 !! \param colloid_sampling interval (in MD steps) of sampling the colloid position and velocity
 !! \param equilibration_loops number of MPCD steps for equilibration
 !! \param sigma_C     radius of C sphere
@@ -61,7 +62,7 @@ program single_dimer_pbc
   double precision :: tau, dt , T
   double precision :: d,prob
   double precision :: skin, co_max, so_max
-  integer :: N_MD_steps, N_loop
+  integer :: N_MD_steps, N_loop, collide_every
   integer :: n_extra_sorting
 
   type(PTo) :: config
@@ -99,7 +100,9 @@ program single_dimer_pbc
   integer :: equilibration_loops
   integer :: colloid_sampling
   logical :: sampling
+  logical :: collision_step
   logical :: do_hydro, do_thermostat
+
   type(histogram_t) :: z_hist
   type(h5md_element_t) :: z_hist_el
   double precision :: cyl_shell_rmin, cyl_shell_rmax
@@ -140,15 +143,19 @@ program single_dimer_pbc
   T = PTread_d(config, 'T', loc=params_group)
   d = PTread_d(config, 'd', loc=params_group)
   
-  tau = PTread_d(config, 'tau', loc=params_group)
+  dt = PTread_d(config, 'dt', loc=params_group)
   N_MD_steps = PTread_i(config, 'N_MD', loc=params_group)
+
+  collide_every = PTread_i(config, 'collide_every', loc=params_group)
+  tau = dt*N_MD_steps*collide_every
+
+  N_loop = PTread_i(config, 'N_loop', loc=params_group)
+  equilibration_loops = PTread_i(config, 'equilibration_loops', loc=params_group)
+
   colloid_sampling = PTread_i(config, 'colloid_sampling', loc=params_group)
   if (modulo(N_MD_steps, colloid_sampling) /= 0) then
      error stop 'colloid_sampling must divide N_MD with no remainder'
   end if
-  dt = tau / N_MD_steps
-  N_loop = PTread_i(config, 'N_loop', loc=params_group)
-  equilibration_loops = PTread_i(config, 'equilibration_loops', loc=params_group)
 
   sigma_C = PTread_d(config, 'sigma_C', loc=params_group)
   sigma_N = PTread_d(config, 'sigma_N', loc=params_group)
@@ -296,8 +303,18 @@ program single_dimer_pbc
   colloids% force_old = colloids% force
 
   call h5fflush_f(hfile%id, H5F_SCOPE_GLOBAL_F, error)
+
+  write(*,*) 'Box size', L
+  write(*,*) 'Fluid particles', N
+  if (do_hydro) then
+     write(*,*) 'MPCD tau', tau
+  else
+     write(*,*) 'RS resampling time', tau
+  end if
+  write(*,*) 'Dimer mass', mass
+
   write(*,*) 'Running for', equilibration_loops, '+', N_loop, 'loops'
-  write(*,*) 'mass', mass 
+
   call main%tic()
   sampling = .false.
   do i = 0, N_loop+equilibration_loops
@@ -383,6 +400,8 @@ program single_dimer_pbc
 
      end do md_loop
 
+     collision_step = (modulo(i, collide_every) == 0)
+
      call varia%tic()
 
      if (sampling) then
@@ -402,7 +421,7 @@ program single_dimer_pbc
 
      end if
 
-     call solvent_cells%random_shift(state(1))
+     if (collision_step) call solvent_cells%random_shift(state(1))
      call varia%tac()
 
      call apply_pbc(solvent, solvent_cells% edges)
@@ -417,7 +436,7 @@ program single_dimer_pbc
      colloids% pos_old = colloids% pos
      call varia%tac()
 
-     call simple_mpcd_step(solvent, solvent_cells, state, &
+     if (collision_step) call simple_mpcd_step(solvent, solvent_cells, state, &
           thermostat=do_thermostat, T=T, hydro=do_hydro)
      
      call time_refuel%tic()
