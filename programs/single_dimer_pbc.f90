@@ -278,7 +278,7 @@ program single_dimer_pbc
 
   call neigh% init(colloids% Nmax, int(300*max(sigma_C,sigma_N)**3))
 
-  skin = 2
+  skin = 1
   n_extra_sorting = 0
 
   call neigh% make_stencil(solvent_cells, max_cut+skin)
