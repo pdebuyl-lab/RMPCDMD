@@ -2,12 +2,15 @@
 T = 1
 L = 32 32 32
 rho = 10
-tau = 1
 probability = 1.0
 bulk_rmpcd = F
 bulk_rate = 0.001
+do_hydro = T
+do_thermostat = F
 
 # simulation parameters
+dt = 0.01
+collide_every = 100
 N_MD = 100
 N_loop = 256
 colloid_sampling = 10

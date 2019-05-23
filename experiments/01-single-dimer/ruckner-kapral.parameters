@@ -2,14 +2,19 @@
 T = .3333333
 L = 32 32 32
 rho = 9 
-tau = 1.0
 probability = 1.0
 bulk_rmpcd = F
 bulk_rate = 0.001
+do_thermostat = F
+do_hydro = T
 
 # simulation parameters
+dt = 0.005
 N_MD = 200
+collide_every = 1
 N_loop = 400
+equilibration_loops = 50
+colloid_sampling = 10
 
 # interaction parameters
 sigma_N = 2.0

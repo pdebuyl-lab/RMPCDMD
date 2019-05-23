@@ -2,7 +2,6 @@
 T = 1
 L = 24 24 24
 rho = 10
-tau = 1
 do_hydro = T
 do_thermostat = F
 probability = 1.0
@@ -10,7 +9,9 @@ bulk_rmpcd = F
 bulk_rate = 0.001
 
 # simulation parameters
+dt = 0.008
 N_MD = 125
+collide_every = 1
 N_loop = 200
 equilibration_loops = 20
 colloid_sampling = 125
