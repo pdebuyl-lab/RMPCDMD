@@ -23,8 +23,8 @@ link_treshold = 1.35
 do_read_links = F
 polar_r_max = 10
 bulk_rate = 0.01
-planar_n = 80 80
-planar_size = 24 24
+planar_n = 60 60
+planar_size = 17 17
 
 # wall parameters
 do_ywall = T
