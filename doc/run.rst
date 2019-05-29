@@ -78,6 +78,24 @@ Arguments
 Prints (or plot in the ``--plot`` option is given) the value of the timers in the simulation
 file ``datafile``.
 
+
+``rmpcdmd values``
+------------------
+
+Usage::
+
+    rmpcdmd values --rho RHO -T T --tau TAU [--AT]
+
+Arguments
+
+* ``RHO`` Number density of MPCD particles
+* ``T`` Temperature
+* ``TAU`` MPCD collision time
+* ``--AT`` use Anderson thermostat instead of the energy-conserving MPCD rule.
+
+Compute the viscosity, diffusion coefficient, and Schmidt number for the MPCD or MPCD-AT
+fluid.
+
 ``experiments/`` directory
 --------------------------
 
