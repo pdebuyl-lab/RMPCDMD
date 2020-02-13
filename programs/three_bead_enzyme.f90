@@ -30,6 +30,7 @@
 !! \param proba_s                    probability of capture of substrate
 !! \param proba_p                    probability of capture of product
 !! \param bulk_rmpcd                 use bulkd rmpcd reaction for B->A instead of resetting
+!! \param immediate_chemistry        start to process chemical event before sampling
 !! \param bulk_rate                  rates for the A->B and B->A bulk reaction
 
 program three_bead_enzyme
